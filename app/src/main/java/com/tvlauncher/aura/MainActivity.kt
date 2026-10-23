@@ -73,6 +73,14 @@ class MainActivity : Activity() {
     private var lastReport: Weather.Report? = null
     private var appliedRevision = -1
     private var settingsOpen = false
+    private lateinit var movieRows: MovieRows
+    private lateinit var hero: Hero
+    private lateinit var rowsScroll: RowsScrollView
+    private lateinit var header: View
+    private lateinit var favoritesBlock: View
+    private var browsing = false
+    private var scrollAnimator: android.animation.ObjectAnimator? = null
+    private val pauseForBackdrop = Runnable { if (browsing && hero.backdropEnabled) player?.pause() }
 
     private val settingsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -129,6 +137,14 @@ class MainActivity : Activity() {
         videoView = findViewById(R.id.wallpaper_video)
         imageView = findViewById(R.id.wallpaper_image)
         videoView.alpha = 1f
+        Images.init(this)
+        rowsScroll = findViewById(R.id.rows_scroll)
+        header = findViewById(R.id.header)
+        favoritesBlock = findViewById(R.id.favorites_block)
+        hero = Hero(findViewById(R.id.ui))
+        movieRows = MovieRows(this, findViewById(R.id.movie_rows), net, hero::present, ::openInNuvio, ::showTitleMenu)
+        window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, now -> onFocusMoved(now) }
+        rowsScroll.viewTreeObserver.addOnGlobalLayoutListener { sizeScrollArea() }
 
         favoritesAdapter = AppAdapter(tileStyle(favorites = true), ::onAppFocused, ::launch, ::showAppMenu)
         appsAdapter = AppAdapter(tileStyle(favorites = false), ::onAppFocused, ::launch, ::showAppMenu)
@@ -216,8 +232,107 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.dim).animate().alpha(dimLevel()).setDuration(300).start()
         sceneTitle.visibility = if (isOn(AuraSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
         player?.shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
+        hero.backdropEnabled = isOn(AuraSettings.BACKDROP)
+        movieRows.rebuild()
         startWallpaper()
         if (!idle) scheduleIdle()
+    }
+
+    // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
+
+    /** Where a focused movie row's title sits on screen; the preview fills the space above it. */
+    private fun heroLine() = (296 * resources.displayMetrics.density).toInt()
+
+    /** Puts the favourites at the bottom of the screen at rest, and lets the last movie row reach the hero line. */
+    private fun sizeScrollArea() {
+        val height = rowsScroll.height
+        if (height == 0) return
+        val dp = resources.displayMetrics.density
+        val spacer = findViewById<View>(R.id.rows_spacer)
+        // With movie rows below, let the first row's title peek above the bottom edge as a hint.
+        val peek = if (movieRows.rows.any { it.view.visibility == View.VISIBLE }) 30 * dp else 0f
+        val wantSpacer = (height - favoritesBlock.height - 14 * dp - peek).toInt().coerceAtLeast((200 * dp).toInt())
+        val last = movieRows.rows.lastOrNull { it.view.visibility == View.VISIBLE }?.view
+        val tail = findViewById<View>(R.id.rows_tail)
+        val wantTail = (height - heroLine() - (last?.height ?: 0)).coerceAtLeast(0)
+        if (spacer.layoutParams.height != wantSpacer) spacer.layoutParams = spacer.layoutParams.apply { this.height = wantSpacer }
+        if (tail.layoutParams.height != wantTail) tail.layoutParams = tail.layoutParams.apply { this.height = wantTail }
+    }
+
+    private fun onFocusMoved(now: View?) {
+        now ?: return
+        val row = movieRows.rowOf(now)
+        if (row != null) {
+            enterBrowse()
+            val index = movieRows.rows.indexOf(row)
+            movieRows.rows.forEachIndexed { i, r -> r.view.animate().alpha(if (i < index) 0f else 1f).setDuration(250).start() }
+            val container = findViewById<View>(R.id.movie_rows)
+            scrollRowsTo(container.top + row.view.top - heroLine())
+        } else if (isInside(now, rowsScroll) || isInside(now, header)) {
+            exitBrowse()
+            scrollRowsTo(0)
+        }
+    }
+
+    private fun isInside(view: View, ancestor: View): Boolean {
+        var v: View? = view
+        while (v != null) {
+            if (v === ancestor) return true
+            v = v.parent as? View
+        }
+        return false
+    }
+
+    private fun scrollRowsTo(y: Int) {
+        if (rowsScroll.scrollY == y) return
+        scrollAnimator?.cancel()
+        scrollAnimator = android.animation.ObjectAnimator.ofInt(rowsScroll, "scrollY", y).apply {
+            duration = 420
+            interpolator = DecelerateInterpolator(2.2f)
+            start()
+        }
+    }
+
+    private fun enterBrowse() {
+        if (browsing) return
+        browsing = true
+        val dp = resources.displayMetrics.density
+        header.animate().alpha(0f).translationY(-24 * dp).setDuration(300).start()
+        favoritesBlock.animate().alpha(0f).setDuration(250).start()
+        hero.show()
+        // Once the artwork covers the scenery, stop decoding video nobody can see.
+        main.removeCallbacks(pauseForBackdrop)
+        main.postDelayed(pauseForBackdrop, 1500)
+    }
+
+    private fun exitBrowse() {
+        if (!browsing) return
+        browsing = false
+        header.animate().alpha(1f).translationY(0f).setDuration(350).start()
+        favoritesBlock.animate().alpha(1f).setDuration(300).start()
+        movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
+        hero.hide()
+        main.removeCallbacks(pauseForBackdrop)
+        if (resumed) player?.play()
+    }
+
+    private fun openInNuvio(title: Catalog.Title) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(NUVIO)
+        if (intent.resolveActivity(packageManager) == null) {
+            Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
+            return
+        }
+        open(intent)
+    }
+
+    private fun showTitleMenu(title: Catalog.Title) {
+        OptionsMenu.show(this, title, listOf(
+            "Open in Nuvio" to { openInNuvio(title) },
+            "Hide this title" to {
+                Catalog.hideTitle(this, title.id)
+                movieRows.refreshHidden()
+            },
+        ))
     }
 
     private fun dimLevel() = when (AuraSettings.get(this, AuraSettings.DIM)) {
@@ -275,6 +390,7 @@ class MainActivity : Activity() {
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         if (appliedRevision != AuraSettings.revision(this)) applySettings()
+        if (browsing) main.postDelayed(pauseForBackdrop, 1500)
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
     }
@@ -360,6 +476,7 @@ class MainActivity : Activity() {
 
     private fun setIdle(value: Boolean) {
         if (value && (media.isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
+        if (value && browsing) returnToStart() // fade to the scenery, not to a paused backdrop
         idle = value
         val duration = if (value) 1200L else 350L
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
@@ -462,6 +579,10 @@ class MainActivity : Activity() {
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode != KeyEvent.KEYCODE_MENU) return super.onKeyUp(keyCode, event)
         val focused = currentFocus ?: return true
+        movieRows.rowOf(focused)?.let { row ->
+            row.adapter.items.getOrNull(row.list.getChildAdapterPosition(focused))?.let(::showTitleMenu)
+            return true
+        }
         val adapter = when (focused.parent) {
             favoritesList -> favoritesAdapter
             appsList -> appsAdapter
@@ -637,6 +758,7 @@ class MainActivity : Activity() {
     }
 
     private companion object {
+        const val NUVIO = "com.nuvio.tv"
         const val RECEIVER_NOT_EXPORTED_FLAG = 0x4 // Context.RECEIVER_NOT_EXPORTED, named in API 33
         const val KEEP_PLAYER_MS = 90_000L
     }

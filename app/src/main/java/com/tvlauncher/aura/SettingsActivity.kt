@@ -134,6 +134,11 @@ class SettingsActivity : Activity() {
         setOnClickListener {
             when (title) {
                 AuraSettings.ACTION_HIDDEN -> showHiddenApps()
+                AuraSettings.ACTION_SHOW_TITLES -> {
+                    Catalog.clearHiddenTitles(this@SettingsActivity)
+                    applyToHome()
+                    Toast.makeText(this@SettingsActivity, "Hidden titles are back", Toast.LENGTH_SHORT).show()
+                }
                 AuraSettings.ACTION_RESET -> {
                     repo.resetOrder()
                     applyToHome()
