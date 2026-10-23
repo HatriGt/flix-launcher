@@ -19,6 +19,8 @@ object Weather {
         val windKmh: Int,
         val place: String,
         val days: List<Day>,
+        val sunrise: java.util.Date?,
+        val sunset: java.util.Date?,
     )
 
     fun fetch(): Report? = runCatching {
@@ -47,6 +49,9 @@ object Weather {
                 low = day.getInt("mintempC"),
             )
         }
+        val astronomy = forecast.getJSONObject(0).optJSONArray("astronomy")?.optJSONObject(0)
+        val clock = SimpleDateFormat("hh:mm a", Locale.US)
+        fun sunTime(key: String) = astronomy?.optString(key)?.let { runCatching { clock.parse(it) }.getOrNull() }
         Report(
             icon = icon(now.getInt("weatherCode")),
             temperature = now.getInt("temp_C"),
@@ -56,6 +61,8 @@ object Weather {
             windKmh = now.getInt("windspeedKmph"),
             place = area,
             days = days,
+            sunrise = sunTime("sunrise"),
+            sunset = sunTime("sunset"),
         )
     }.getOrNull()
 

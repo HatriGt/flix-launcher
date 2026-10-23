@@ -7,6 +7,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 class AppAdapter(
@@ -17,10 +18,18 @@ class AppAdapter(
     private val onLongClick: (AppEntry) -> Unit,
 ) : RecyclerView.Adapter<AppAdapter.Holder>() {
 
+    /** Updates only the cards that changed, so focus and scroll position survive a refresh. */
     var items: List<AppEntry> = emptyList()
         set(value) {
+            val old = field
             field = value
-            notifyDataSetChanged()
+            DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+                override fun getOldListSize() = old.size
+                override fun getNewListSize() = value.size
+                override fun areItemsTheSame(o: Int, n: Int) = old[o].packageName == value[n].packageName
+                override fun areContentsTheSame(o: Int, n: Int) =
+                    old[o].label == value[n].label && old[o].launchIntent.component == value[n].launchIntent.component
+            }).dispatchUpdatesTo(this)
         }
 
     init {

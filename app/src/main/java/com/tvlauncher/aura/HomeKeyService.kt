@@ -25,7 +25,13 @@ class HomeKeyService : AccessibilityService() {
         ) openAura()
     }
 
+    private var lastOpenedAt = 0L
+
     private fun openAura() {
+        // The stock launcher reports several window changes per Home press; open Aura once.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastOpenedAt < DEBOUNCE_MS) return
+        lastOpenedAt = now
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -33,6 +39,7 @@ class HomeKeyService : AccessibilityService() {
     }
 
     private companion object {
+        const val DEBOUNCE_MS = 1500L
         const val STOCK_LAUNCHER = "com.google.android.apps.tv.launcherx"
         const val STOCK_HOME_ACTIVITY = "com.google.android.apps.tv.launcherx.home.HomeActivity"
     }

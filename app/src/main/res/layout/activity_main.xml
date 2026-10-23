@@ -23,6 +23,13 @@
         app:surface_type="surface_view"
         app:use_controller="false" />
 
+    <!-- SurfaceView ignores view alpha, so the video fades in from under this veil instead. -->
+    <View
+        android:id="@+id/video_veil"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/fallback_background" />
+
     <View
         android:id="@+id/scrim"
         android:layout_width="match_parent"
@@ -58,12 +65,11 @@
                     android:textAllCaps="true"
                     android:textSize="11sp" />
 
-                <TextView
+                <com.tvlauncher.aura.ClockView
                     android:id="@+id/clock"
-                    style="@style/Aura.Text"
-                    android:fontFamily="sans-serif-thin"
-                    android:includeFontPadding="false"
-                    android:textSize="66sp" />
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="-3dp" />
 
                 <TextView
                     android:id="@+id/date"
@@ -72,6 +78,13 @@
                     android:fontFamily="sans-serif-light"
                     android:letterSpacing="0.04"
                     android:textSize="16sp" />
+
+                <com.tvlauncher.aura.SunArcView
+                    android:id="@+id/sun_arc"
+                    android:layout_width="210dp"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <LinearLayout
@@ -198,12 +211,32 @@
             android:drawablePadding="6dp"
             android:textSize="11sp" />
 
-        <TextView
-            android:id="@+id/focused_label"
-            style="@style/Aura.Text"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginStart="44dp"
-            android:fontFamily="sans-serif-medium"
-            android:textSize="20sp" />
+            android:layout_marginEnd="44dp"
+            android:gravity="bottom">
+
+            <TextView
+                android:id="@+id/focused_label"
+                style="@style/Aura.Text"
+                android:fontFamily="sans-serif-medium"
+                android:textSize="20sp" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/hint"
+                style="@style/Aura.Text.Muted"
+                android:layout_marginBottom="3dp"
+                android:alpha="0.7"
+                android:text="Hold OK for options"
+                android:textSize="10sp" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/favorites"

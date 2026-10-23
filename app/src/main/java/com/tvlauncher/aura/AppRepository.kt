@@ -26,7 +26,7 @@ class AppRepository(private val context: Context) {
             val query = Intent(Intent.ACTION_MAIN).addCategory(category)
             for (info in pm.queryIntentActivities(query, 0)) {
                 val pkg = info.activityInfo.packageName
-                if (pkg == context.packageName || pkg in HIDDEN || !seen.add(pkg)) continue
+                if (pkg == context.packageName || pkg in HIDDEN || pkg in hidden || !seen.add(pkg)) continue
                 val launch = pm.getLeanbackLaunchIntentForPackage(pkg)
                     ?: pm.getLaunchIntentForPackage(pkg)
                     ?: continue
@@ -64,6 +64,15 @@ class AppRepository(private val context: Context) {
         prefs.edit().putString(KEY_FAVORITES, ordered.joinToString(",")).putInt(KEY_ORDER_VERSION, ORDER_VERSION).apply()
     }
 
+    /** Apps the user chose to hide from the All apps row. */
+    val hidden: Set<String>
+        get() = prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty()
+
+    fun hide(pkg: String) {
+        prefs.edit().putStringSet(KEY_HIDDEN, hidden + pkg).apply()
+        favorites = favorites - pkg
+    }
+
     fun toggleFavorite(pkg: String) {
         favorites = if (pkg in favorites) favorites - pkg else favorites + pkg
     }
@@ -79,6 +88,7 @@ class AppRepository(private val context: Context) {
 
     companion object {
         private const val KEY_FAVORITES = "favorites"
+        private const val KEY_HIDDEN = "hidden"
         private const val KEY_ORDER_VERSION = "favorites_order_version"
         private const val ORDER_VERSION = 2
         private const val SMARTTUBE = "org.smarttube.stable"

@@ -1,7 +1,6 @@
 package com.tvlauncher.aura
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -18,8 +17,8 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.view.animation.DecelerateInterpolator
-import android.widget.LinearLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.media3.common.MediaItem
@@ -36,14 +35,19 @@ import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
+
+    // Disk/package work and network work run apart, so a slow weather call never delays the app rows.
     private val io = Executors.newSingleThreadExecutor()
+    private val net = Executors.newSingleThreadExecutor()
     private lateinit var repo: AppRepository
 
-    private lateinit var clock: TextView
+    private lateinit var clock: ClockView
     private lateinit var date: TextView
     private lateinit var greeting: TextView
+    private lateinit var sunArc: SunArcView
     private lateinit var ui: View
     private lateinit var scrim: View
+    private lateinit var veil: View
     private lateinit var focusedLabel: TextView
     private lateinit var sceneTitle: TextView
     private lateinit var videoView: PlayerView
@@ -51,6 +55,7 @@ class MainActivity : Activity() {
     private lateinit var favoritesAdapter: AppAdapter
     private lateinit var appsAdapter: AppAdapter
     private lateinit var favoritesList: RecyclerView
+    private lateinit var appsList: RecyclerView
 
     private var player: ExoPlayer? = null
     private var media: List<AerialSource.Media> = emptyList()
@@ -59,20 +64,31 @@ class MainActivity : Activity() {
     private var lastWeatherAt = 0L
     private var initialFocusDone = false
     private var idle = false
+    private var resumed = false
+    private var labelTarget: CharSequence = ""
+    private var sceneTarget: CharSequence = ""
 
     private val goIdle = Runnable { setIdle(true) }
+    private val nextImage = Runnable { showImage(imageIndex + 1) }
+
+    /** Kept paused for a while after leaving home so coming back is instant; then freed for the app in use. */
+    private val releasePlayer = Runnable {
+        player?.release()
+        player = null
+        videoView.player = null
+    }
 
     private val tick = object : Runnable {
         override fun run() {
             val now = Date()
-            clock.text = DateFormat.format(if (DateFormat.is24HourFormat(this@MainActivity)) "HH:mm" else "h:mm", now)
+            val is24 = DateFormat.is24HourFormat(this@MainActivity)
+            clock.setTime(DateFormat.format(if (is24) "HH" else "h", now).toString(), DateFormat.format("mm", now).toString())
             date.text = DateFormat.format("EEEE, d MMMM", now)
             greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
-            main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000)
+            sunArc.tick()
+            main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
     }
-
-    private val nextImage = Runnable { showImage(imageIndex + 1) }
 
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = loadApps()
@@ -87,18 +103,21 @@ class MainActivity : Activity() {
         clock = findViewById(R.id.clock)
         date = findViewById(R.id.date)
         greeting = findViewById(R.id.greeting)
+        sunArc = findViewById(R.id.sun_arc)
         ui = findViewById(R.id.ui)
         scrim = findViewById(R.id.scrim)
+        veil = findViewById(R.id.video_veil)
         focusedLabel = findViewById(R.id.focused_label)
         sceneTitle = findViewById(R.id.scene_title)
         videoView = findViewById(R.id.wallpaper_video)
         imageView = findViewById(R.id.wallpaper_image)
+        videoView.alpha = 1f
 
         val dp = resources.displayMetrics.density
         favoritesAdapter = AppAdapter((160 * dp).roundToInt(), (90 * dp).roundToInt(), ::onAppFocused, ::launch, ::showAppMenu)
         appsAdapter = AppAdapter((112 * dp).roundToInt(), (63 * dp).roundToInt(), ::onAppFocused, ::launch, ::showAppMenu)
         favoritesList = setUpRow(R.id.favorites, favoritesAdapter)
-        setUpRow(R.id.apps, appsAdapter)
+        appsList = setUpRow(R.id.apps, appsAdapter)
         playEntrance()
 
         findViewById<View>(R.id.qs_inputs).setOnClickListener { openInputs() }
@@ -125,7 +144,7 @@ class MainActivity : Activity() {
             layoutAnimation = AnimationUtils.loadLayoutAnimation(this@MainActivity, R.anim.row_enter)
         }
 
-    /** Clock slides in from the left, the weather card from the right; the rows rise in one card at a time. */
+    /** Clock slides in from the left, the buttons drop in; the rows rise in one card at a time. */
     private fun playEntrance() {
         val dp = resources.displayMetrics.density
         val ease = DecelerateInterpolator(2f)
@@ -148,6 +167,60 @@ class MainActivity : Activity() {
         else -> "Good night"
     }
 
+    override fun onStart() {
+        super.onStart()
+        main.removeCallbacks(tick)
+        main.post(tick)
+        refreshWeather()
+        main.removeCallbacks(releasePlayer)
+        startWallpaper()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        player?.play()
+        if (idle) setIdle(false) else scheduleIdle()
+    }
+
+    override fun onPause() {
+        resumed = false
+        player?.pause()
+        main.removeCallbacks(goIdle)
+        super.onPause()
+    }
+
+    override fun onStop() {
+        main.removeCallbacks(tick)
+        main.removeCallbacks(nextImage)
+        main.postDelayed(releasePlayer, KEEP_PLAYER_MS)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(packageReceiver)
+        main.removeCallbacksAndMessages(null)
+        player?.release()
+        io.shutdownNow()
+        net.shutdownNow()
+        super.onDestroy()
+    }
+
+    /** Home pressed while already home: go back to the first favourite. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (resumed) returnToStart()
+    }
+
+    @Deprecated("Home screen has nowhere to go back to")
+    override fun onBackPressed() = returnToStart()
+
+    private fun returnToStart() {
+        if (idle) setIdle(false)
+        appsList.smoothScrollToPosition(0)
+        focusFavorite(0)
+    }
+
     // ---- Idle mode: after a quiet minute the UI fades away and leaves just the scenery ----
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -165,41 +238,12 @@ class MainActivity : Activity() {
     }
 
     private fun setIdle(value: Boolean) {
+        if (value && media.isEmpty()) return scheduleIdle() // nothing to look at without scenery
         idle = value
         val duration = if (value) 1200L else 350L
-        ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).start()
+        ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
         if (!value) scheduleIdle()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        main.post(tick)
-        if (idle) setIdle(false) else scheduleIdle()
-        refreshWeather()
-        startWallpaper()
-    }
-
-    override fun onStop() {
-        main.removeCallbacks(tick)
-        main.removeCallbacks(goIdle)
-        main.removeCallbacks(nextImage)
-        player?.release()
-        player = null
-        videoView.player = null
-        videoView.alpha = 0f
-        super.onStop()
-    }
-
-    override fun onDestroy() {
-        unregisterReceiver(packageReceiver)
-        io.shutdownNow()
-        super.onDestroy()
-    }
-
-    @Deprecated("Home screen has nowhere to go back to")
-    override fun onBackPressed() {
-        favoritesList.getChildAt(0)?.requestFocus()
     }
 
     // ---- Apps ----
@@ -208,11 +252,12 @@ class MainActivity : Activity() {
         io.execute {
             val apps = repo.loadApps()
             main.post {
+                if (isDestroyed) return@post
                 allApps = apps
                 bindRows()
                 if (!initialFocusDone) {
                     initialFocusDone = true
-                    favoritesList.post { favoritesList.getChildAt(0)?.requestFocus() }
+                    focusFavorite(0)
                 }
             }
         }
@@ -220,17 +265,18 @@ class MainActivity : Activity() {
 
     private fun bindRows() {
         val byPackage = allApps.associateBy { it.packageName }
-        val favorites = repo.favorites.mapNotNull { byPackage[it] }
-        favoritesAdapter.items = favorites
-        appsAdapter.items = allApps.filter { it.packageName !in repo.favorites }
+        val favorites = repo.favorites
+        favoritesAdapter.items = favorites.mapNotNull { byPackage[it] }
+        appsAdapter.items = allApps.filter { it.packageName !in favorites }
     }
 
     private fun onAppFocused(app: AppEntry) {
-        if (focusedLabel.text == app.label) return
+        if (labelTarget == app.label) return
+        labelTarget = app.label
         val dp = resources.displayMetrics.density
         focusedLabel.animate().cancel()
         focusedLabel.animate().alpha(0f).translationY(4 * dp).setDuration(90).withEndAction {
-            focusedLabel.text = app.label
+            focusedLabel.text = labelTarget
             focusedLabel.translationY = -4 * dp
             focusedLabel.animate().alpha(1f).translationY(0f).setDuration(200)
                 .setInterpolator(DecelerateInterpolator()).start()
@@ -243,22 +289,56 @@ class MainActivity : Activity() {
 
     private fun showAppMenu(app: AppEntry) {
         val isFavorite = app.packageName in repo.favorites
-        val actions = buildList {
-            add((if (isFavorite) "Remove from favourites" else "Add to favourites") to { repo.toggleFavorite(app.packageName) })
+        val actions = buildList<Pair<String, () -> Unit>> {
+            add("Open" to { launch(app) })
+            add((if (isFavorite) "Remove from favourites" else "Add to favourites") to {
+                repo.toggleFavorite(app.packageName)
+                bindRows()
+            })
             if (isFavorite) {
-                add("Move left" to { repo.moveFavorite(app.packageName, -1) })
-                add("Move right" to { repo.moveFavorite(app.packageName, 1) })
+                add("Move left" to { moveFavorite(app, -1) })
+                add("Move right" to { moveFavorite(app, 1) })
+            } else {
+                add("Hide from All apps" to {
+                    repo.hide(app.packageName)
+                    loadApps()
+                })
             }
             add("App info" to { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.packageName}"))) })
             add("Uninstall" to { open(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}"))) })
         }
-        AlertDialog.Builder(this, R.style.Theme_Aura_Dialog)
-            .setTitle(app.label)
-            .setItems(actions.map { it.first }.toTypedArray()) { _, which ->
-                actions[which].second()
-                bindRows()
-            }
-            .show()
+        OptionsMenu.show(this, app, actions)
+    }
+
+    /** Reorders a favourite and keeps focus on it as it moves. */
+    private fun moveFavorite(app: AppEntry, delta: Int) {
+        repo.moveFavorite(app.packageName, delta)
+        bindRows()
+        focusFavorite(favoritesAdapter.items.indexOfFirst { it.packageName == app.packageName })
+    }
+
+    /** Scrolls to a favourite and focuses it once its card has been laid out. */
+    private fun focusFavorite(position: Int, attempts: Int = 10) {
+        if (position < 0 || position >= favoritesAdapter.itemCount) return
+        favoritesList.scrollToPosition(position)
+        favoritesList.post {
+            val card = favoritesList.findViewHolderForAdapterPosition(position)?.itemView
+            if (card != null) card.requestFocus() else if (attempts > 0) main.postDelayed({ focusFavorite(position, attempts - 1) }, 50)
+        }
+    }
+
+    /** The remote's Menu button opens the options for whichever app card is focused. */
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode != KeyEvent.KEYCODE_MENU) return super.onKeyUp(keyCode, event)
+        val focused = currentFocus ?: return true
+        val adapter = when (focused.parent) {
+            favoritesList -> favoritesAdapter
+            appsList -> appsAdapter
+            else -> return true
+        }
+        val position = (focused.parent as RecyclerView).getChildAdapterPosition(focused)
+        adapter.items.getOrNull(position)?.let(::showAppMenu)
+        return true
     }
 
     private fun openInputs() {
@@ -275,11 +355,12 @@ class MainActivity : Activity() {
 
     private fun refreshWeather() {
         if (System.currentTimeMillis() - lastWeatherAt < 30 * 60_000) return
-        io.execute {
-            val report = Weather.fetch() ?: return@execute
+        lastWeatherAt = System.currentTimeMillis() // one request in flight at a time
+        net.execute {
+            val report = Weather.fetch()
             main.post {
-                lastWeatherAt = System.currentTimeMillis()
-                showWeather(report)
+                if (isDestroyed) return@post
+                if (report == null) lastWeatherAt = 0L else showWeather(report)
             }
         }
     }
@@ -291,6 +372,7 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.weather_condition).text = report.condition
         findViewById<TextView>(R.id.weather_details).text =
             "Feels ${report.feelsLike}° · ${report.humidity}% · ${report.windKmh} km/h"
+        sunArc.setSun(report.sunrise, report.sunset)
 
         val forecast = findViewById<LinearLayout>(R.id.forecast)
         forecast.removeAllViews()
@@ -319,8 +401,9 @@ class MainActivity : Activity() {
     private fun loadWallpapers() {
         AerialSource.fetch(this) { items ->
             main.post {
+                if (isDestroyed) return@post
                 media = items
-                if (!isFinishing) startWallpaper()
+                startWallpaper()
             }
         }
     }
@@ -331,14 +414,19 @@ class MainActivity : Activity() {
     }
 
     private fun startVideos(videos: List<AerialSource.Media>) {
-        if (player != null) return
+        player?.let {
+            if (resumed) it.play()
+            return
+        }
+        veil.alpha = 1f
         val exo = ExoPlayer.Builder(this).build().apply {
             volume = 0f
             repeatMode = Player.REPEAT_MODE_ALL
+            shuffleModeEnabled = true
             setMediaItems(videos.map { MediaItem.Builder().setUri(it.uri).setTag(it.title).build() })
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
-                    videoView.animate().alpha(1f).setDuration(700).start()
+                    veil.animate().alpha(0f).setDuration(900).start()
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -351,21 +439,27 @@ class MainActivity : Activity() {
 
                 override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                     showSceneTitle(item?.localConfiguration?.tag as? String)
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                        // Soften the hard cut between clips with a quick dip.
+                        veil.alpha = 0.55f
+                        veil.animate().alpha(0f).setDuration(1100).start()
+                    }
                 }
             })
             prepare()
-            playWhenReady = true
+            playWhenReady = resumed
         }
-        showSceneTitle(videos.first().title)
         videoView.player = exo
         player = exo
     }
 
     private fun showSceneTitle(title: String?) {
         val text = if (title.isNullOrBlank()) "" else "◉  $title"
-        if (sceneTitle.text == text) return
+        if (sceneTarget == text) return
+        sceneTarget = text
+        sceneTitle.animate().cancel()
         sceneTitle.animate().alpha(0f).setDuration(250).withEndAction {
-            sceneTitle.text = text
+            sceneTitle.text = sceneTarget
             sceneTitle.animate().alpha(0.8f).setDuration(600).start()
         }.start()
     }
@@ -375,7 +469,7 @@ class MainActivity : Activity() {
         if (images.isEmpty()) return
         imageIndex = index % images.size
         val item = images[imageIndex]
-        io.execute {
+        net.execute {
             val bitmap = runCatching {
                 val uri = Uri.parse(item.uri)
                 val stream = if (uri.scheme == "http" || uri.scheme == "https") URL(item.uri).openStream()
@@ -383,7 +477,9 @@ class MainActivity : Activity() {
                 stream?.use { BitmapFactory.decodeStream(it) }
             }.getOrNull() ?: return@execute
             main.post {
+                if (isDestroyed) return@post
                 imageView.setImageBitmap(bitmap)
+                veil.animate().alpha(0f).setDuration(900).start()
                 showSceneTitle(item.title)
                 main.removeCallbacks(nextImage)
                 main.postDelayed(nextImage, 5 * 60_000)
@@ -393,5 +489,6 @@ class MainActivity : Activity() {
 
     private companion object {
         const val IDLE_AFTER_MS = 60_000L
+        const val KEEP_PLAYER_MS = 90_000L
     }
 }
