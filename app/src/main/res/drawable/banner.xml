@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/fallback_background" />
-    <item android:gravity="center" android:width="80dp" android:height="80dp">
-        <shape android:shape="oval">
-            <gradient android:type="radial" android:gradientRadius="40dp" android:startColor="#CCFFFFFF" android:centerColor="#5566E0FF" android:endColor="#00000000" />
-        </shape>
-    </item>
-</layer-list>

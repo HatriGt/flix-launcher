@@ -349,6 +349,7 @@ class AllAppsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        window.decorView.post { imm().hideSoftInputFromWindow(window.decorView.windowToken, 0) }
         if (apps.isNotEmpty()) load() // pick up installs and uninstalls made while away
     }
 

@@ -34,7 +34,7 @@
     <application
         android:allowBackup="false"
         android:banner="@drawable/banner"
-        android:icon="@drawable/banner"
+        android:icon="@mipmap/ic_launcher"
         android:label="Aura"
         android:theme="@style/Theme.Aura"
         android:usesCleartextTraffic="true">
