@@ -17,8 +17,8 @@ import java.security.SecureRandom
  * Everything here runs on background threads.
  */
 object NuvioAccount {
-    data class Login(val code: String, val webUrl: String, val nonce: String, val pollSeconds: Int)
-    data class Profile(val index: Int, val name: String)
+    data class Login(val code: String, val webUrl: String, val nonce: String, val pollSeconds: Int, val expiresAtMs: Long)
+    data class Profile(val index: Int, val name: String, val color: Int = 0xFF4F7CFF.toInt())
 
     private const val API = "https://api.nuvio.tv"
     private const val CONFIG_URL = "https://nuvio.tv/config.js"
@@ -49,7 +49,17 @@ object NuvioAccount {
             .put("p_redirect_base_url", "https://nuvio.tv/tv-login")
             .put("p_device_name", "Aura on ${android.os.Build.MODEL}"), anonymous = true))
         val row = rows.getJSONObject(0)
-        return Login(row.getString("code"), row.getString("web_url"), nonce, row.optInt("poll_interval_seconds", 3))
+        val expires = runCatching {
+            java.time.OffsetDateTime.parse(row.getString("expires_at")).toInstant().toEpochMilli()
+        }.getOrDefault(System.currentTimeMillis() + 5 * 60_000)
+        return Login(row.getString("code"), row.getString("web_url"), nonce, row.optInt("poll_interval_seconds", 3), expires)
+    }
+
+    /** Signs in with the email and password the user typed on the TV; they go straight to Nuvio and aren't kept. */
+    fun passwordLogin(context: Context, email: String, password: String) {
+        val body = request(context, "$API/auth/v1/token?grant_type=password",
+            JSONObject().put("email", email.trim()).put("password", password).toString(), bearer = anonKey(context))
+        saveSession(context, JSONObject(body))
     }
 
     /** "pending", "approved", "expired"… */
@@ -69,7 +79,10 @@ object NuvioAccount {
     fun profiles(context: Context): List<Profile> {
         val rows = JSONArray(rpc(context, "sync_pull_profiles", JSONObject()))
         return (0 until rows.length()).map { rows.getJSONObject(it) }
-            .map { Profile(it.getInt("profile_index"), it.optString("name")) }
+            .map {
+                val color = runCatching { android.graphics.Color.parseColor(it.optString("avatar_color_hex")) }.getOrDefault(0xFF4F7CFF.toInt())
+                Profile(it.getInt("profile_index"), it.optString("name"), color)
+            }
             .sortedBy { it.index }
     }
 
@@ -94,10 +107,18 @@ object NuvioAccount {
             }
             .sortedByDescending { it.optLong("last_watched") }
             .take(20)
-            .mapNotNull { r ->
+            .let { picked ->
+                // Look titles up in parallel; each may hit a different addon.
+                val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+                val metas = picked.map { r -> pool.submit<Pair<JSONObject, String?>?> { meta(context, r.optString("content_type", "movie"), r.getString("content_id")) } }
+                    .map { runCatching { it.get() }.getOrNull() }
+                pool.shutdown()
+                picked.zip(metas)
+            }
+            .mapNotNull { (r, found) ->
                 val id = r.getString("content_id")
                 val type = r.optString("content_type", "movie")
-                val (meta, base) = meta(context, type, id) ?: (JSONObject() to null)
+                val (meta, base) = found ?: (JSONObject() to null)
                 val season = r.optInt("season", 0)
                 val episode = r.optInt("episode", 0)
                 Catalog.Title(

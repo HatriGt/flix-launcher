@@ -48,12 +48,28 @@ class AppRepository(private val context: Context) {
                     icon = icon,
                     launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     hasIcon = hasIcon,
-                    iconFullBleed = Accent.isFullBleed(icon),
-                    accent = Accent.of(if (hasIcon) icon else banner ?: icon),
+                    iconFullBleed = look(pkg, appInfo, icon, banner).second,
+                    accent = look(pkg, appInfo, icon, banner, hasIcon).first,
                 )
             }
         }
         return result.sortedBy { it.label.lowercase() }
+    }
+
+    private val looks = context.getSharedPreferences("aura_looks", Context.MODE_PRIVATE)
+
+    /**
+     * An app's glow colour and whether its icon is a full square. Working these out
+     * means drawing the icon, so the answer is kept until the app is updated.
+     */
+    private fun look(pkg: String, info: android.content.pm.ApplicationInfo, icon: Drawable, banner: Drawable?, hasIcon: Boolean = true): Pair<Int, Boolean> {
+        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L)
+        val key = "$pkg@$stamp"
+        looks.getString(key, null)?.split(',')?.takeIf { it.size == 2 }?.let { return it[0].toInt() to (it[1] == "1") }
+        val accent = Accent.of(if (hasIcon) icon else banner ?: icon)
+        val full = Accent.isFullBleed(icon)
+        looks.edit().putString(key, "$accent,${if (full) 1 else 0}").apply()
+        return accent to full
     }
 
     /** The tile at the end of the favourites row that opens the All apps page. */

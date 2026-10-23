@@ -44,6 +44,13 @@ class MovieRows(
             "large" -> 100 to 150
             else -> 86 to 129
         }
+        if (!NuvioAccount.isSignedIn(activity) && AuraSettings.isOn(activity, AuraSettings.CONTINUE_WATCHING) &&
+            activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
+            val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
+            rows += row
+            container.addView(row.view)
+            show(row, listOf(SIGN_IN))
+        }
         if (NuvioAccount.isSignedIn(activity) && AuraSettings.isOn(activity, AuraSettings.CONTINUE_WATCHING)) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
             rows += row
@@ -111,10 +118,11 @@ class MovieRows(
         return Row(source, view, list, adapter)
     }
 
+    /** Cached titles first (parsed off the main thread), then a refresh if they're older than six hours. */
     private fun load(row: Row, genre: String?) {
-        Catalog.cached(activity, row.source, genre)?.let { show(row, it) }
-        if (Catalog.isFresh(activity, row.source, genre)) return
         net.execute {
+            Catalog.cached(activity, row.source, genre)?.let { cached -> main.post { if (row in rows) show(row, cached) } }
+            if (Catalog.isFresh(activity, row.source, genre)) return@execute
             val titles = Catalog.fetch(activity, row.source, genre) ?: return@execute
             main.post { if (row in rows) show(row, titles) }
         }
@@ -133,6 +141,10 @@ class MovieRows(
     companion object {
         /** Stand-in source for the Continue watching row, which comes from the Nuvio account rather than an addon. */
         val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
+
+        /** Placeholder card shown in Continue watching while signed out; opening it starts sign-in. */
+        val SIGN_IN = Catalog.Title("aura:signin", "movie", "Sign in to Nuvio to see what you were watching",
+            null, null, null, null, null, null, emptyList(), "Scan a code with your phone — it takes a few seconds.")
     }
 
     /** The row whose poster list contains [view], if any. */

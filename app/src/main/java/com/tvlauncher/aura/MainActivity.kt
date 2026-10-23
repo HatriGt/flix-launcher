@@ -41,7 +41,8 @@ class MainActivity : Activity() {
 
     // Disk/package work and network work run apart, so a slow weather call never delays the app rows.
     private val io = Executors.newSingleThreadExecutor()
-    private val net = Executors.newSingleThreadExecutor()
+    // Several rows load at once; four threads keep the network busy without crowding the TV.
+    private val net = Executors.newFixedThreadPool(4)
     private lateinit var repo: AppRepository
 
     private lateinit var clock: ClockView
@@ -170,9 +171,10 @@ class MainActivity : Activity() {
             addDataScheme("package")
         })
         registerReceiver(settingsReceiver, IntentFilter(SettingsActivity.ACTION_CHANGED), RECEIVER_NOT_EXPORTED_FLAG)
-        applySettings()
         loadApps()
-        loadWallpapers()
+        applySettings()
+        // Scenery and its player wait until the first frame is on screen.
+        window.decorView.post { loadWallpapers() }
     }
 
     private fun openAuraSettings() {
@@ -335,6 +337,12 @@ class MainActivity : Activity() {
     }
 
     private fun openInNuvio(title: Catalog.Title) {
+        if (title.id == MovieRows.SIGN_IN.id) {
+            settingsOpen = true
+            startActivity(Intent(this, NuvioLoginActivity::class.java))
+            overridePendingTransition(0, 0)
+            return
+        }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(NUVIO)
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
@@ -344,6 +352,7 @@ class MainActivity : Activity() {
     }
 
     private fun showTitleMenu(title: Catalog.Title) {
+        if (title.id == MovieRows.SIGN_IN.id) return openInNuvio(title)
         OptionsMenu.show(this, title, listOf(
             "Open in Nuvio" to { openInNuvio(title) },
             "Hide this title" to {
@@ -792,7 +801,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private companion object {
+    companion object {
         const val NUVIO = "com.nuvio.tv"
         const val RECEIVER_NOT_EXPORTED_FLAG = 0x4 // Context.RECEIVER_NOT_EXPORTED, named in API 33
         const val KEEP_PLAYER_MS = 90_000L

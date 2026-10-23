@@ -111,36 +111,39 @@ class SettingsActivity : Activity() {
 
     // ---- Rail ----
 
+    /** Wordmark: "aura" set light with a small gradient dot, the way the brand reads everywhere. */
     private fun brand(): View {
-        val mark = TextView(this).apply {
-            text = "A"
-            gravity = Gravity.CENTER
-            textSize = 16f
+        val word = TextView(this).apply {
+            text = "aura"
+            textSize = 24f
+            letterSpacing = 0.02f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF6C8CFF.toInt(), 0xFFB36BFF.toInt())).apply {
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        }
+        val dot = View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF7AA2FF.toInt(), 0xFFC084FC.toInt())).apply {
                 shape = GradientDrawable.OVAL
             }
         }
         return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(px(8), 0, 0, px(22))
-            addView(mark, LinearLayout.LayoutParams(px(34), px(34)))
+            orientation = LinearLayout.VERTICAL
+            setPadding(px(10), 0, 0, px(24))
             addView(LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(text("Settings", 18f, bold = true))
-                addView(text("Aura · make it yours", 10f, alpha = 0.5f))
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(12) })
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.BOTTOM
+                addView(word)
+                addView(dot, LinearLayout.LayoutParams(px(7), px(7)).apply { marginStart = px(3); bottomMargin = px(7) })
+            })
+            addView(text("Settings", 11f, alpha = 0.5f).apply { letterSpacing = 0.12f; isAllCaps = true })
         }
     }
 
     private fun railItem(index: Int, section: Section): View {
-        val tileBg = GradientDrawable().apply { cornerRadius = 9 * dp; setColor(section.color) }
-        val icon = ImageView(this).apply { setImageResource(section.icon); setColorFilter(Color.WHITE) }
+        val tileBg = GradientDrawable().apply { cornerRadius = 10 * dp; setColor(tint(section.color, 0.18f)) }
+        val icon = ImageView(this).apply { setImageResource(section.icon); setColorFilter(section.color) }
         val tile = FrameLayout(this).apply {
             background = tileBg
-            addView(icon, FrameLayout.LayoutParams(px(16), px(16), Gravity.CENTER))
+            addView(icon, FrameLayout.LayoutParams(px(17), px(17), Gravity.CENTER))
         }
         val label = text(section.title, 13f)
         val bg = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.TRANSPARENT) }
@@ -151,7 +154,7 @@ class SettingsActivity : Activity() {
             background = bg
             setPadding(px(8), 0, px(8), 0)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)).apply { topMargin = px(4) }
-            addView(tile, LinearLayout.LayoutParams(px(28), px(28)))
+            addView(tile, LinearLayout.LayoutParams(px(32), px(32)))
             addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(12) })
             fun paint(focused: Boolean) {
                 val selected = sectionIndex == index
@@ -199,7 +202,7 @@ class SettingsActivity : Activity() {
                 group(null, listOf(nuvioCard(), rowsCard()))
                 group("Discovery", options.take(4).map(::optionRow))
                 group("Look", options.drop(4).map(::optionRow) + listOf(
-                    actionRow("Show hidden titles", "Bring back titles you hid from rows") {
+                    actionRow("Show hidden titles", "Bring back titles you hid from rows", R.drawable.ic_visibility) {
                         Catalog.clearHiddenTitles(this); applyToHome(); toast("Hidden titles are back")
                     },
                 ))
@@ -207,8 +210,8 @@ class SettingsActivity : Activity() {
             "Behaviour" -> {
                 group(null, options.map(::optionRow))
                 group("Apps", listOf(
-                    actionRow("Hidden apps", "Bring back apps you hid from All apps") { showHiddenApps() },
-                    actionRow("Reset favourites order", "Nuvio, TiviMate and YouTube first") {
+                    actionRow("Hidden apps", "Bring back apps you hid from All apps", R.drawable.ic_visibility) { showHiddenApps() },
+                    actionRow("Reset favourites order", "Nuvio, TiviMate and YouTube first", R.drawable.ic_restore) {
                         repo.resetOrder(); applyToHome(); toast("Favourites order reset")
                     },
                 ))
@@ -330,8 +333,9 @@ class SettingsActivity : Activity() {
         return row
     }
 
-    private fun actionRow(title: String, subtitle: String, onClick: () -> Unit): View {
+    private fun actionRow(title: String, subtitle: String, iconRes: Int, onClick: () -> Unit): View {
         val row = rowShell()
+        row.addView(glyph(iconRes, accent), LinearLayout.LayoutParams(px(32), px(32)).apply { marginEnd = px(14) })
         row.addView(textBlock(title, subtitle).first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(text("›", 20f, alpha = 0.45f))
         row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
@@ -344,12 +348,19 @@ class SettingsActivity : Activity() {
     private fun nuvioCard(): View {
         val signedIn = NuvioAccount.isSignedIn(this)
         val profile = NuvioAccount.profile(this)?.name
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
+        val art = ImageView(this).apply {
+            if (logo != null) setImageDrawable(logo) else { setImageResource(R.drawable.ic_sec_movies); setColorFilter(accent) }
+            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xFF0B0F1A.toInt()) }
+            clipToOutline = true
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
         return heroRow(
-            mark = "N", markColors = intArrayOf(0xFF4F7CFF.toInt(), 0xFF9B5CFF.toInt()),
-            title = "Nuvio account",
-            subtitle = if (signedIn) "Continue watching from “${profile ?: "?"}”" else "Connect to see Continue watching",
-            badge = if (signedIn) "● Connected" else "Connect",
-            badgeColor = if (signedIn) 0xFF1FAA6B.toInt() else accent,
+            art = art,
+            title = "Nuvio",
+            subtitle = if (signedIn) "Continue watching from “${profile ?: "?"}”" else "Sign in to bring Continue watching here",
+            badge = if (signedIn) "Connected" else "Sign in",
+            badgeColor = if (signedIn) 0xFF16A34A.toInt() else accent,
         ) { open(NuvioLoginActivity::class.java) }
     }
 
@@ -358,24 +369,17 @@ class SettingsActivity : Activity() {
         val shown = rows.count { it.enabled }
         val addons = rows.map { it.addonName }.distinct().size
         return heroRow(
-            mark = "≡", markColors = intArrayOf(0xFFFF8A3D.toInt(), 0xFFFF4D6D.toInt()),
+            art = glyph(R.drawable.ic_layers, 0xFFFB923C.toInt(), size = 40),
             title = "Addons & rows",
             subtitle = "$addons addons · choose and order what appears",
             badge = "$shown on home",
-            badgeColor = 0x33FFFFFF,
+            badgeColor = 0x2EFFFFFF,
         ) { open(RowsActivity::class.java) }
     }
 
-    private fun heroRow(mark: String, markColors: IntArray, title: String, subtitle: String, badge: String, badgeColor: Int, onClick: () -> Unit): View {
+    private fun heroRow(art: View, title: String, subtitle: String, badge: String, badgeColor: Int, onClick: () -> Unit): View {
         val row = rowShell().apply { setPadding(px(14), px(14), px(14), px(14)) }
-        row.addView(TextView(this).apply {
-            text = mark
-            gravity = Gravity.CENTER
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, markColors).apply { cornerRadius = 12 * dp }
-        }, LinearLayout.LayoutParams(px(40), px(40)))
+        row.addView(art, LinearLayout.LayoutParams(px(40), px(40)))
         row.addView(textBlock(title, subtitle).first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(14) })
         row.addView(text(badge, 10.5f, bold = true).apply {
             setPadding(px(10), px(4), px(10), px(4))
@@ -386,6 +390,15 @@ class SettingsActivity : Activity() {
         row.setOnClickListener { onClick() }
         return row
     }
+
+    /** An icon on a soft tile tinted with its own colour. */
+    private fun glyph(iconRes: Int, color: Int, size: Int = 32): View = FrameLayout(this).apply {
+        background = GradientDrawable().apply { cornerRadius = size * 0.31f * dp; setColor(tint(color, 0.16f)) }
+        addView(ImageView(context).apply { setImageResource(iconRes); setColorFilter(color) },
+            FrameLayout.LayoutParams(px((size * 0.52f).toInt()), px((size * 0.52f).toInt()), Gravity.CENTER))
+    }
+
+    private fun tint(color: Int, alpha: Float) = (color and 0x00FFFFFF) or ((alpha * 255).toInt() shl 24)
 
     // ---- Controls ----
 
@@ -507,11 +520,11 @@ class SettingsActivity : Activity() {
         const val ACTION_CHANGED = "com.tvlauncher.aura.SETTINGS_CHANGED"
         private const val PANEL_DP = 680
         private val SECTIONS = listOf(
-            Section("Icons", "Shape, size and how apps react to focus", R.drawable.ic_apps, 0xFF3B82F6.toInt()),
-            Section("Clock & widgets", "What the header shows", R.drawable.ic_settings, 0xFFF59E0B.toInt()),
-            Section("Movies & shows", "Your Nuvio rows, trailers and previews", R.drawable.ic_input, 0xFFEF4444.toInt()),
-            Section("Background", "Scenery behind the home screen", R.drawable.ic_wifi, 0xFF8B5CF6.toInt()),
-            Section("Behaviour", "Idle mode, rows and app housekeeping", R.drawable.ic_tune, 0xFF10B981.toInt()),
+            Section("Icons", "Shape, size and how apps react to focus", R.drawable.ic_sec_icons, 0xFF60A5FA.toInt()),
+            Section("Clock & widgets", "What the header shows", R.drawable.ic_sec_clock, 0xFFFBBF24.toInt()),
+            Section("Movies & shows", "Your Nuvio rows, trailers and previews", R.drawable.ic_sec_movies, 0xFFF87171.toInt()),
+            Section("Background", "Scenery behind the home screen", R.drawable.ic_sec_background, 0xFFA78BFA.toInt()),
+            Section("Behaviour", "Idle mode, rows and app housekeeping", R.drawable.ic_sec_behaviour, 0xFF34D399.toInt()),
         )
     }
 }

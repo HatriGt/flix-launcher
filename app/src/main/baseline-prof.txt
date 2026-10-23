@@ -1,0 +1,7 @@
+# Precompile Aura's own code and the libraries the home screen touches at startup.
+HSPLcom/tvlauncher/aura/**->**(**)**
+Lcom/tvlauncher/aura/**;
+HSPLandroidx/recyclerview/widget/**->**(**)**
+Landroidx/recyclerview/widget/**;
+HSPLandroidx/media3/exoplayer/**->**(**)**
+Landroidx/media3/exoplayer/**;
