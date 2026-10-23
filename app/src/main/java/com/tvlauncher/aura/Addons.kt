@@ -89,6 +89,32 @@ object Addons {
         save(context, list)
     }
 
+    /** Turns a row on or off; a row switched on joins the end of the rows already on the home screen. */
+    fun setEnabled(context: Context, key: String, on: Boolean) {
+        val list = rows(context).toMutableList()
+        val index = list.indexOfFirst { it.key == key }
+        if (index < 0) return
+        val row = list.removeAt(index).copy(enabled = on)
+        val insertAt = if (on) list.indexOfLast { it.enabled } + 1 else list.size.coerceAtMost(index).let { i ->
+            // Keep a switched-off row near where it was, but after every row still on.
+            maxOf(i, list.indexOfLast { it.enabled } + 1)
+        }
+        list.add(insertAt, row)
+        save(context, list)
+    }
+
+    /** Moves a row among the rows that are on, by key. */
+    fun moveEnabled(context: Context, key: String, delta: Int) {
+        val list = rows(context)
+        val index = list.indexOfFirst { it.key == key }
+        val target = index + delta
+        if (index < 0 || target !in list.indices || !list[target].enabled) return
+        move(context, index, delta)
+    }
+
+    fun removeAddon(context: Context, manifest: String) =
+        save(context, rows(context).filter { it.manifest != manifest })
+
     fun remove(context: Context, index: Int) {
         val list = rows(context).toMutableList()
         if (index !in list.indices) return

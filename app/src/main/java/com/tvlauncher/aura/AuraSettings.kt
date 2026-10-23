@@ -25,7 +25,8 @@ object AuraSettings {
 
     // Icons
     val ICON_SHAPE = Option("icon_shape", "Icon shape",
-        listOf("circle" to "Circle", "squircle" to "Squircle", "rounded" to "Rounded square", "banner" to "Wide banner"), "circle")
+        listOf("circle" to "Circle", "squircle" to "Squircle", "rounded" to "Rounded square", "banner" to "Wide banner"), "circle",
+        summary = "How app tiles are drawn")
     val ICON_SIZE = Option("icon_size", "Icon size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val LABELS = Option("labels", "App names", listOf("always" to "Always", "focus" to "When selected", "never" to "Hidden"), "always")
     val GLOW = toggle("glow", "Colour glow", summary = "Selected apps glow in their own colour")
@@ -37,7 +38,7 @@ object AuraSettings {
     val GREETING = toggle("greeting", "Greeting")
     val DATE = toggle("date", "Date")
     val SUN_ARC = toggle("sun_arc", "Sunrise & sunset arc")
-    val WEATHER = toggle("weather", "Weather card")
+    val WEATHER = toggle("weather", "Weather", summary = "Chip at the top right")
     val FORECAST = toggle("forecast", "3-day forecast")
     val UNITS = Option("units", "Temperature", listOf("c" to "Celsius", "f" to "Fahrenheit"), "c")
 
@@ -54,13 +55,15 @@ object AuraSettings {
     val ALL_APPS_TILE = toggle("all_apps_tile", "All apps tile", summary = "A tile at the end of favourites that opens every app")
 
     // Movies & shows
-    val SUGGESTIONS = toggle("suggestions", "Movie & show rows", summary = "Suggestions that open in Nuvio")
+    val SUGGESTIONS = toggle("suggestions", "Movie & show rows", summary = "Rows from your addons; OK opens in Nuvio")
     val CONTINUE_WATCHING = toggle("continue_watching", "Continue watching", summary = "From your Nuvio account")
-    val GENRE = Option("genre", "Genre", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
+    val GENRE = Option("genre", "Genre filter", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
         "Thriller" to "Thriller", "Horror" to "Horror", "Romance" to "Romance", "Sci-Fi" to "Sci-Fi", "Animation" to "Animation",
-        "Crime" to "Crime", "Family" to "Family"), "all")
+        "Crime" to "Crime", "Family" to "Family"), "all", summary = "Only for rows whose addon supports it")
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
+    val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
+    val TRAILER_SOUND = toggle("trailer_sound", "Trailer sound", default = false, summary = "Off keeps trailers silent")
 
     const val ACTION_NUVIO = "Nuvio account…"
     const val ACTION_ROWS = "Addons & rows…"
@@ -70,11 +73,10 @@ object AuraSettings {
 
     val SECTIONS = listOf(
         Section("Icons", listOf(ICON_SHAPE, ICON_SIZE, LABELS, GLOW, MOTION)),
-        Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, SUN_ARC, WEATHER, FORECAST, UNITS)),
-        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, GENRE, POSTER_SIZE, BACKDROP),
-            listOf(ACTION_NUVIO, ACTION_ROWS, ACTION_SHOW_TITLES)),
+        Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, WEATHER, UNITS)),
+        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, TRAILERS, TRAILER_SOUND, BACKDROP, POSTER_SIZE, GENRE)),
         Section("Background", listOf(WALLPAPER, SHUFFLE, DIM, SCENE_NAME)),
-        Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE), listOf(ACTION_HIDDEN, ACTION_RESET)),
+        Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE)),
     )
 
     private fun prefs(context: Context) = context.getSharedPreferences("aura_settings", Context.MODE_PRIVATE)

@@ -40,7 +40,7 @@ class NuvioLoginActivity : Activity() {
             setPadding(px(28), px(30), px(28), px(28))
         }
         panel = FrameLayout(this).apply {
-            setBackgroundResource(R.drawable.settings_panel)
+            setBackgroundResource(R.drawable.settings_panel_solid)
             addView(body)
             layoutParams = FrameLayout.LayoutParams(px(420), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END)
             elevation = 24 * dp

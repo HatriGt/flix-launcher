@@ -79,6 +79,7 @@ class MainActivity : Activity() {
     private lateinit var header: View
     private lateinit var favoritesBlock: View
     private var browsing = false
+    private lateinit var trailer: Trailer
     private var scrollAnimator: android.animation.ObjectAnimator? = null
     private val pauseForBackdrop = Runnable { if (browsing && hero.backdropEnabled) player?.pause() }
 
@@ -108,8 +109,8 @@ class MainActivity : Activity() {
                 else -> DateFormat.is24HourFormat(this@MainActivity)
             }
             clock.setTime(DateFormat.format(if (is24) "HH" else "h", now).toString(), DateFormat.format("mm", now).toString())
-            date.text = DateFormat.format("EEEE, d MMMM", now)
-            greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
+            date.text = DateFormat.format("EEE, d MMM", now)
+            greeting.text = "Hello, ${greetingFor(DateFormat.format("H", now).toString().toInt()).lowercase()}"
             sunArc.tick()
             main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
@@ -142,7 +143,12 @@ class MainActivity : Activity() {
         header = findViewById(R.id.header)
         favoritesBlock = findViewById(R.id.favorites_block)
         hero = Hero(findViewById(R.id.ui))
-        movieRows = MovieRows(this, findViewById(R.id.movie_rows), net, hero::present, ::openInNuvio, ::showTitleMenu)
+        trailer = Trailer(this, findViewById(R.id.hero_trailer), net)
+        trailer.onPlaying = { playing -> if (playing) player?.pause() }
+        movieRows = MovieRows(this, findViewById(R.id.movie_rows), net, { title ->
+            hero.present(title)
+            trailer.focus(title)
+        }, ::openInNuvio, ::showTitleMenu)
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, now -> onFocusMoved(now) }
         rowsScroll.viewTreeObserver.addOnGlobalLayoutListener { sizeScrollArea() }
 
@@ -227,7 +233,7 @@ class MainActivity : Activity() {
         greeting.visibility = if (isOn(AuraSettings.GREETING)) View.VISIBLE else View.GONE
         date.visibility = if (isOn(AuraSettings.DATE)) View.VISIBLE else View.GONE
         findViewById<View>(R.id.weather_card).visibility = if (isOn(AuraSettings.WEATHER)) View.VISIBLE else View.GONE
-        lastReport?.let(::showWeather) ?: sunArc.setSun(null, null)
+        lastReport?.let(::showWeather)
         main.removeCallbacks(tick)
         main.post(tick)
 
@@ -235,6 +241,8 @@ class MainActivity : Activity() {
         sceneTitle.visibility = if (isOn(AuraSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
         player?.shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
         hero.backdropEnabled = isOn(AuraSettings.BACKDROP)
+        trailer.enabled = isOn(AuraSettings.TRAILERS)
+        trailer.sound = isOn(AuraSettings.TRAILER_SOUND)
         movieRows.rebuild()
         startWallpaper()
         if (!idle) scheduleIdle()
@@ -243,7 +251,7 @@ class MainActivity : Activity() {
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
 
     /** Where a focused movie row's title sits on screen; the preview fills the space above it. */
-    private fun heroLine() = (296 * resources.displayMetrics.density).toInt()
+    private fun heroLine() = favoritesBlock.height.coerceAtLeast((200 * resources.displayMetrics.density).toInt())
 
     /**
      * Apps sit at the top; the clock and weather fill the middle; the first movie row
@@ -253,20 +261,15 @@ class MainActivity : Activity() {
         val height = rowsScroll.height
         if (height == 0) return
         val dp = resources.displayMetrics.density
-        val visibleRows = movieRows.rows.filter { it.view.visibility == View.VISIBLE }
-        val first = visibleRows.firstOrNull()?.view
-        val last = visibleRows.lastOrNull()?.view
+        // The page reads top to bottom: header bar, apps dock, then the rows straight after.
+        val wantTop = header.height + (6 * dp).toInt()
+        if (favoritesBlock.paddingTop != wantTop) favoritesBlock.setPadding(0, wantTop, 0, favoritesBlock.paddingBottom)
         val spacer = findViewById<View>(R.id.rows_spacer)
-        val wantSpacer = if (first == null) 0
-            else (height - favoritesBlock.height - first.height - 4 * dp).toInt().coerceAtLeast((150 * dp).toInt())
+        if (spacer.layoutParams.height != 0) spacer.layoutParams = spacer.layoutParams.apply { this.height = 0 }
+        val last = movieRows.rows.lastOrNull { it.view.visibility == View.VISIBLE }?.view
         val tail = findViewById<View>(R.id.rows_tail)
         val wantTail = (height - heroLine() - (last?.height ?: 0)).coerceAtLeast(0)
-        if (spacer.layoutParams.height != wantSpacer) spacer.layoutParams = spacer.layoutParams.apply { this.height = wantSpacer }
         if (tail.layoutParams.height != wantTail) tail.layoutParams = tail.layoutParams.apply { this.height = wantTail }
-        // The clock and weather start just under the apps.
-        val headerParams = header.layoutParams as android.view.ViewGroup.MarginLayoutParams
-        val wantTop = favoritesBlock.height + (2 * dp).toInt()
-        if (headerParams.topMargin != wantTop) header.layoutParams = headerParams.apply { topMargin = wantTop }
         // Tiles may grow past the dock's top and bottom when focused, but must not slide under the buttons.
         val room = (60 * dp).toInt()
         val clip = android.graphics.Rect(0, -room, favoritesList.width, favoritesList.height + room)
@@ -326,6 +329,7 @@ class MainActivity : Activity() {
         favoritesBlock.animate().alpha(1f).setDuration(300).start()
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
         hero.hide()
+        trailer.stop()
         main.removeCallbacks(pauseForBackdrop)
         if (resumed) player?.play()
     }
@@ -412,6 +416,7 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         resumed = false
+        trailer.stop()
         // The settings panel is see-through, so keep the scenery moving behind it.
         if (!settingsOpen) player?.pause()
         main.removeCallbacks(goIdle)
@@ -428,6 +433,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
         unregisterReceiver(settingsReceiver)
+        trailer.release()
         main.removeCallbacksAndMessages(null)
         player?.release()
         io.shutdownNow()
@@ -470,6 +476,7 @@ class MainActivity : Activity() {
 
     private fun setIdle(value: Boolean) {
         if (value && (media.isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
+        if (value && trailer.isPlaying) return scheduleIdle() // let the trailer play out
         if (value && browsing) returnToStart() // fade to the scenery, not to a paused backdrop
         idle = value
         val duration = if (value) 1200L else 350L
@@ -620,14 +627,14 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.weather_temp).text = "${t(report.temperature)}°"
         findViewById<TextView>(R.id.weather_condition).text = report.condition
         findViewById<TextView>(R.id.weather_details).text =
-            "Feels ${t(report.feelsLike)}° · ${report.humidity}% · ${report.windKmh} km/h"
-        if (isOn(AuraSettings.SUN_ARC)) sunArc.setSun(report.sunrise, report.sunset) else sunArc.setSun(null, null)
+            "Feels ${t(report.feelsLike)}°"
+        sunArc.visibility = View.GONE
 
         val forecast = findViewById<LinearLayout>(R.id.forecast)
-        forecast.visibility = if (isOn(AuraSettings.FORECAST)) View.VISIBLE else View.GONE
+        forecast.visibility = View.GONE
         findViewById<View>(R.id.forecast_divider).visibility = forecast.visibility
         forecast.removeAllViews()
-        for (day in report.days.take(3)) {
+        for (day in emptyList<Weather.Day>()) {
             forecast.addView(TextView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 gravity = Gravity.CENTER
@@ -641,8 +648,8 @@ class MainActivity : Activity() {
 
         val card = findViewById<View>(R.id.weather_card)
         if (card.alpha < 1f) {
-            card.translationX = 24 * resources.displayMetrics.density
-            card.animate().alpha(1f).translationX(0f).setDuration(600)
+            card.translationY = -10 * resources.displayMetrics.density
+            card.animate().alpha(1f).translationY(0f).setDuration(600)
                 .setInterpolator(DecelerateInterpolator(2f)).start()
         }
     }
