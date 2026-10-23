@@ -57,7 +57,7 @@ object AuraSettings {
     val SUGGESTIONS = toggle("suggestions", "Movie & show rows", summary = "Suggestions that open in Nuvio")
     val ROW_POPULAR_MOVIES = toggle("row_popular_movies", "Popular movies")
     val ROW_POPULAR_SERIES = toggle("row_popular_series", "Popular series")
-    val ROW_TOP_RATED = toggle("row_top_rated", "Top rated movies")
+    val ROW_TOP_RATED = toggle("row_top_rated", "Featured movies")
     val GENRE = Option("genre", "Genre", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
         "Thriller" to "Thriller", "Horror" to "Horror", "Romance" to "Romance", "Sci-Fi" to "Sci-Fi", "Animation" to "Animation",
         "Crime" to "Crime", "Family" to "Family"), "all")

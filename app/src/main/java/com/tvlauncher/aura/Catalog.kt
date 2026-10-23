@@ -35,7 +35,7 @@ object Catalog {
 
     val POPULAR_MOVIES = Source("popular_movies", "Popular movies", "movie", "top")
     val POPULAR_SERIES = Source("popular_series", "Popular series", "series", "top")
-    val TOP_RATED = Source("top_rated", "Top rated movies", "movie", "imdbRating")
+    val TOP_RATED = Source("top_rated", "Featured movies", "movie", "imdbRating")
 
     private const val BASE = "https://v3-cinemeta.strem.io"
     private const val MAX_AGE_MS = 6 * 60 * 60 * 1000L
