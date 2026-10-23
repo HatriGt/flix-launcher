@@ -51,6 +51,7 @@ object AuraSettings {
     val IDLE = Option("idle", "Fade to scenery after",
         listOf("off" to "Never", "30" to "30 seconds", "60" to "1 minute", "120" to "2 minutes", "300" to "5 minutes"), "60")
     val ALL_APPS = toggle("all_apps", "All apps row")
+    val ALL_APPS_TILE = toggle("all_apps_tile", "All apps tile", summary = "A tile at the end of favourites that opens every app")
 
     const val ACTION_HIDDEN = "Hidden apps"
     const val ACTION_RESET = "Reset favourites order"
@@ -59,7 +60,7 @@ object AuraSettings {
         Section("Icons", listOf(ICON_SHAPE, ICON_SIZE, LABELS, GLOW, MOTION)),
         Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, SUN_ARC, WEATHER, FORECAST, UNITS)),
         Section("Background", listOf(WALLPAPER, SHUFFLE, DIM, SCENE_NAME)),
-        Section("Behaviour", listOf(IDLE, ALL_APPS), listOf(ACTION_HIDDEN, ACTION_RESET)),
+        Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE), listOf(ACTION_HIDDEN, ACTION_RESET)),
     )
 
     private fun prefs(context: Context) = context.getSharedPreferences("aura_settings", Context.MODE_PRIVATE)

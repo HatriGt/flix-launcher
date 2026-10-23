@@ -75,7 +75,10 @@ class MainActivity : Activity() {
     private var settingsOpen = false
 
     private val settingsReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = applySettings()
+        override fun onReceive(context: Context, intent: Intent) {
+            applySettings()
+            loadApps() // favourites or hidden apps may have changed too
+        }
     }
 
     private val goIdle = Runnable { setIdle(true) }
@@ -385,7 +388,8 @@ class MainActivity : Activity() {
     private fun bindRows() {
         val byPackage = allApps.associateBy { it.packageName }
         val favorites = repo.favorites
-        favoritesAdapter.items = favorites.mapNotNull { byPackage[it] }
+        val tile = if (isOn(AuraSettings.ALL_APPS_TILE)) listOf(repo.allAppsTile()) else emptyList()
+        favoritesAdapter.items = favorites.mapNotNull { byPackage[it] } + tile
         appsAdapter.items = allApps.filter { it.packageName !in favorites }
     }
 
@@ -403,10 +407,18 @@ class MainActivity : Activity() {
     }
 
     private fun launch(app: AppEntry) {
+        if (app.packageName == AppRepository.ALL_APPS_TILE) {
+            // Like settings, the All apps page floats over the scenery, so keep it playing.
+            settingsOpen = true
+            startActivity(app.launchIntent)
+            overridePendingTransition(0, 0)
+            return
+        }
         open(app.launchIntent)
     }
 
     private fun showAppMenu(app: AppEntry) {
+        if (app.packageName == AppRepository.ALL_APPS_TILE) return
         val isFavorite = app.packageName in repo.favorites
         val actions = buildList<Pair<String, () -> Unit>> {
             add("Open" to { launch(app) })

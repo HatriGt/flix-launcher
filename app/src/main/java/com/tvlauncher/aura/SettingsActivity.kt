@@ -102,12 +102,14 @@ class SettingsActivity : Activity() {
             refresh(delta)
             applyToHome()
         }
-        row.setOnClickListener { step(1) }
+        // Steps happen on key down: the OK press that opened this screen ends here as a key up,
+        // and must not change the first option.
         row.setOnKeyListener { _, keyCode, event ->
-            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-            when (keyCode) {
-                KeyEvent.KEYCODE_DPAD_RIGHT -> { step(1); true }
-                KeyEvent.KEYCODE_DPAD_LEFT -> { step(-1); true }
+            val select = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+            when {
+                event.action != KeyEvent.ACTION_DOWN -> select
+                select || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { step(1); true }
+                keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { step(-1); true }
                 else -> false
             }
         }

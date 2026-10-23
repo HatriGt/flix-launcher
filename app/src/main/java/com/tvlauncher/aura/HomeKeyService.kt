@@ -15,6 +15,8 @@ class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         running = true
+        // After a reboot or an update the stock home may already be on screen; replace it right away.
+        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openAura()
     }
 
     override fun onDestroy() {

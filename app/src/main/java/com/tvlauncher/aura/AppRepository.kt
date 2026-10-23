@@ -56,6 +56,18 @@ class AppRepository(private val context: Context) {
         return result.sortedBy { it.label.lowercase() }
     }
 
+    /** The tile at the end of the favourites row that opens the All apps page. */
+    fun allAppsTile(): AppEntry = AppEntry(
+        packageName = ALL_APPS_TILE,
+        label = "All apps",
+        banner = null,
+        icon = context.getDrawable(R.drawable.ic_apps)!!,
+        launchIntent = Intent(context, AllAppsActivity::class.java),
+        hasIcon = true,
+        iconFullBleed = false,
+        accent = 0xFF8FA6C8.toInt(),
+    )
+
     /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at Aura's tile sizes. */
     private fun hiResIcon(info: ResolveInfo): Drawable {
         val activity = info.activityInfo
@@ -118,6 +130,7 @@ class AppRepository(private val context: Context) {
 
     companion object {
         private const val KEY_FAVORITES = "favorites"
+        const val ALL_APPS_TILE = "aura:all_apps"
         private const val KEY_HIDDEN = "hidden"
         private const val KEY_ORDER_VERSION = "favorites_order_version"
         private const val ORDER_VERSION = 2
