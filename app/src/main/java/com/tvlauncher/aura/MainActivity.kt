@@ -269,6 +269,8 @@ class MainActivity : Activity() {
         super.onResume()
         resumed = true
         settingsOpen = false
+        // The service connects asynchronously at process start; check once it has had a moment.
+        main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         if (appliedRevision != AuraSettings.revision(this)) applySettings()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()

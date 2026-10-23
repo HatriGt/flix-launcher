@@ -12,6 +12,16 @@ import android.view.accessibility.AccessibilityEvent
  * layer), the stock home screen coming to the front is caught instead.
  */
 class HomeKeyService : AccessibilityService() {
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        running = true
+    }
+
+    override fun onDestroy() {
+        running = false
+        super.onDestroy()
+    }
+
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
         if (event.action == KeyEvent.ACTION_UP) openAura()
@@ -38,10 +48,14 @@ class HomeKeyService : AccessibilityService() {
         )
     }
 
-    private companion object {
-        const val DEBOUNCE_MS = 1500L
-        const val STOCK_LAUNCHER = "com.google.android.apps.tv.launcherx"
-        const val STOCK_HOME_ACTIVITY = "com.google.android.apps.tv.launcherx.home.HomeActivity"
+    companion object {
+        /** Lets [HomeGuard] tell whether the system currently has this service bound. */
+        @Volatile
+        var running = false
+
+        private const val DEBOUNCE_MS = 1500L
+        private const val STOCK_LAUNCHER = "com.google.android.apps.tv.launcherx"
+        private const val STOCK_HOME_ACTIVITY = "com.google.android.apps.tv.launcherx.home.HomeActivity"
     }
 
     override fun onInterrupt() {}
