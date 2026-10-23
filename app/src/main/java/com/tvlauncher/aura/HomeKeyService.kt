@@ -38,12 +38,22 @@ class HomeKeyService : AccessibilityService() {
     }
 
     private var lastOpenedAt = 0L
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val recheck = Runnable {
+        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        }
+    }
 
     private fun openAura() {
         // The stock launcher reports several window changes per Home press; open Aura once.
         val now = android.os.SystemClock.uptimeMillis()
         if (now - lastOpenedAt < DEBOUNCE_MS) return
         lastOpenedAt = now
+        // If the stock home still ends up in front (a press during wake-up, a race with
+        // its own animation), try once more a moment later.
+        handler.removeCallbacks(recheck)
+        handler.postDelayed(recheck, RECHECK_MS)
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -55,7 +65,8 @@ class HomeKeyService : AccessibilityService() {
         @Volatile
         var running = false
 
-        private const val DEBOUNCE_MS = 1500L
+        private const val DEBOUNCE_MS = 700L
+        private const val RECHECK_MS = 900L
         private const val STOCK_LAUNCHER = "com.google.android.apps.tv.launcherx"
         private const val STOCK_HOME_ACTIVITY = "com.google.android.apps.tv.launcherx.home.HomeActivity"
     }

@@ -102,6 +102,35 @@ class SettingsActivity : Activity() {
         }
     }
 
+    /**
+     * Up/Down stays inside the pane it started in: running off the end of the
+     * options shouldn't land on a section and switch it, and vice versa.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (event.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_UP)) {
+            val focused = currentFocus
+            if (focused != null) {
+                val pane = if (isInside(focused, rail)) rail else if (isInside(focused, content)) content else null
+                val next = focused.focusSearch(if (code == KeyEvent.KEYCODE_DPAD_DOWN) View.FOCUS_DOWN else View.FOCUS_UP)
+                if (pane != null && (next == null || !isInside(next, pane))) return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun isInside(view: View, ancestor: View): Boolean {
+        var v: View? = view
+        while (v != null) {
+            if (v === ancestor) return true
+            v = v.parent as? View
+        }
+        return false
+    }
+
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingSection = -1
+
     override fun onResume() {
         super.onResume()
         // Coming back from the Nuvio or rows screens: their summary cards may have changed.
@@ -165,7 +194,12 @@ class SettingsActivity : Activity() {
             tag = ::paint
             setOnFocusChangeListener { v, has ->
                 v.animate().scaleX(if (has) 1.03f else 1f).scaleY(if (has) 1.03f else 1f).setDuration(160).start()
-                if (has && sectionIndex != index) showSection(index, stagger = true)
+                if (has && sectionIndex != index) {
+                    // Wait for the rail to settle before rebuilding, so scrolling through sections stays smooth.
+                    pendingSection = index
+                    main.removeCallbacksAndMessages(null)
+                    main.postDelayed({ if (pendingSection == index) showSection(index, stagger = false) }, 140)
+                }
                 repaintRail()
                 paint(has)
             }
@@ -225,6 +259,7 @@ class SettingsActivity : Activity() {
             val child = content.getChildAt(i)
             child.alpha = 0f
             child.translationY = 14 * dp
+            if (!stagger) child.translationY = 4 * dp
             child.animate().alpha(1f).translationY(0f)
                 .setStartDelay(if (stagger) i * 35L else 0L)
                 .setDuration(if (stagger) 320 else 160)
@@ -271,9 +306,14 @@ class SettingsActivity : Activity() {
         }
     }
 
+    /** Focus lights the row and draws a short bar in the section colour on its left edge, within the card. */
     private fun focusRow(row: View, has: Boolean) {
-        (row.tag as GradientDrawable).setColor(if (has) 0x24FFFFFF else Color.TRANSPARENT)
-        row.animate().scaleX(if (has) 1.015f else 1f).scaleY(if (has) 1.015f else 1f).setDuration(160).start()
+        val bg = row.tag as GradientDrawable
+        bg.setColor(if (has) 0x24FFFFFF else Color.TRANSPARENT)
+        row.foreground = if (has) android.graphics.drawable.LayerDrawable(arrayOf(GradientDrawable().apply {
+            cornerRadius = 2 * dp
+            setColor(accent)
+        })).apply { setLayerSize(0, px(3), px(22)); setLayerGravity(0, Gravity.START or Gravity.CENTER_VERTICAL); setLayerInsetLeft(0, px(5)) } else null
     }
 
     private fun textBlock(title: String, subtitle: String?): Pair<LinearLayout, TextView> {

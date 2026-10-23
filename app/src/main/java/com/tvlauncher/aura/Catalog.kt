@@ -99,6 +99,21 @@ object Catalog {
         }
     }
 
+    /** Searches Cinemeta's movies and series by name (no caching: results are per keystroke). */
+    fun search(query: String): List<Title> {
+        val q = URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
+        return listOf("movie", "series").flatMap { type ->
+            runCatching {
+                val conn = URL("https://v3-cinemeta.strem.io/catalog/$type/top/search=$q.json").openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 8000
+                conn.instanceFollowRedirects = true
+                val body = try { conn.inputStream.bufferedReader().readText() } finally { conn.disconnect() }
+                parse(body, "https://v3-cinemeta.strem.io").take(15)
+            }.getOrDefault(emptyList())
+        }
+    }
+
     private fun cacheFile(context: Context, source: Addons.Row, genre: String?) =
         File(context.cacheDir, "catalog_${(source.key + "|" + (genre ?: "all")).hashCode().toUInt()}.json")
 

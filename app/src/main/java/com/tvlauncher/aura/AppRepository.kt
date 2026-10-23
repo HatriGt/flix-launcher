@@ -19,6 +19,8 @@ data class AppEntry(
     val iconFullBleed: Boolean,
     /** Dominant colour of the banner, used for the focus glow. */
     val accent: Int,
+    /** The app's own category (ApplicationInfo.CATEGORY_*), for the All apps filters. */
+    val category: Int = -1,
 )
 
 class AppRepository(private val context: Context) {
@@ -50,6 +52,7 @@ class AppRepository(private val context: Context) {
                     hasIcon = hasIcon,
                     iconFullBleed = look(pkg, appInfo, icon, banner).second,
                     accent = look(pkg, appInfo, icon, banner, hasIcon).first,
+                    category = appInfo.category,
                 )
             }
         }

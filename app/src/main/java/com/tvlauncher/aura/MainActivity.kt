@@ -460,7 +460,9 @@ class MainActivity : Activity() {
     /** Home pressed while already home: go back to the first favourite. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (resumed) returnToStart()
+        // Home always lands at the start of the dock, whether pressed on the home
+        // screen or from inside another app.
+        main.post { returnToStart() }
     }
 
     @Deprecated("Home screen has nowhere to go back to")
@@ -468,6 +470,8 @@ class MainActivity : Activity() {
 
     private fun returnToStart() {
         if (idle) setIdle(false)
+        exitBrowse()
+        rowsScroll.scrollTo(0, 0)
         appsList.smoothScrollToPosition(0)
         focusFavorite(0)
     }
