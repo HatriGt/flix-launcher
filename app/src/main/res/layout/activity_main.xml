@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/fallback_background">
+
+    <ImageView
+        android:id="@+id/wallpaper_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/wallpaper_video"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:focusable="false"
+        app:resize_mode="zoom"
+        app:shutter_background_color="@android:color/transparent"
+        app:surface_type="surface_view"
+        app:use_controller="false" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/scrim" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingTop="28dp"
+        android:paddingBottom="22dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="44dp"
+            android:paddingEnd="44dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/clock"
+                    style="@style/Aura.Text"
+                    android:fontFamily="sans-serif-thin"
+                    android:includeFontPadding="false"
+                    android:textSize="64sp" />
+
+                <TextView
+                    android:id="@+id/date"
+                    style="@style/Aura.Text"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="sans-serif-light"
+                    android:letterSpacing="0.04"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/weather"
+                    style="@style/Aura.Text.Muted"
+                    android:layout_marginTop="6dp"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/quick_settings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/qs_inputs"
+                    style="@style/Aura.QuickButton"
+                    android:contentDescription="Inputs"
+                    android:src="@drawable/ic_input" />
+
+                <ImageButton
+                    android:id="@+id/qs_wifi"
+                    style="@style/Aura.QuickButton"
+                    android:contentDescription="Network"
+                    android:src="@drawable/ic_wifi" />
+
+                <ImageButton
+                    android:id="@+id/qs_settings"
+                    style="@style/Aura.QuickButton"
+                    android:contentDescription="Settings"
+                    android:src="@drawable/ic_settings" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/scene_title"
+            style="@style/Aura.Text.Muted"
+            android:layout_marginStart="44dp"
+            android:layout_marginBottom="10dp"
+            android:alpha="0.75"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/focused_label"
+            style="@style/Aura.Text"
+            android:layout_marginStart="44dp"
+            android:fontFamily="sans-serif-medium"
+            android:textSize="20sp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/favorites"
+            android:layout_width="match_parent"
+            android:layout_height="124dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingTop="14dp" />
+
+        <TextView
+            style="@style/Aura.Text.Muted"
+            android:layout_marginStart="44dp"
+            android:layout_marginTop="2dp"
+            android:letterSpacing="0.12"
+            android:text="ALL APPS"
+            android:textSize="11sp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/apps"
+            android:layout_width="match_parent"
+            android:layout_height="96dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingTop="10dp" />
+    </LinearLayout>
+</FrameLayout>
