@@ -47,7 +47,7 @@ object NuvioAccount {
         val rows = JSONArray(rpc(context, "start_tv_login_session", JSONObject()
             .put("p_device_nonce", nonce)
             .put("p_redirect_base_url", "https://nuvio.tv/tv-login")
-            .put("p_device_name", "Aura on ${android.os.Build.MODEL}"), anonymous = true))
+            .put("p_device_name", "Lumo on ${android.os.Build.MODEL}"), anonymous = true))
         val row = rows.getJSONObject(0)
         val expires = runCatching {
             java.time.OffsetDateTime.parse(row.getString("expires_at")).toInstant().toEpochMilli()

@@ -140,10 +140,10 @@ class SettingsActivity : Activity() {
 
     // ---- Rail ----
 
-    /** Wordmark: "aura" set light with a small gradient dot, the way the brand reads everywhere. */
+    /** Wordmark: "lumo" set light with a small gradient dot, the way the brand reads everywhere. */
     private fun brand(): View {
         val word = TextView(this).apply {
-            text = "aura"
+            text = "lumo"
             textSize = 24f
             letterSpacing = 0.02f
             setTextColor(Color.WHITE)
