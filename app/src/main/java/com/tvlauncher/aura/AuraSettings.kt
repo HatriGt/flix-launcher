@@ -55,12 +55,14 @@ object AuraSettings {
 
     // Movies & shows
     val SUGGESTIONS = toggle("suggestions", "Movie & show rows", summary = "Suggestions that open in Nuvio")
+    val CONTINUE_WATCHING = toggle("continue_watching", "Continue watching", summary = "From your Nuvio account")
     val GENRE = Option("genre", "Genre", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
         "Thriller" to "Thriller", "Horror" to "Horror", "Romance" to "Romance", "Sci-Fi" to "Sci-Fi", "Animation" to "Animation",
         "Crime" to "Crime", "Family" to "Family"), "all")
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
 
+    const val ACTION_NUVIO = "Nuvio account…"
     const val ACTION_ROWS = "Addons & rows…"
     const val ACTION_SHOW_TITLES = "Show hidden titles"
     const val ACTION_HIDDEN = "Hidden apps"
@@ -69,8 +71,8 @@ object AuraSettings {
     val SECTIONS = listOf(
         Section("Icons", listOf(ICON_SHAPE, ICON_SIZE, LABELS, GLOW, MOTION)),
         Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, SUN_ARC, WEATHER, FORECAST, UNITS)),
-        Section("Movies & shows", listOf(SUGGESTIONS, GENRE, POSTER_SIZE, BACKDROP),
-            listOf(ACTION_ROWS, ACTION_SHOW_TITLES)),
+        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, GENRE, POSTER_SIZE, BACKDROP),
+            listOf(ACTION_NUVIO, ACTION_ROWS, ACTION_SHOW_TITLES)),
         Section("Background", listOf(WALLPAPER, SHUFFLE, DIM, SCENE_NAME)),
         Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE), listOf(ACTION_HIDDEN, ACTION_RESET)),
     )

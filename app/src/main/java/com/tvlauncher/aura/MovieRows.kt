@@ -44,6 +44,13 @@ class MovieRows(
             "large" -> 100 to 150
             else -> 86 to 129
         }
+        if (NuvioAccount.isSignedIn(activity) && AuraSettings.isOn(activity, AuraSettings.CONTINUE_WATCHING)) {
+            val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
+            rows += row
+            container.addView(row.view)
+            row.view.visibility = View.GONE // shown once progress arrives
+            refreshContinue(force = true)
+        }
         for (source in sources) {
             val row = makeRow(source, (w * dp).roundToInt(), (h * dp).roundToInt(), genre)
             rows += row
@@ -52,11 +59,30 @@ class MovieRows(
         }
     }
 
+    private var lastContinueAt = 0L
+
+    /** Re-reads Nuvio watch progress, at most every couple of minutes. */
+    fun refreshContinue(force: Boolean = false) {
+        val row = rows.firstOrNull { it.source === CONTINUE } ?: return
+        if (!force && System.currentTimeMillis() - lastContinueAt < 120_000) return
+        lastContinueAt = System.currentTimeMillis()
+        net.execute {
+            val titles = runCatching { NuvioAccount.continueWatching(activity) }
+                .onFailure { android.util.Log.w("Aura", "Continue watching failed", it) }
+                .getOrNull() ?: return@execute
+            main.post { if (row in rows) show(row, titles) }
+        }
+    }
+
     private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?): Row {
         val springy = AuraSettings.get(activity, AuraSettings.MOTION) == "spring"
         val adapter = PosterAdapter(w, h, dp, springy, onFocus, onOpen, onMenu)
         val title = TextView(activity).apply {
-            text = if (genre == null || !source.supportsGenre) source.title else "${source.title} · $genre"
+            val kind = if (source.type == "series") "Series" else "Movies"
+            // Addons often reuse a name for their movie and series lists; tell them apart.
+            val clash = Addons.rows(activity).count { it.enabled && it.title == source.title } > 1
+            val base = if (clash) "${source.title} · $kind" else source.title
+            text = if (genre == null || !source.supportsGenre) base else "$base · $genre"
             textSize = 14f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -103,6 +129,11 @@ class MovieRows(
 
     /** Re-applies the hidden-titles filter without refetching. */
     fun refreshHidden() = rows.forEach { show(it, it.all) }
+
+    companion object {
+        /** Stand-in source for the Continue watching row, which comes from the Nuvio account rather than an addon. */
+        val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
+    }
 
     /** The row whose poster list contains [view], if any. */
     fun rowOf(view: View?): Row? = rows.firstOrNull { it.list === view?.parent }

@@ -26,16 +26,26 @@ object Catalog {
         val runtime: String?,
         val genres: List<String>,
         val description: String?,
+        /** Base URL of the addon the title came from; Nuvio needs it for ids that aren't IMDb ids. */
+        val addonBase: String? = null,
+        /** For Continue watching: how far through it the user is (0–1), and which episode. */
+        val progress: Float? = null,
+        val episodeLabel: String? = null,
     ) {
         /** Opens the title's page in Nuvio, ready to pick a stream and play. */
-        val nuvioUri get() = "nuvio://detail/$type/$id"
+        val nuvioUri: String
+            get() {
+                val base = "nuvio://detail/$type/${java.net.URLEncoder.encode(id, "UTF-8")}"
+                return if (id.startsWith("tt") || addonBase == null) base
+                else "$base?addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}"
+            }
     }
 
     private const val MAX_AGE_MS = 6 * 60 * 60 * 1000L
 
     /** Cached titles if any (even stale), for an instant first paint. */
     fun cached(context: Context, source: Addons.Row, genre: String?): List<Title>? =
-        cacheFile(context, source, genre).takeIf { it.exists() }?.let { runCatching { parse(it.readText()) }.getOrNull() }
+        cacheFile(context, source, genre).takeIf { it.exists() }?.let { runCatching { parse(it.readText(), source.base) }.getOrNull() }
 
     fun isFresh(context: Context, source: Addons.Row, genre: String?) =
         cacheFile(context, source, genre).let { it.exists() && System.currentTimeMillis() - it.lastModified() < MAX_AGE_MS }
@@ -56,12 +66,15 @@ object Catalog {
         } finally {
             conn.disconnect()
         }
-        val titles = parse(body)
+        val titles = parse(body, source.base)
         cacheFile(context, source, genre).writeText(body)
         titles
     }.getOrNull()
 
-    private fun parse(body: String): List<Title> {
+    /** JSON nulls come back from optString as the text "null"; treat those, and blanks, as missing. */
+    private fun JSONObject.text(key: String): String? = optString(key).takeIf { it.isNotBlank() && it != "null" }
+
+    private fun parse(body: String, addonBase: String): List<Title> {
         val metas = JSONObject(body).getJSONArray("metas")
         return (0 until metas.length()).mapNotNull { i ->
             val m = metas.getJSONObject(i)
@@ -73,14 +86,15 @@ object Catalog {
                 id = id,
                 type = m.optString("type", "movie"),
                 name = m.optString("name"),
-                poster = m.optString("poster").ifBlank { null } ?: art?.let { "$it/poster/small/$id/img" },
-                backdrop = m.optString("background").ifBlank { null } ?: art?.let { "$it/background/medium/$id/img" },
-                logo = m.optString("logo").ifBlank { null } ?: art?.let { "$it/logo/medium/$id/img" },
-                year = m.optString("releaseInfo").ifBlank { m.optString("year") }.ifBlank { null },
-                rating = m.optString("imdbRating").ifBlank { null },
-                runtime = m.optString("runtime").ifBlank { null },
+                poster = m.text("poster") ?: art?.let { "$it/poster/small/$id/img" },
+                backdrop = m.text("background") ?: art?.let { "$it/background/medium/$id/img" },
+                logo = m.text("logo") ?: art?.let { "$it/logo/medium/$id/img" },
+                year = m.text("releaseInfo") ?: m.text("year"),
+                rating = m.text("imdbRating"),
+                runtime = m.text("runtime"),
                 genres = genres?.let { g -> (0 until g.length()).map { g.getString(it) } }.orEmpty(),
-                description = m.optString("description").ifBlank { null },
+                description = m.text("description"),
+                addonBase = addonBase,
             )
         }
     }

@@ -134,6 +134,10 @@ class SettingsActivity : Activity() {
         setOnClickListener {
             when (title) {
                 AuraSettings.ACTION_HIDDEN -> showHiddenApps()
+                AuraSettings.ACTION_NUVIO -> {
+                    startActivity(android.content.Intent(this@SettingsActivity, NuvioLoginActivity::class.java))
+                    overridePendingTransition(0, 0)
+                }
                 AuraSettings.ACTION_ROWS -> {
                     startActivity(android.content.Intent(this@SettingsActivity, RowsActivity::class.java))
                     overridePendingTransition(0, 0)

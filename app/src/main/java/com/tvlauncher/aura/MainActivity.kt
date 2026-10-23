@@ -405,6 +405,7 @@ class MainActivity : Activity() {
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         if (appliedRevision != AuraSettings.revision(this)) applySettings()
         if (browsing) main.postDelayed(pauseForBackdrop, 1500)
+        movieRows.refreshContinue()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
     }

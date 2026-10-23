@@ -147,7 +147,9 @@ object Addons {
             if (existing.none { it.key == row.key } && added.none { it.key == row.key }) added += row
         }
         if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues Aura can show")
-        save(context, existing + added)
+        // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
+        val rows = if (added.size > MAX_SHOWN_ON_ADD) added.map { it.copy(enabled = false) } else added
+        save(context, existing + rows)
         return added.size
     }
 
@@ -160,4 +162,5 @@ object Addons {
     }
 
     private const val KEY = "catalogue_rows"
+    private const val MAX_SHOWN_ON_ADD = 6
 }

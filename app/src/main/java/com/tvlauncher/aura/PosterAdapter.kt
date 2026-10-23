@@ -83,13 +83,34 @@ class PosterAdapter(
                 setColor(0xCC0B0F14.toInt())
             }
         }
+        // Continue watching: a progress bar and episode tag along the bottom.
+        val shade = View(context).apply {
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xE6000000.toInt(), 0)
+            )
+        }
+        val episode = TextView(context).apply {
+            textSize = 10f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
+        val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
         card.addView(poster, FrameLayout.LayoutParams(-1, -1))
         card.addView(badge, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
             topMargin = (5 * density).toInt()
             marginEnd = (5 * density).toInt()
         })
-        return Holder(card, poster, fallback, badge)
+        val barHeight = (3 * density).toInt()
+        card.addView(shade, FrameLayout.LayoutParams(-1, (h(0.32f)), Gravity.BOTTOM))
+        card.addView(episode, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
+            marginStart = (7 * density).toInt()
+            bottomMargin = (9 * density).toInt()
+        })
+        card.addView(track, FrameLayout.LayoutParams(-1, barHeight, Gravity.BOTTOM))
+        card.addView(bar, FrameLayout.LayoutParams(0, barHeight, Gravity.BOTTOM))
+        return Holder(card, poster, fallback, badge, shade, episode, track, bar)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
@@ -98,9 +119,25 @@ class PosterAdapter(
         holder.poster.tag = null
     }
 
-    inner class Holder(view: View, val poster: ImageView, private val fallback: TextView, private val badge: TextView) :
-        RecyclerView.ViewHolder(view) {
+    private fun h(fraction: Float) = (heightPx * fraction).toInt()
+
+    inner class Holder(
+        view: View,
+        val poster: ImageView,
+        private val fallback: TextView,
+        private val badge: TextView,
+        private val shade: View,
+        private val episode: TextView,
+        private val track: View,
+        private val bar: View,
+    ) : RecyclerView.ViewHolder(view) {
         fun bind(title: Catalog.Title) {
+            val progress = title.progress
+            val inProgress = progress != null
+            listOf(shade, track, bar).forEach { it.visibility = if (inProgress) View.VISIBLE else View.GONE }
+            episode.visibility = if (title.episodeLabel != null) View.VISIBLE else View.GONE
+            episode.text = title.episodeLabel
+            if (progress != null) bar.layoutParams = bar.layoutParams.apply { width = (widthPx * progress.coerceIn(0.03f, 1f)).toInt() }
             fallback.text = title.name
             Images.into(poster, title.poster, widthPx)
             badge.text = title.rating?.let { "★ $it" }
