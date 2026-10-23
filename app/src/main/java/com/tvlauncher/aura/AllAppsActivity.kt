@@ -167,8 +167,13 @@ class AllAppsActivity : Activity() {
             setPadding(px(44), 0, px(16), 0)
             // Moving over the box shouldn't summon the keyboard; OK (or typing) does.
             showSoftInputOnFocus = false
-            setOnFocusChangeListener { _, has -> background = if (has) active else idle }
-            setOnClickListener { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(this, 0) }
+            setOnFocusChangeListener { v, has ->
+                background = if (has) active else idle
+                // The TV keyboard opens on focus regardless; close it unless it was asked for.
+                if (has && !wantKeyboard) v.post { imm().hideSoftInputFromWindow(v.windowToken, 0) }
+                if (!has) wantKeyboard = false
+            }
+            setOnClickListener { wantKeyboard = true; imm().showSoftInput(this, InputMethodManager.SHOW_IMPLICIT) }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -184,6 +189,10 @@ class AllAppsActivity : Activity() {
             }
         }
     }
+
+    private var wantKeyboard = false
+
+    private fun imm() = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
     private fun onQuery(text: String) {
         query = text.trim()
@@ -330,6 +339,7 @@ class AllAppsActivity : Activity() {
     /** Typing a letter anywhere jumps straight into search. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN && !search.isFocused && event.isPrintingKey && event.unicodeChar != 0) {
+            wantKeyboard = true
             search.requestFocus()
             search.append(event.unicodeChar.toChar().toString())
             return true
