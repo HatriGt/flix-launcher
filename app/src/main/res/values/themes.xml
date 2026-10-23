@@ -9,6 +9,12 @@
         <item name="android:colorAccent">#FFFFFFFF</item>
     </style>
 
+    <style name="Theme.Aura.Settings" parent="Theme.Aura">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
     <style name="Theme.Aura.Dialog" parent="@android:style/Theme.DeviceDefault.Dialog.Alert" />
 
     <style name="Aura" />

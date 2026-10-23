@@ -42,6 +42,18 @@ class ClockView @JvmOverloads constructor(context: Context, attrs: AttributeSet?
         setShadowLayer(18f, 0f, 2f, 0x66000000)
     }
 
+    /** duo: medium hours, thin minutes · thin: all thin · bold: all medium with a warmer gradient. */
+    fun setStyle(style: String) {
+        hourPaint.typeface = Typeface.create(if (style == "thin") "sans-serif-thin" else "sans-serif-medium", Typeface.NORMAL)
+        minutePaint.typeface = Typeface.create(if (style == "bold") "sans-serif-medium" else "sans-serif-thin", Typeface.NORMAL)
+        gradientEnd = if (style == "bold") 0xFFFFD8A8.toInt() else 0xFFA9DCFF.toInt()
+        minutePaint.shader = null
+        requestLayout()
+        invalidate()
+    }
+
+    private var gradientEnd = 0xFFA9DCFF.toInt()
+
     fun setTime(h: String, m: String) {
         val newText = "$h:$m"
         val current = "$hours:$minutes"
@@ -83,7 +95,7 @@ class ClockView @JvmOverloads constructor(context: Context, attrs: AttributeSet?
         x += colonWidth()
         if (minutePaint.shader == null) {
             val w = minutePaint.measureText(minutes)
-            minutePaint.shader = LinearGradient(x, 0f, x + w, lineHeight, 0xFFFFFFFF.toInt(), 0xFFA9DCFF.toInt(), Shader.TileMode.CLAMP)
+            minutePaint.shader = LinearGradient(x, 0f, x + w, lineHeight, 0xFFFFFFFF.toInt(), gradientEnd, Shader.TileMode.CLAMP)
         }
         drawDigits(canvas, minutes, oldText.substringAfter(':', ""), minutePaint, x, baseline, rollDistance)
         canvas.restore()

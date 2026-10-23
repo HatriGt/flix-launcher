@@ -12,7 +12,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 
 /** YouTube-style banner shown for SmartTube: red play button and wordmark on near-black. */
-class YouTubeBanner : Drawable() {
+class YouTubeBanner(private val iconOnly: Boolean = false) : Drawable() {
     private val background = Paint(Paint.ANTI_ALIAS_FLAG)
     private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFF0033.toInt() }
     private val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
@@ -37,6 +37,15 @@ class YouTubeBanner : Drawable() {
         val h = b.height().toFloat()
         canvas.drawRect(b, background)
 
+        if (iconOnly) {
+            val bw = w * 0.56f
+            val bh = bw / 1.42f
+            rect.set(b.left + (w - bw) / 2f, b.top + (h - bh) / 2f, b.left + (w + bw) / 2f, b.top + (h + bh) / 2f)
+            canvas.drawRoundRect(rect, bh * 0.28f, bh * 0.28f, red)
+            drawPlay(canvas, bh)
+            return
+        }
+
         text.textSize = h * 0.26f
         val label = "YouTube"
         val buttonH = h * 0.34f
@@ -49,6 +58,14 @@ class YouTubeBanner : Drawable() {
         rect.set(left, top, left + buttonW, top + buttonH)
         canvas.drawRoundRect(rect, buttonH * 0.28f, buttonH * 0.28f, red)
 
+        drawPlay(canvas, buttonH)
+
+        val cy = rect.centerY()
+        val baseline = cy - (text.descent() + text.ascent()) / 2f
+        canvas.drawText(label, rect.right + gap, baseline, text)
+    }
+
+    private fun drawPlay(canvas: Canvas, buttonH: Float) {
         val cx = rect.centerX() + buttonH * 0.04f
         val cy = rect.centerY()
         val t = buttonH * 0.2f
@@ -58,9 +75,6 @@ class YouTubeBanner : Drawable() {
         triangle.lineTo(cx - t * 0.85f, cy + t)
         triangle.close()
         canvas.drawPath(triangle, white)
-
-        val baseline = cy - (text.descent() + text.ascent()) / 2f
-        canvas.drawText(label, rect.right + gap, baseline, text)
     }
 
     override fun setAlpha(alpha: Int) {}

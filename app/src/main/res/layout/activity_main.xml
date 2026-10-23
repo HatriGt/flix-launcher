@@ -36,6 +36,13 @@
         android:layout_height="match_parent"
         android:background="@drawable/scrim" />
 
+    <View
+        android:id="@+id/dim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:background="@android:color/black" />
+
     <LinearLayout
         android:id="@+id/ui"
         android:layout_width="match_parent"
@@ -112,6 +119,12 @@
                         android:src="@drawable/ic_wifi" />
 
                     <ImageButton
+                        android:id="@+id/qs_aura"
+                        style="@style/Aura.QuickButton"
+                        android:contentDescription="Aura settings"
+                        android:src="@drawable/ic_tune" />
+
+                    <ImageButton
                         android:id="@+id/qs_settings"
                         style="@style/Aura.QuickButton"
                         android:contentDescription="Settings"
@@ -182,6 +195,7 @@
                     </LinearLayout>
 
                     <View
+                        android:id="@+id/forecast_divider"
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginTop="10dp"

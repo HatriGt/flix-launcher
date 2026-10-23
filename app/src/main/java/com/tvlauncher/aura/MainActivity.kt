@@ -24,7 +24,10 @@ import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -67,6 +70,13 @@ class MainActivity : Activity() {
     private var resumed = false
     private var labelTarget: CharSequence = ""
     private var sceneTarget: CharSequence = ""
+    private var lastReport: Weather.Report? = null
+    private var appliedRevision = -1
+    private var settingsOpen = false
+
+    private val settingsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = applySettings()
+    }
 
     private val goIdle = Runnable { setIdle(true) }
     private val nextImage = Runnable { showImage(imageIndex + 1) }
@@ -81,7 +91,11 @@ class MainActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             val now = Date()
-            val is24 = DateFormat.is24HourFormat(this@MainActivity)
+            val is24 = when (AuraSettings.get(this@MainActivity, AuraSettings.CLOCK_FORMAT)) {
+                "12" -> false
+                "24" -> true
+                else -> DateFormat.is24HourFormat(this@MainActivity)
+            }
             clock.setTime(DateFormat.format(if (is24) "HH" else "h", now).toString(), DateFormat.format("mm", now).toString())
             date.text = DateFormat.format("EEEE, d MMMM", now)
             greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
@@ -113,9 +127,8 @@ class MainActivity : Activity() {
         imageView = findViewById(R.id.wallpaper_image)
         videoView.alpha = 1f
 
-        val dp = resources.displayMetrics.density
-        favoritesAdapter = AppAdapter((160 * dp).roundToInt(), (90 * dp).roundToInt(), ::onAppFocused, ::launch, ::showAppMenu)
-        appsAdapter = AppAdapter((112 * dp).roundToInt(), (63 * dp).roundToInt(), ::onAppFocused, ::launch, ::showAppMenu)
+        favoritesAdapter = AppAdapter(tileStyle(favorites = true), ::onAppFocused, ::launch, ::showAppMenu)
+        appsAdapter = AppAdapter(tileStyle(favorites = false), ::onAppFocused, ::launch, ::showAppMenu)
         favoritesList = setUpRow(R.id.favorites, favoritesAdapter)
         appsList = setUpRow(R.id.apps, appsAdapter)
         playEntrance()
@@ -123,6 +136,7 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.qs_inputs).setOnClickListener { openInputs() }
         findViewById<View>(R.id.qs_wifi).setOnClickListener { open(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<View>(R.id.qs_settings).setOnClickListener { open(Intent(Settings.ACTION_SETTINGS)) }
+        findViewById<View>(R.id.qs_aura).setOnClickListener { openAuraSettings() }
 
         registerReceiver(packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -130,8 +144,83 @@ class MainActivity : Activity() {
             addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         })
+        registerReceiver(settingsReceiver, IntentFilter(SettingsActivity.ACTION_CHANGED), RECEIVER_NOT_EXPORTED_FLAG)
+        applySettings()
         loadApps()
         loadWallpapers()
+    }
+
+    private fun openAuraSettings() {
+        settingsOpen = true
+        startActivity(Intent(this, SettingsActivity::class.java))
+        overridePendingTransition(0, 0)
+    }
+
+    private fun isOn(option: AuraSettings.Option) = AuraSettings.isOn(this, option)
+
+    /** Tile geometry for the chosen shape and size; the favourites row is a step larger than All apps. */
+    private fun tileStyle(favorites: Boolean): TileStyle {
+        val dp = resources.displayMetrics.density
+        val shape = AuraSettings.get(this, AuraSettings.ICON_SHAPE)
+        val step = listOf("small", "medium", "large").indexOf(AuraSettings.get(this, AuraSettings.ICON_SIZE))
+        val (w, h) = if (shape == "banner") {
+            val width = (if (favorites) listOf(128, 160, 192) else listOf(96, 112, 136))[step]
+            width to width * 9 / 16
+        } else {
+            val size = (if (favorites) listOf(64, 80, 96) else listOf(50, 60, 70))[step]
+            size to size
+        }
+        return TileStyle(
+            shape = shape,
+            widthPx = (w * dp).roundToInt(),
+            heightPx = (h * dp).roundToInt(),
+            labels = AuraSettings.get(this, AuraSettings.LABELS),
+            glow = isOn(AuraSettings.GLOW),
+            motion = AuraSettings.get(this, AuraSettings.MOTION),
+            density = dp,
+        )
+    }
+
+    /** Re-reads every option and updates the screen in place. */
+    private fun applySettings() {
+        appliedRevision = AuraSettings.revision(this)
+        val dp = resources.displayMetrics.density
+        for ((list, adapter, favorites) in listOf(Triple(favoritesList, favoritesAdapter, true), Triple(appsList, appsAdapter, false))) {
+            val style = tileStyle(favorites)
+            adapter.style = style
+            val labelSpace = if (style.labels == "never") 0f else 24 * dp
+            val growRoom = style.heightPx * (if (style.isBanner) 0.06f else 0.1f) + 8 * dp
+            list.setPadding(list.paddingLeft, growRoom.roundToInt(), list.paddingRight, (growRoom * 0.6f).roundToInt())
+            list.layoutParams = list.layoutParams.apply {
+                height = (style.heightPx + labelSpace + growRoom * 1.6f).roundToInt()
+            }
+        }
+        // With names under every tile, the big name above the row would just repeat them.
+        focusedLabel.visibility = if (favoritesAdapter.style.labels == "always" && !favoritesAdapter.style.isBanner) View.GONE else View.VISIBLE
+
+        val allApps = isOn(AuraSettings.ALL_APPS)
+        appsList.visibility = if (allApps) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.all_apps_label).visibility = appsList.visibility
+
+        clock.setStyle(AuraSettings.get(this, AuraSettings.CLOCK_STYLE))
+        greeting.visibility = if (isOn(AuraSettings.GREETING)) View.VISIBLE else View.GONE
+        date.visibility = if (isOn(AuraSettings.DATE)) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.weather_card).visibility = if (isOn(AuraSettings.WEATHER)) View.VISIBLE else View.GONE
+        lastReport?.let(::showWeather) ?: sunArc.setSun(null, null)
+        main.removeCallbacks(tick)
+        main.post(tick)
+
+        findViewById<View>(R.id.dim).animate().alpha(dimLevel()).setDuration(300).start()
+        sceneTitle.visibility = if (isOn(AuraSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
+        player?.shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
+        startWallpaper()
+        if (!idle) scheduleIdle()
+    }
+
+    private fun dimLevel() = when (AuraSettings.get(this, AuraSettings.DIM)) {
+        "low" -> 0f
+        "high" -> 0.3f
+        else -> 0.12f
     }
 
     private fun setUpRow(id: Int, adapter: AppAdapter): RecyclerView =
@@ -179,13 +268,16 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        settingsOpen = false
+        if (appliedRevision != AuraSettings.revision(this)) applySettings()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
     }
 
     override fun onPause() {
         resumed = false
-        player?.pause()
+        // The settings panel is see-through, so keep the scenery moving behind it.
+        if (!settingsOpen) player?.pause()
         main.removeCallbacks(goIdle)
         super.onPause()
     }
@@ -199,6 +291,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
+        unregisterReceiver(settingsReceiver)
         main.removeCallbacksAndMessages(null)
         player?.release()
         io.shutdownNow()
@@ -229,20 +322,44 @@ class MainActivity : Activity() {
             return true // the key that wakes the screen shouldn't also move focus
         }
         scheduleIdle()
+        if (event.action == KeyEvent.ACTION_DOWN && moveBetweenAreas(event.keyCode)) return true
         return super.dispatchKeyEvent(event)
     }
 
+    /**
+     * The top buttons sit far to the right of the rows, so the default focus search
+     * can't find them: Up from favourites goes to the buttons, Down from them comes back.
+     */
+    private fun moveBetweenAreas(keyCode: Int): Boolean {
+        val focused = currentFocus ?: return false
+        return when {
+            keyCode == KeyEvent.KEYCODE_DPAD_UP && focused.parent == favoritesList -> {
+                lastFavoriteFocus = favoritesList.getChildAdapterPosition(focused)
+                findViewById<View>(R.id.qs_aura).requestFocus()
+            }
+            keyCode == KeyEvent.KEYCODE_DPAD_DOWN && focused.parent == findViewById<View>(R.id.quick_settings) -> {
+                focusFavorite(lastFavoriteFocus.coerceAtLeast(0))
+                true
+            }
+            else -> false
+        }
+    }
+
+    private var lastFavoriteFocus = 0
+
     private fun scheduleIdle() {
         main.removeCallbacks(goIdle)
-        main.postDelayed(goIdle, IDLE_AFTER_MS)
+        val seconds = AuraSettings.get(this, AuraSettings.IDLE).toLongOrNull() ?: return
+        main.postDelayed(goIdle, seconds * 1000)
     }
 
     private fun setIdle(value: Boolean) {
-        if (value && media.isEmpty()) return scheduleIdle() // nothing to look at without scenery
+        if (value && (media.isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
         idle = value
         val duration = if (value) 1200L else 350L
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
+        findViewById<View>(R.id.dim).animate().alpha(if (value) 0f else dimLevel()).setDuration(duration).start()
         if (!value) scheduleIdle()
     }
 
@@ -366,15 +483,20 @@ class MainActivity : Activity() {
     }
 
     private fun showWeather(report: Weather.Report) {
+        lastReport = report
+        val f = AuraSettings.get(this, AuraSettings.UNITS) == "f"
+        fun t(c: Int) = if (f) (c * 9f / 5f + 32f).roundToInt() else c
         findViewById<TextView>(R.id.weather_place).text = report.place
         findViewById<TextView>(R.id.weather_icon).text = report.icon
-        findViewById<TextView>(R.id.weather_temp).text = "${report.temperature}°"
+        findViewById<TextView>(R.id.weather_temp).text = "${t(report.temperature)}°"
         findViewById<TextView>(R.id.weather_condition).text = report.condition
         findViewById<TextView>(R.id.weather_details).text =
-            "Feels ${report.feelsLike}° · ${report.humidity}% · ${report.windKmh} km/h"
-        sunArc.setSun(report.sunrise, report.sunset)
+            "Feels ${t(report.feelsLike)}° · ${report.humidity}% · ${report.windKmh} km/h"
+        if (isOn(AuraSettings.SUN_ARC)) sunArc.setSun(report.sunrise, report.sunset) else sunArc.setSun(null, null)
 
         val forecast = findViewById<LinearLayout>(R.id.forecast)
+        forecast.visibility = if (isOn(AuraSettings.FORECAST)) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.forecast_divider).visibility = forecast.visibility
         forecast.removeAllViews()
         for (day in report.days.take(3)) {
             forecast.addView(TextView(this).apply {
@@ -383,7 +505,7 @@ class MainActivity : Activity() {
                 setTextColor(0xFFFFFFFF.toInt())
                 textSize = 10f
                 setLineSpacing(0f, 1.25f)
-                text = "${day.name}\n${day.icon}\n${day.high}°  ${day.low}°"
+                text = "${day.name}\n${day.icon}\n${t(day.high)}°  ${t(day.low)}°"
                 alpha = 0.92f
             })
         }
@@ -408,7 +530,16 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun videoWallpaper() = AuraSettings.get(this, AuraSettings.WALLPAPER) == "video"
+
     private fun startWallpaper() {
+        if (!videoWallpaper()) {
+            main.removeCallbacks(nextImage)
+            releasePlayer.run()
+            veil.animate().alpha(1f).setDuration(500).start()
+            showSceneTitle(null)
+            return
+        }
         val videos = media.filter { it.isVideo }
         if (videos.isNotEmpty()) startVideos(videos) else if (media.isNotEmpty()) showImage(imageIndex)
     }
@@ -419,10 +550,14 @@ class MainActivity : Activity() {
             return
         }
         veil.alpha = 1f
-        val exo = ExoPlayer.Builder(this).build().apply {
+        // Some catalogue clips no longer exist; give up on them quickly instead of after the 8 s default.
+        val http = DefaultHttpDataSource.Factory().setConnectTimeoutMs(3500).setReadTimeoutMs(5000)
+        val exo = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)))
+            .build().apply {
             volume = 0f
             repeatMode = Player.REPEAT_MODE_ALL
-            shuffleModeEnabled = true
+            shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
             setMediaItems(videos.map { MediaItem.Builder().setUri(it.uri).setTag(it.title).build() })
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
@@ -488,7 +623,7 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        const val IDLE_AFTER_MS = 60_000L
+        const val RECEIVER_NOT_EXPORTED_FLAG = 0x4 // Context.RECEIVER_NOT_EXPORTED, named in API 33
         const val KEEP_PLAYER_MS = 90_000L
     }
 }

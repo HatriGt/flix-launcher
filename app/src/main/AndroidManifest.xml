@@ -52,6 +52,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Aura.Settings" />
+
         <service
             android:name=".HomeKeyService"
             android:exported="true"

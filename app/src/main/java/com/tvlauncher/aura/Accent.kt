@@ -34,4 +34,17 @@ object Accent {
         bitmap.recycle()
         best
     }.getOrDefault(FALLBACK)
+
+    /** True when the drawable paints its whole square (an old-style square icon), so it can fill a round tile edge to edge. */
+    fun isFullBleed(drawable: Drawable): Boolean = runCatching {
+        val bitmap = Bitmap.createBitmap(SAMPLE, SAMPLE, Bitmap.Config.ARGB_8888)
+        val old = drawable.copyBounds()
+        drawable.setBounds(0, 0, SAMPLE, SAMPLE)
+        drawable.draw(Canvas(bitmap))
+        drawable.bounds = old
+        val edge = SAMPLE - 2
+        val corners = listOf(bitmap.getPixel(1, 1), bitmap.getPixel(edge, 1), bitmap.getPixel(1, edge), bitmap.getPixel(edge, edge))
+        bitmap.recycle()
+        corners.all { Color.alpha(it) > 230 }
+    }.getOrDefault(false)
 }

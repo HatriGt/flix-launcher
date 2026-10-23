@@ -3,7 +3,9 @@ package com.tvlauncher.aura
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
+import android.util.DisplayMetrics
 
 data class AppEntry(
     val packageName: String,
@@ -11,6 +13,10 @@ data class AppEntry(
     val banner: Drawable?,
     val icon: Drawable,
     val launchIntent: Intent,
+    /** False when the app ships no launcher icon of its own (many TV-only apps), so tiles fall back to the banner. */
+    val hasIcon: Boolean,
+    /** The icon is an opaque square, so round tiles crop it to fill rather than framing it. */
+    val iconFullBleed: Boolean,
     /** Dominant colour of the banner, used for the focus glow. */
     val accent: Int,
 )
@@ -31,7 +37,8 @@ class AppRepository(private val context: Context) {
                     ?: pm.getLaunchIntentForPackage(pkg)
                     ?: continue
                 val appInfo = info.activityInfo.applicationInfo
-                val icon = info.loadIcon(pm)
+                val hasIcon = pkg == SMARTTUBE || info.activityInfo.iconResource != 0
+                val icon = if (pkg == SMARTTUBE) YouTubeBanner(iconOnly = true) else hiResIcon(info)
                 val banner = if (pkg == SMARTTUBE) YouTubeBanner()
                 else info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm)
                 result += AppEntry(
@@ -40,11 +47,26 @@ class AppRepository(private val context: Context) {
                     banner = banner,
                     icon = icon,
                     launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    accent = Accent.of(banner ?: icon),
+                    hasIcon = hasIcon,
+                    iconFullBleed = Accent.isFullBleed(icon),
+                    accent = Accent.of(if (hasIcon) icon else banner ?: icon),
                 )
             }
         }
         return result.sortedBy { it.label.lowercase() }
+    }
+
+    /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at Aura's tile sizes. */
+    private fun hiResIcon(info: ResolveInfo): Drawable {
+        val activity = info.activityInfo
+        val res = activity.iconResource
+        if (res != 0) {
+            runCatching {
+                pm.getResourcesForApplication(activity.applicationInfo)
+                    .getDrawableForDensity(res, DisplayMetrics.DENSITY_XXXHIGH, null)
+            }.getOrNull()?.let { return it }
+        }
+        return info.loadIcon(pm)
     }
 
     var favorites: List<String>
@@ -71,6 +93,14 @@ class AppRepository(private val context: Context) {
     fun hide(pkg: String) {
         prefs.edit().putStringSet(KEY_HIDDEN, hidden + pkg).apply()
         favorites = favorites - pkg
+    }
+
+    fun unhide(pkg: String) {
+        prefs.edit().putStringSet(KEY_HIDDEN, hidden - pkg).apply()
+    }
+
+    fun resetOrder() {
+        prefs.edit().remove(KEY_FAVORITES).remove(KEY_ORDER_VERSION).apply()
     }
 
     fun toggleFavorite(pkg: String) {
