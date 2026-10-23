@@ -186,7 +186,8 @@ class MainActivity : Activity() {
             val width = (if (favorites) listOf(128, 160, 192) else listOf(96, 112, 136))[step]
             width to width * 9 / 16
         } else {
-            val size = (if (favorites) listOf(64, 80, 96) else listOf(50, 60, 70))[step]
+            // Favourites live in the dock along the top, so they stay compact.
+            val size = (if (favorites) listOf(52, 62, 74) else listOf(50, 60, 70))[step]
             size to size
         }
         return TileStyle(
@@ -216,6 +217,7 @@ class MainActivity : Activity() {
         }
         // With names under every tile, the big name above the row would just repeat them.
         focusedLabel.visibility = if (favoritesAdapter.style.labels == "always" && !favoritesAdapter.style.isBanner) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.hint).visibility = focusedLabel.visibility
 
         val allApps = isOn(AuraSettings.ALL_APPS)
         appsList.visibility = if (allApps) View.VISIBLE else View.GONE
@@ -243,20 +245,32 @@ class MainActivity : Activity() {
     /** Where a focused movie row's title sits on screen; the preview fills the space above it. */
     private fun heroLine() = (296 * resources.displayMetrics.density).toInt()
 
-    /** Puts the favourites at the bottom of the screen at rest, and lets the last movie row reach the hero line. */
+    /**
+     * Apps sit at the top; the clock and weather fill the middle; the first movie row
+     * rests fully visible at the bottom, and the last one can still reach the hero line.
+     */
     private fun sizeScrollArea() {
         val height = rowsScroll.height
         if (height == 0) return
         val dp = resources.displayMetrics.density
+        val visibleRows = movieRows.rows.filter { it.view.visibility == View.VISIBLE }
+        val first = visibleRows.firstOrNull()?.view
+        val last = visibleRows.lastOrNull()?.view
         val spacer = findViewById<View>(R.id.rows_spacer)
-        // With movie rows below, let the first row's title peek above the bottom edge as a hint.
-        val peek = if (movieRows.rows.any { it.view.visibility == View.VISIBLE }) 30 * dp else 0f
-        val wantSpacer = (height - favoritesBlock.height - 14 * dp - peek).toInt().coerceAtLeast((200 * dp).toInt())
-        val last = movieRows.rows.lastOrNull { it.view.visibility == View.VISIBLE }?.view
+        val wantSpacer = if (first == null) 0
+            else (height - favoritesBlock.height - first.height - 4 * dp).toInt().coerceAtLeast((150 * dp).toInt())
         val tail = findViewById<View>(R.id.rows_tail)
         val wantTail = (height - heroLine() - (last?.height ?: 0)).coerceAtLeast(0)
         if (spacer.layoutParams.height != wantSpacer) spacer.layoutParams = spacer.layoutParams.apply { this.height = wantSpacer }
         if (tail.layoutParams.height != wantTail) tail.layoutParams = tail.layoutParams.apply { this.height = wantTail }
+        // The clock and weather start just under the apps.
+        val headerParams = header.layoutParams as android.view.ViewGroup.MarginLayoutParams
+        val wantTop = favoritesBlock.height + (2 * dp).toInt()
+        if (headerParams.topMargin != wantTop) header.layoutParams = headerParams.apply { topMargin = wantTop }
+        // Tiles may grow past the dock's top and bottom when focused, but must not slide under the buttons.
+        val room = (60 * dp).toInt()
+        val clip = android.graphics.Rect(0, -room, favoritesList.width, favoritesList.height + room)
+        if (favoritesList.clipBounds != clip) favoritesList.clipBounds = clip
     }
 
     private fun onFocusMoved(now: View?) {
@@ -443,30 +457,9 @@ class MainActivity : Activity() {
             return true // the key that wakes the screen shouldn't also move focus
         }
         scheduleIdle()
-        if (event.action == KeyEvent.ACTION_DOWN && moveBetweenAreas(event.keyCode)) return true
         return super.dispatchKeyEvent(event)
     }
 
-    /**
-     * The top buttons sit far to the right of the rows, so the default focus search
-     * can't find them: Up from favourites goes to the buttons, Down from them comes back.
-     */
-    private fun moveBetweenAreas(keyCode: Int): Boolean {
-        val focused = currentFocus ?: return false
-        return when {
-            keyCode == KeyEvent.KEYCODE_DPAD_UP && focused.parent == favoritesList -> {
-                lastFavoriteFocus = favoritesList.getChildAdapterPosition(focused)
-                findViewById<View>(R.id.qs_aura).requestFocus()
-            }
-            keyCode == KeyEvent.KEYCODE_DPAD_DOWN && focused.parent == findViewById<View>(R.id.quick_settings) -> {
-                focusFavorite(lastFavoriteFocus.coerceAtLeast(0))
-                true
-            }
-            else -> false
-        }
-    }
-
-    private var lastFavoriteFocus = 0
 
     private fun scheduleIdle() {
         main.removeCallbacks(goIdle)

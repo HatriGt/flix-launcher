@@ -24,7 +24,7 @@ class MovieRows(
     private val onOpen: (Catalog.Title) -> Unit,
     private val onMenu: (Catalog.Title) -> Unit,
 ) {
-    class Row(val source: Catalog.Source, val view: View, val list: RecyclerView, val adapter: PosterAdapter) {
+    class Row(val source: Addons.Row, val view: View, val list: RecyclerView, val adapter: PosterAdapter) {
         var all: List<Catalog.Title> = emptyList()
     }
 
@@ -38,11 +38,7 @@ class MovieRows(
         rows.clear()
         if (!AuraSettings.isOn(activity, AuraSettings.SUGGESTIONS)) return
         val genre = AuraSettings.get(activity, AuraSettings.GENRE).takeIf { it != "all" }
-        val sources = buildList {
-            if (AuraSettings.isOn(activity, AuraSettings.ROW_POPULAR_MOVIES)) add(Catalog.POPULAR_MOVIES)
-            if (AuraSettings.isOn(activity, AuraSettings.ROW_POPULAR_SERIES)) add(Catalog.POPULAR_SERIES)
-            if (AuraSettings.isOn(activity, AuraSettings.ROW_TOP_RATED)) add(Catalog.TOP_RATED)
-        }
+        val sources = Addons.rows(activity).filter { it.enabled }
         val (w, h) = when (AuraSettings.get(activity, AuraSettings.POSTER_SIZE)) {
             "small" -> 72 to 108
             "large" -> 100 to 150
@@ -56,11 +52,11 @@ class MovieRows(
         }
     }
 
-    private fun makeRow(source: Catalog.Source, w: Int, h: Int, genre: String?): Row {
+    private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?): Row {
         val springy = AuraSettings.get(activity, AuraSettings.MOTION) == "spring"
         val adapter = PosterAdapter(w, h, dp, springy, onFocus, onOpen, onMenu)
         val title = TextView(activity).apply {
-            text = if (genre == null) source.title else "${source.title} · $genre"
+            text = if (genre == null || !source.supportsGenre) source.title else "${source.title} · $genre"
             textSize = 14f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)

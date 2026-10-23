@@ -134,8 +134,8 @@
             android:id="@+id/header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="26dp">
+            android:layout_marginTop="130dp"
+            android:orientation="vertical">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -178,6 +178,13 @@
                         android:layout_height="52dp"
                         android:layout_marginTop="10dp"
                         android:visibility="gone" />
+                <TextView
+                    android:id="@+id/scene_title"
+                    style="@style/Aura.Text.Muted"
+                                        android:layout_marginTop="6dp"
+                    android:alpha="0.8"
+                    android:drawablePadding="6dp"
+                    android:textSize="11sp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -186,36 +193,6 @@
                     android:gravity="end"
                     android:orientation="vertical">
 
-                    <LinearLayout
-                        android:id="@+id/quick_settings"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <ImageButton
-                            android:id="@+id/qs_inputs"
-                            style="@style/Aura.QuickButton"
-                            android:contentDescription="Inputs"
-                            android:src="@drawable/ic_input" />
-
-                        <ImageButton
-                            android:id="@+id/qs_wifi"
-                            style="@style/Aura.QuickButton"
-                            android:contentDescription="Network"
-                            android:src="@drawable/ic_wifi" />
-
-                        <ImageButton
-                            android:id="@+id/qs_aura"
-                            style="@style/Aura.QuickButton"
-                            android:contentDescription="Aura settings"
-                            android:src="@drawable/ic_tune" />
-
-                        <ImageButton
-                            android:id="@+id/qs_settings"
-                            style="@style/Aura.QuickButton"
-                            android:contentDescription="Settings"
-                            android:src="@drawable/ic_settings" />
-                    </LinearLayout>
 
                     <LinearLayout
                         android:id="@+id/weather_card"
@@ -314,28 +291,16 @@
                 android:clipToPadding="false"
                 android:orientation="vertical">
 
-                <Space
-                    android:id="@+id/rows_spacer"
-                    android:layout_width="match_parent"
-                    android:layout_height="300dp" />
-
                 <LinearLayout
                     android:id="@+id/favorites_block"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:clipChildren="false"
                     android:clipToPadding="false"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:paddingTop="18dp">
 
 
-                <TextView
-                    android:id="@+id/scene_title"
-                    style="@style/Aura.Text.Muted"
-                    android:layout_marginStart="44dp"
-                    android:layout_marginBottom="6dp"
-                    android:alpha="0.8"
-                    android:drawablePadding="6dp"
-                    android:textSize="11sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -364,15 +329,60 @@
                         android:textSize="10sp" />
                 </LinearLayout>
 
+                <LinearLayout
+                    android:id="@+id/top_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="28dp"
+                    android:layout_marginEnd="28dp"
+                    android:background="@drawable/glass_dock"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingEnd="14dp">
+
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/favorites"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
                     android:layout_height="124dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
-                    android:paddingStart="40dp"
+                    android:paddingStart="16dp"
                     android:paddingTop="14dp"
-                    android:paddingEnd="40dp" />
+                    android:paddingEnd="8dp" />
+                    <LinearLayout
+                        android:id="@+id/quick_settings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <ImageButton
+                            android:id="@+id/qs_inputs"
+                            style="@style/Aura.QuickButton"
+                            android:contentDescription="Inputs"
+                            android:src="@drawable/ic_input" />
+
+                        <ImageButton
+                            android:id="@+id/qs_wifi"
+                            style="@style/Aura.QuickButton"
+                            android:contentDescription="Network"
+                            android:src="@drawable/ic_wifi" />
+
+                        <ImageButton
+                            android:id="@+id/qs_aura"
+                            style="@style/Aura.QuickButton"
+                            android:contentDescription="Aura settings"
+                            android:src="@drawable/ic_tune" />
+
+                        <ImageButton
+                            android:id="@+id/qs_settings"
+                            style="@style/Aura.QuickButton"
+                            android:contentDescription="Settings"
+                            android:src="@drawable/ic_settings" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/all_apps_label"
@@ -393,6 +403,12 @@
                     android:paddingTop="10dp"
                     android:paddingEnd="40dp" />
                 </LinearLayout>
+
+                <Space
+                    android:id="@+id/rows_spacer"
+                    android:layout_width="match_parent"
+                    android:layout_height="300dp" />
+
 
                 <LinearLayout
                     android:id="@+id/movie_rows"
