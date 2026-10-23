@@ -20,7 +20,8 @@ import java.util.concurrent.Executor
  * focus for a few seconds, as Nuvio does. The player sits under the hero
  * shading and fades in only when the video is actually playing.
  */
-class Trailer(private val context: Context, private val view: WebView, private val net: Executor) {
+class Trailer(private val context: Context, private val host: android.widget.FrameLayout, private val net: Executor) {
+    private var view: WebView? = null
     private val main = Handler(Looper.getMainLooper())
     private var pending: Catalog.Title? = null
     private var playingId: String? = null
@@ -31,12 +32,12 @@ class Trailer(private val context: Context, private val view: WebView, private v
     /** Called whenever the playing state changes, so the scenery video can pause. */
     var onPlaying: (Boolean) -> Unit = {}
 
-    init {
-        setUp()
-    }
 
+    /** Builds a fresh WebView; Chromium is only loaded while a trailer is actually wanted. */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun setUp() {
+    private fun create(): WebView {
+        val view = WebView(context)
+        host.addView(view, android.widget.FrameLayout.LayoutParams(-1, -1))
         view.setBackgroundColor(Color.TRANSPARENT)
         view.alpha = 0f
         view.isFocusable = false
@@ -49,13 +50,14 @@ class Trailer(private val context: Context, private val view: WebView, private v
             @JavascriptInterface
             fun state(playing: Boolean) = main.post {
                 if (playing && playingId != null) {
-                    view.animate().alpha(1f).setDuration(900).start()
+                    view?.let { it.animate().alpha(1f).setDuration(900).start() }
                     onPlaying(true)
                 } else if (!playing) {
                     stop()
                 }
             }
         }, "Aura")
+        return view
     }
 
     /** Starts the countdown for [title]; moving focus elsewhere calls this again or [stop]. */
@@ -72,8 +74,14 @@ class Trailer(private val context: Context, private val view: WebView, private v
         pending = null
         if (playingId == null) return
         playingId = null
-        view.animate().cancel()
-        view.animate().alpha(0f).setDuration(300).withEndAction { view.loadUrl("about:blank") }.start()
+        val old = view ?: return onPlaying(false)
+        view = null
+        old.animate().cancel()
+        old.animate().alpha(0f).setDuration(300).withEndAction {
+            // Destroying the WebView hands Chromium's memory back as soon as the trailer ends.
+            host.removeView(old)
+            old.destroy()
+        }.start()
         onPlaying(false)
     }
 
@@ -83,6 +91,7 @@ class Trailer(private val context: Context, private val view: WebView, private v
             main.post {
                 if (pending?.id != title.id) return@post
                 playingId = title.id
+                val view = this.view ?: create().also { this.view = it }
                 view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId), "text/html", "utf-8", null)
             }
         }
@@ -126,10 +135,7 @@ class Trailer(private val context: Context, private val view: WebView, private v
         id
     }.getOrNull()
 
-    fun release() {
-        stop()
-        view.destroy()
-    }
+    fun release() = stop()
 
     private companion object {
         const val DELAY_MS = 3000L

@@ -394,6 +394,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        if (launchedFromHome) playReturn()
         main.removeCallbacks(tick)
         main.post(tick)
         refreshWeather()
@@ -423,7 +424,13 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_UI_HIDDEN) Images.trim()
+    }
+
     override fun onStop() {
+        Images.trim()
         main.removeCallbacks(tick)
         main.removeCallbacks(nextImage)
         main.postDelayed(releasePlayer, KEEP_PLAYER_MS)
@@ -599,9 +606,36 @@ class MainActivity : Activity() {
         if (inputs.resolveActivity(packageManager) != null) open(inputs) else open(Intent(Settings.ACTION_SETTINGS))
     }
 
+    /**
+     * Opens an app growing out of the tile or poster that launched it, while the
+     * home screen eases back; coming home reverses it (see [playReturn]).
+     */
     private fun open(intent: Intent) {
-        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
+        val source = currentFocus
+        val options = source?.let {
+            android.app.ActivityOptions.makeScaleUpAnimation(it, 0, 0, it.width, it.height).toBundle()
+        }
+        launchedFromHome = true
+        ui.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.4f).setDuration(260)
+            .setInterpolator(DecelerateInterpolator(2f)).start()
+        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options) }
+            .onFailure {
+                playReturn()
+                Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private var launchedFromHome = false
+
+    /** Home settles back into place when returning from an app. */
+    private fun playReturn() {
+        launchedFromHome = false
+        ui.animate().cancel()
+        ui.scaleX = 1.04f
+        ui.scaleY = 1.04f
+        ui.alpha = 0f
+        ui.animate().scaleX(1f).scaleY(1f).alpha(if (idle) 0f else 1f).setDuration(420)
+            .setInterpolator(DecelerateInterpolator(2.2f)).start()
     }
 
     // ---- Weather ----

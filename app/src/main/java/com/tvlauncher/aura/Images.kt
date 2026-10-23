@@ -25,6 +25,9 @@ object Images {
     }
     private var dir: File? = null
 
+    /** Drops decoded images; posters reload quickly from the disk cache. */
+    fun trim() = memory.evictAll()
+
     fun init(context: Context) {
         if (dir != null) return
         val folder = File(context.cacheDir, "img").apply { mkdirs() }

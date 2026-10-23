@@ -75,12 +75,11 @@
                     android:scaleType="centerCrop" />
             </FrameLayout>
 
-            <WebView
+            <!-- The trailer's WebView is created here only while a trailer plays. -->
+            <FrameLayout
                 android:id="@+id/hero_trailer"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:alpha="0"
-                android:focusable="false" />
+                android:layout_height="match_parent" />
 
             <View
                 android:layout_width="match_parent"
