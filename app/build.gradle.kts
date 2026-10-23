@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.tvlauncher.aura"
+    namespace = "com.homehalo.tv"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tvlauncher.aura"
+        applicationId = "com.homehalo.tv"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

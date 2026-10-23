@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -23,7 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * Aura's settings. The home screen blurs behind a floating panel; sections sit
+ * HomeHalo's settings. The home screen blurs behind a floating panel; sections sit
  * in a rail of colour-coded tiles and their options in grouped cards, with
  * switches for on/off and segmented controls for short lists of choices.
  * Every change applies to the home screen behind as it is made.
@@ -140,10 +140,10 @@ class SettingsActivity : Activity() {
 
     // ---- Rail ----
 
-    /** Wordmark: "lumo" set light with a small gradient dot, the way the brand reads everywhere. */
+    /** Wordmark: "homehalo" set light with a small gradient dot, the way the brand reads everywhere. */
     private fun brand(): View {
         val word = TextView(this).apply {
-            text = "lumo"
+            text = "homehalo"
             textSize = 24f
             letterSpacing = 0.02f
             setTextColor(Color.WHITE)
@@ -230,7 +230,7 @@ class SettingsActivity : Activity() {
         content.addView(text(section.title, 26f, bold = true).apply { setPadding(px(8), 0, 0, 0) })
         content.addView(text(section.blurb, 12f, alpha = 0.55f).apply { setPadding(px(8), px(4), 0, px(8)) })
 
-        val options = AuraSettings.SECTIONS[index].options
+        val options = HaloSettings.SECTIONS[index].options
         when (section.title) {
             "Movies & shows" -> {
                 group(null, listOf(nuvioCard(), rowsCard()))
@@ -326,9 +326,9 @@ class SettingsActivity : Activity() {
         return block to t
     }
 
-    private fun isToggle(option: AuraSettings.Option) = option.choices.map { it.first } == listOf("on", "off")
+    private fun isToggle(option: HaloSettings.Option) = option.choices.map { it.first } == listOf("on", "off")
 
-    private fun optionRow(option: AuraSettings.Option): View {
+    private fun optionRow(option: HaloSettings.Option): View {
         val row = rowShell()
         val (block, _) = textBlock(option.title, option.summary)
         row.addView(block, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -340,16 +340,16 @@ class SettingsActivity : Activity() {
         val value = if (!toggle && !segmented) text("", 12.5f, bold = true).also { row.addView(it) } else null
 
         fun refresh(animate: Boolean) {
-            val id = AuraSettings.get(this, option)
+            val id = HaloSettings.get(this, option)
             switch?.set(id == "on", animate)
             segments?.select(id, animate)
             value?.text = if (row.isFocused) "‹  ${option.label(id)}  ›" else option.label(id)
         }
         fun step(delta: Int) {
-            val index = ids.indexOf(AuraSettings.get(this, option))
+            val index = ids.indexOf(HaloSettings.get(this, option))
             val next = if (segmented) (index + delta).coerceIn(0, ids.lastIndex) else (index + delta + ids.size) % ids.size
             if (next == index) return
-            AuraSettings.set(this, option, ids[next])
+            HaloSettings.set(this, option, ids[next])
             refresh(animate = true)
             value?.let { v -> v.translationX = 8 * dp * delta; v.animate().translationX(0f).setDuration(180).start() }
             applyToHome()
@@ -359,10 +359,10 @@ class SettingsActivity : Activity() {
             val select = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
             when {
                 event.action != KeyEvent.ACTION_DOWN -> select
-                select -> { if (segmented) step(if (ids.indexOf(AuraSettings.get(this, option)) == ids.lastIndex) -ids.size else 1) else step(1); true }
+                select -> { if (segmented) step(if (ids.indexOf(HaloSettings.get(this, option)) == ids.lastIndex) -ids.size else 1) else step(1); true }
                 keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { if (!toggle) step(1); true }
                 keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    val atStart = toggle || (segmented && ids.indexOf(AuraSettings.get(this, option)) == 0)
+                    val atStart = toggle || (segmented && ids.indexOf(HaloSettings.get(this, option)) == 0)
                     if (atStart) rail.getChildAt(sectionIndex + 1)?.requestFocus() else step(-1); true
                 }
                 else -> false
@@ -464,7 +464,7 @@ class SettingsActivity : Activity() {
     }
 
     /** All choices side by side; the selected one sits in a sliding pill. */
-    private inner class Segments(option: AuraSettings.Option) {
+    private inner class Segments(option: HaloSettings.Option) {
         private val ids = option.choices.map { it.first }
         private val pill = View(this@SettingsActivity).apply {
             background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(accent) }
@@ -557,7 +557,7 @@ class SettingsActivity : Activity() {
     private class Section(val title: String, val blurb: String, val icon: Int, val color: Int)
 
     companion object {
-        const val ACTION_CHANGED = "com.tvlauncher.aura.SETTINGS_CHANGED"
+        const val ACTION_CHANGED = "com.homehalo.tv.SETTINGS_CHANGED"
         private const val PANEL_DP = 680
         private val SECTIONS = listOf(
             Section("Icons", "Shape, size and how apps react to focus", R.drawable.ic_sec_icons, 0xFF60A5FA.toInt()),

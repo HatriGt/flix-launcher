@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -56,7 +56,7 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                     stop()
                 }
             }
-        }, "Aura")
+        }, "HomeHalo")
         return view
     }
 
@@ -108,8 +108,8 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
           new YT.Player('p',{videoId:'$ytId',host:'https://www.youtube-nocookie.com',
             playerVars:{autoplay:1,mute:${if (sound) 0 else 1},controls:0,disablekb:1,fs:0,modestbranding:1,rel:0,iv_load_policy:3,playsinline:1,start:4},
             events:{onReady:function(e){e.target.playVideo()},
-              onStateChange:function(e){ if(e.data===1) Aura.state(true); if(e.data===0) Aura.state(false) },
-              onError:function(){ Aura.state(false) }}});
+              onStateChange:function(e){ if(e.data===1) HomeHalo.state(true); if(e.data===0) HomeHalo.state(false) },
+              onError:function(){ HomeHalo.state(false) }}});
         }
         </script></body></html>
     """.trimIndent()

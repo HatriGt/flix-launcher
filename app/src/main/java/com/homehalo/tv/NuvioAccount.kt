@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.content.Context
 import org.json.JSONArray
@@ -47,7 +47,7 @@ object NuvioAccount {
         val rows = JSONArray(rpc(context, "start_tv_login_session", JSONObject()
             .put("p_device_nonce", nonce)
             .put("p_redirect_base_url", "https://nuvio.tv/tv-login")
-            .put("p_device_name", "Lumo on ${android.os.Build.MODEL}"), anonymous = true))
+            .put("p_device_name", "HomeHalo on ${android.os.Build.MODEL}"), anonymous = true))
         val row = rows.getJSONObject(0)
         val expires = runCatching {
             java.time.OffsetDateTime.parse(row.getString("expires_at")).toInstant().toEpochMilli()
@@ -150,7 +150,7 @@ object NuvioAccount {
         if (file.exists() && System.currentTimeMillis() - file.lastModified() < 7 * 24 * 3600_000L) {
             runCatching {
                 val cached = JSONObject(file.readText())
-                return cached.getJSONObject("meta") to cached.optString("aura_base").ifBlank { null }
+                return cached.getJSONObject("meta") to cached.optString("halo_base").ifBlank { null }
             }
         }
         val bases = if (id.startsWith("tt")) listOf(CINEMETA)
@@ -161,7 +161,7 @@ object NuvioAccount {
                 JSONObject(body).optJSONObject("meta")?.takeIf { it.optString("name").isNotBlank() }
             }.getOrNull() ?: continue
             val addon = if (base == CINEMETA) null else base
-            file.writeText(JSONObject().put("meta", found).put("aura_base", addon ?: "").toString())
+            file.writeText(JSONObject().put("meta", found).put("halo_base", addon ?: "").toString())
             return found to addon
         }
         return null

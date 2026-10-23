@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.app.Activity
 import android.content.Intent
@@ -29,7 +29,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import kotlin.concurrent.thread
 
 /**
- * Connects Aura to Nuvio in as few steps as possible: a QR code that renews
+ * Connects HomeHalo to Nuvio in as few steps as possible: a QR code that renews
  * itself before it expires (scan, tap Approve, done), or email and password
  * typed on the TV. Then the profile, then a check mark, and back home.
  */
@@ -43,7 +43,8 @@ class NuvioLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        // Keep the screensaver away while someone is scanning or typing.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND or android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.setDimAmount(0.45f)
         body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -134,7 +135,7 @@ class NuvioLoginActivity : Activity() {
                         qr.setImageBitmap(qrBitmap(l.webUrl, px(192)))
                         spinner.visibility = View.GONE
                         qr.animate().alpha(1f).setDuration(300).start()
-                        status.text = "Waiting for you to approve on your phone"
+                        status.text = "Waiting for you to approve on your phone\nor open ${l.webUrl.removePrefix("https://")}"
                         poll(gen, l, status)
                         // Swap in a fresh code a little before this one runs out, so it never shows as expired.
                         val renewIn = (l.expiresAtMs - System.currentTimeMillis() - 20_000).coerceAtLeast(30_000)

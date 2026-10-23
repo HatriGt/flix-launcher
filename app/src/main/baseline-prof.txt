@@ -1,6 +1,6 @@
-# Precompile Aura's own code and the libraries the home screen touches at startup.
-HSPLcom/tvlauncher/aura/**->**(**)**
-Lcom/tvlauncher/aura/**;
+# Precompile HomeHalo's own code and the libraries the home screen touches at startup.
+HSPLcom/homehalo/tv/**->**(**)**
+Lcom/homehalo/tv/**;
 HSPLandroidx/recyclerview/widget/**->**(**)**
 Landroidx/recyclerview/widget/**;
 HSPLandroidx/media3/exoplayer/**->**(**)**

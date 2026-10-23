@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.content.Context
 import org.json.JSONArray
@@ -35,7 +35,7 @@ object Addons {
         Row(CINEMETA, "Cinemeta", "movie", "imdbRating", "Featured movies", supportsGenre = true),
     )
 
-    private fun prefs(context: Context) = context.getSharedPreferences("aura", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences("halo", Context.MODE_PRIVATE)
 
     fun rows(context: Context): List<Row> {
         val raw = prefs(context).getString(KEY, null) ?: return DEFAULT_ROWS
@@ -172,7 +172,7 @@ object Addons {
             )
             if (existing.none { it.key == row.key } && added.none { it.key == row.key }) added += row
         }
-        if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues Lumo can show")
+        if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues HomeHalo can show")
         // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
         val rows = if (added.size > MAX_SHOWN_ON_ADD) added.map { it.copy(enabled = false) } else added
         save(context, existing + rows)

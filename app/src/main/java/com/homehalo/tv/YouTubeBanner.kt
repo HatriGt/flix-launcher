@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.graphics.Canvas
 import android.graphics.ColorFilter

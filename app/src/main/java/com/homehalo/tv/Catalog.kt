@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.content.Context
 import org.json.JSONObject
@@ -119,7 +119,7 @@ object Catalog {
 
     // ---- Titles the user chose to hide ----
 
-    private fun prefs(context: Context) = context.getSharedPreferences("aura", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences("halo", Context.MODE_PRIVATE)
 
     fun hiddenTitles(context: Context): Set<String> = prefs(context).getStringSet("hidden_titles", emptySet()).orEmpty()
 

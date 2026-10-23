@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.graphics.Color
 import android.graphics.Outline
@@ -19,7 +19,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
-/** How tiles look; derived from [AuraSettings] by the home screen. */
+/** How tiles look; derived from [HaloSettings] by the home screen. */
 data class TileStyle(
     val shape: String,      // circle | squircle | rounded | banner
     val widthPx: Int,
@@ -146,7 +146,7 @@ class AppAdapter(
                     }
                 }
                 icon is AdaptiveIconDrawable -> {
-                    // Draw the layers full-bleed and let Aura's own shape do the masking.
+                    // Draw the layers full-bleed and let HomeHalo's own shape do the masking.
                     art.scaleType = ImageView.ScaleType.FIT_XY
                     art.setImageDrawable(LayerDrawable(arrayOf(icon.background ?: ColorDrawable(Color.WHITE), icon.foreground ?: ColorDrawable(0))))
                     art.scaleX = 1.42f

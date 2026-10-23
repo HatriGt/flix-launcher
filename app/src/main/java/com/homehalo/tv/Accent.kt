@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.graphics.Bitmap
 import android.graphics.Canvas

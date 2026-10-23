@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.app.Activity
 import android.content.Intent
@@ -269,13 +269,13 @@ class AllAppsActivity : Activity() {
     }
 
     private fun tileStyle(): TileStyle {
-        val shape = AuraSettings.get(this, AuraSettings.ICON_SHAPE)
-        val step = listOf("small", "medium", "large").indexOf(AuraSettings.get(this, AuraSettings.ICON_SIZE))
+        val shape = HaloSettings.get(this, HaloSettings.ICON_SHAPE)
+        val step = listOf("small", "medium", "large").indexOf(HaloSettings.get(this, HaloSettings.ICON_SIZE))
         val (w, h) = if (shape == "banner") listOf(128, 144, 160)[step].let { it to it * 9 / 16 }
         else listOf(56, 66, 76)[step].let { it to it }
-        val labels = AuraSettings.get(this, AuraSettings.LABELS).let { if (it == "never") "focus" else it }
+        val labels = HaloSettings.get(this, HaloSettings.LABELS).let { if (it == "never") "focus" else it }
         return TileStyle(shape, (w * dp).roundToInt(), (h * dp).roundToInt(), labels,
-            AuraSettings.isOn(this, AuraSettings.GLOW), AuraSettings.get(this, AuraSettings.MOTION), dp)
+            HaloSettings.isOn(this, HaloSettings.GLOW), HaloSettings.get(this, HaloSettings.MOTION), dp)
     }
 
     private fun load() {

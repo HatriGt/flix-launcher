@@ -106,21 +106,21 @@
 
                 <TextView
                     android:id="@+id/hero_title"
-                    style="@style/Aura.Text"
+                    style="@style/Halo.Text"
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="2"
                     android:textSize="30sp" />
 
                 <TextView
                     android:id="@+id/hero_meta"
-                    style="@style/Aura.Text"
+                    style="@style/Halo.Text"
                     android:layout_marginTop="10dp"
                     android:fontFamily="sans-serif-medium"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/hero_description"
-                    style="@style/Aura.Text.Muted"
+                    style="@style/Halo.Text.Muted"
                     android:layout_marginTop="8dp"
                     android:ellipsize="end"
                     android:lineSpacingMultiplier="1.2"
@@ -128,7 +128,7 @@
                     android:textSize="12sp" />
 
                 <TextView
-                    style="@style/Aura.Text.Muted"
+                    style="@style/Halo.Text.Muted"
                     android:layout_marginTop="10dp"
                     android:alpha="0.7"
                     android:text="OK to open in Nuvio  ·  Hold OK for more"
@@ -156,7 +156,7 @@
 
                 <TextView
                     android:id="@+id/greeting"
-                    style="@style/Aura.Text"
+                    style="@style/Halo.Text"
                     android:fontFamily="sans-serif-medium"
                     android:textSize="15sp" />
 
@@ -167,26 +167,26 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <com.tvlauncher.aura.ClockView
+                    <com.homehalo.tv.ClockView
                         android:id="@+id/clock"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
 
                     <TextView
                         android:id="@+id/date"
-                        style="@style/Aura.Text.Muted"
+                        style="@style/Halo.Text.Muted"
                         android:layout_marginStart="12dp"
                         android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/scene_title"
-                        style="@style/Aura.Text.Muted"
+                        style="@style/Halo.Text.Muted"
                         android:layout_marginStart="14dp"
                         android:alpha="0.7"
                         android:textSize="11sp" />
                 </LinearLayout>
 
-                <com.tvlauncher.aura.SunArcView
+                <com.homehalo.tv.SunArcView
                     android:id="@+id/sun_arc"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
@@ -208,12 +208,12 @@
 
                 <TextView
                     android:id="@+id/weather_icon"
-                    style="@style/Aura.Text"
+                    style="@style/Halo.Text"
                     android:textSize="18sp" />
 
                 <TextView
                     android:id="@+id/weather_temp"
-                    style="@style/Aura.Text"
+                    style="@style/Halo.Text"
                     android:layout_marginStart="8dp"
                     android:fontFamily="sans-serif-medium"
                     android:textSize="18sp" />
@@ -226,18 +226,18 @@
 
                     <TextView
                         android:id="@+id/weather_condition"
-                        style="@style/Aura.Text"
+                        style="@style/Halo.Text"
                         android:textSize="11sp" />
 
                     <TextView
                         android:id="@+id/weather_place"
-                        style="@style/Aura.Text.Muted"
+                        style="@style/Halo.Text.Muted"
                         android:textSize="10sp" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/weather_details"
-                    style="@style/Aura.Text.Muted"
+                    style="@style/Halo.Text.Muted"
                     android:visibility="gone" />
 
                 <View
@@ -254,7 +254,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <com.tvlauncher.aura.RowsScrollView
+        <com.homehalo.tv.RowsScrollView
             android:id="@+id/rows_scroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -290,7 +290,7 @@
 
                     <TextView
                         android:id="@+id/focused_label"
-                        style="@style/Aura.Text"
+                        style="@style/Halo.Text"
                         android:fontFamily="sans-serif-medium"
                         android:textSize="20sp" />
 
@@ -301,7 +301,7 @@
 
                     <TextView
                         android:id="@+id/hint"
-                        style="@style/Aura.Text.Muted"
+                        style="@style/Halo.Text.Muted"
                         android:layout_marginBottom="3dp"
                         android:alpha="0.7"
                         android:text="Hold OK for options"
@@ -339,25 +339,25 @@
 
                         <ImageButton
                             android:id="@+id/qs_inputs"
-                            style="@style/Aura.QuickButton"
+                            style="@style/Halo.QuickButton"
                             android:contentDescription="Inputs"
                             android:src="@drawable/ic_input" />
 
                         <ImageButton
                             android:id="@+id/qs_wifi"
-                            style="@style/Aura.QuickButton"
+                            style="@style/Halo.QuickButton"
                             android:contentDescription="Network"
                             android:src="@drawable/ic_wifi" />
 
                         <ImageButton
-                            android:id="@+id/qs_aura"
-                            style="@style/Aura.QuickButton"
-                            android:contentDescription="Aura settings"
+                            android:id="@+id/qs_halo"
+                            style="@style/Halo.QuickButton"
+                            android:contentDescription="HomeHalo settings"
                             android:src="@drawable/ic_tune" />
 
                         <ImageButton
                             android:id="@+id/qs_settings"
-                            style="@style/Aura.QuickButton"
+                            style="@style/Halo.QuickButton"
                             android:contentDescription="Settings"
                             android:src="@drawable/ic_settings" />
                     </LinearLayout>
@@ -365,7 +365,7 @@
 
                 <TextView
                     android:id="@+id/all_apps_label"
-                    style="@style/Aura.Text.Muted"
+                    style="@style/Halo.Text.Muted"
                     android:layout_marginStart="44dp"
                     android:layout_marginTop="2dp"
                     android:letterSpacing="0.12"
@@ -402,6 +402,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="0dp" />
             </LinearLayout>
-        </com.tvlauncher.aura.RowsScrollView>
+        </com.homehalo.tv.RowsScrollView>
     </FrameLayout>
 </FrameLayout>

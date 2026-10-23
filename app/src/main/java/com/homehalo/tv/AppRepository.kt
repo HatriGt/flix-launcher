@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.content.Context
 import android.content.Intent
@@ -24,7 +24,7 @@ data class AppEntry(
 )
 
 class AppRepository(private val context: Context) {
-    private val prefs = context.getSharedPreferences("aura", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("halo", Context.MODE_PRIVATE)
     private val pm: PackageManager = context.packageManager
 
     fun loadApps(): List<AppEntry> {
@@ -59,7 +59,7 @@ class AppRepository(private val context: Context) {
         return result.sortedBy { it.label.lowercase() }
     }
 
-    private val looks = context.getSharedPreferences("aura_looks", Context.MODE_PRIVATE)
+    private val looks = context.getSharedPreferences("halo_looks", Context.MODE_PRIVATE)
 
     /**
      * An app's glow colour and whether its icon is a full square. Working these out
@@ -87,7 +87,7 @@ class AppRepository(private val context: Context) {
         accent = 0xFF8FA6C8.toInt(),
     )
 
-    /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at Aura's tile sizes. */
+    /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at HomeHalo's tile sizes. */
     private fun hiResIcon(info: ResolveInfo): Drawable {
         val activity = info.activityInfo
         val res = activity.iconResource
@@ -149,7 +149,7 @@ class AppRepository(private val context: Context) {
 
     companion object {
         private const val KEY_FAVORITES = "favorites"
-        const val ALL_APPS_TILE = "aura:all_apps"
+        const val ALL_APPS_TILE = "halo:all_apps"
         private const val KEY_HIDDEN = "hidden"
         private const val KEY_ORDER_VERSION = "favorites_order_version"
         private const val ORDER_VERSION = 2

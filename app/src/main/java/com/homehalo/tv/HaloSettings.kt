@@ -1,13 +1,13 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.content.Context
 
 /**
- * Every user-facing option in Aura. Each one is a list of choices stored by id;
+ * Every user-facing option in HomeHalo. Each one is a list of choices stored by id;
  * on/off switches are just two-choice options. The settings screen is built
  * from [SECTIONS], so adding an option here is all it takes to expose it.
  */
-object AuraSettings {
+object HaloSettings {
     class Option(
         val key: String,
         val title: String,
@@ -51,7 +51,7 @@ object AuraSettings {
     // Behaviour
     val IDLE = Option("idle", "Fade to scenery after",
         listOf("off" to "Never", "30" to "30 seconds", "60" to "1 minute", "120" to "2 minutes", "300" to "5 minutes"), "60")
-    val ALL_APPS = toggle("all_apps", "All apps row")
+    val ALL_APPS = toggle("all_apps", "All apps row", default = false)
     val ALL_APPS_TILE = toggle("all_apps_tile", "All apps tile", summary = "A tile at the end of favourites that opens every app")
 
     // Movies & shows
@@ -79,7 +79,7 @@ object AuraSettings {
         Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE)),
     )
 
-    private fun prefs(context: Context) = context.getSharedPreferences("aura_settings", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences("halo_settings", Context.MODE_PRIVATE)
 
     fun get(context: Context, option: Option): String =
         prefs(context).getString(option.key, null)?.takeIf { id -> option.choices.any { it.first == id } } ?: option.default

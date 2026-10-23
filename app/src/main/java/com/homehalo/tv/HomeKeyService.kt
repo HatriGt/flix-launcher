@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
@@ -7,7 +7,7 @@ import android.view.accessibility.AccessibilityEvent
 
 /**
  * Google TV sends the Home button straight to its own launcher regardless of
- * the HOME role, so this service catches the key and opens Aura instead. When
+ * the HOME role, so this service catches the key and opens HomeHalo instead. When
  * the key never reaches us (some remotes deliver Home below the accessibility
  * layer), the stock home screen coming to the front is caught instead.
  */
@@ -16,7 +16,7 @@ class HomeKeyService : AccessibilityService() {
         super.onServiceConnected()
         running = true
         // After a reboot or an update the stock home may already be on screen; replace it right away.
-        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openAura()
+        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openHomeHalo()
     }
 
     override fun onDestroy() {
@@ -26,7 +26,7 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
-        if (event.action == KeyEvent.ACTION_UP) openAura()
+        if (event.action == KeyEvent.ACTION_UP) openHomeHalo()
         return true
     }
 
@@ -34,7 +34,7 @@ class HomeKeyService : AccessibilityService() {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.packageName == STOCK_LAUNCHER &&
             event.className?.toString() == STOCK_HOME_ACTIVITY
-        ) openAura()
+        ) openHomeHalo()
     }
 
     private var lastOpenedAt = 0L
@@ -45,8 +45,8 @@ class HomeKeyService : AccessibilityService() {
         }
     }
 
-    private fun openAura() {
-        // The stock launcher reports several window changes per Home press; open Aura once.
+    private fun openHomeHalo() {
+        // The stock launcher reports several window changes per Home press; open HomeHalo once.
         val now = android.os.SystemClock.uptimeMillis()
         if (now - lastOpenedAt < DEBOUNCE_MS) return
         lastOpenedAt = now

@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.Manifest
 import android.content.BroadcastReceiver
@@ -11,7 +11,7 @@ import android.provider.Settings
 /**
  * Android drops an accessibility service when its app is updated or force-stopped,
  * which would send Home back to the stock launcher. With WRITE_SECURE_SETTINGS
- * (granted once over adb) Aura switches its Home service back on by itself.
+ * (granted once over adb) HomeHalo switches its Home service back on by itself.
  */
 object HomeGuard {
     private const val KEY = Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -31,7 +31,7 @@ object HomeGuard {
         }
     }
 
-    /** Runs after boot and after every update of Aura. */
+    /** Runs after boot and after every update of HomeHalo. */
     class Receiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = ensure(context)
     }

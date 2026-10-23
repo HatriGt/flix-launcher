@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Granted once with adb; lets Aura re-enable its Home service after updates. -->
+    <!-- Granted once with adb; lets HomeHalo re-enable its Home service after updates. -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
@@ -35,8 +35,8 @@
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
-        android:label="Lumo"
-        android:theme="@style/Theme.Aura"
+        android:label="HomeHalo"
+        android:theme="@style/Theme.Halo"
         android:usesCleartextTraffic="true">
 
         <activity
@@ -64,28 +64,28 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Aura.Settings" />
+            android:theme="@style/Theme.Halo.Settings" />
 
         <activity
             android:name=".RowsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Aura.Settings" />
+            android:theme="@style/Theme.Halo.Settings" />
 
         <activity
             android:name=".AllAppsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Aura.Settings" />
+            android:theme="@style/Theme.Halo.Settings" />
 
         <activity
             android:name=".SettingsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Aura.Settings" />
+            android:theme="@style/Theme.Halo.Settings" />
 
         <receiver
             android:name=".HomeGuard$Receiver"

@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import org.json.JSONObject
 import java.net.HttpURLConnection

@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -104,7 +104,7 @@ class MainActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             val now = Date()
-            val is24 = when (AuraSettings.get(this@MainActivity, AuraSettings.CLOCK_FORMAT)) {
+            val is24 = when (HaloSettings.get(this@MainActivity, HaloSettings.CLOCK_FORMAT)) {
                 "12" -> false
                 "24" -> true
                 else -> DateFormat.is24HourFormat(this@MainActivity)
@@ -162,7 +162,7 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.qs_inputs).setOnClickListener { openInputs() }
         findViewById<View>(R.id.qs_wifi).setOnClickListener { open(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<View>(R.id.qs_settings).setOnClickListener { open(Intent(Settings.ACTION_SETTINGS)) }
-        findViewById<View>(R.id.qs_aura).setOnClickListener { openAuraSettings() }
+        findViewById<View>(R.id.qs_halo).setOnClickListener { openHaloSettings() }
 
         registerReceiver(packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -177,19 +177,19 @@ class MainActivity : Activity() {
         window.decorView.post { loadWallpapers() }
     }
 
-    private fun openAuraSettings() {
+    private fun openHaloSettings() {
         settingsOpen = true
         startActivity(Intent(this, SettingsActivity::class.java))
         overridePendingTransition(0, 0)
     }
 
-    private fun isOn(option: AuraSettings.Option) = AuraSettings.isOn(this, option)
+    private fun isOn(option: HaloSettings.Option) = HaloSettings.isOn(this, option)
 
     /** Tile geometry for the chosen shape and size; the favourites row is a step larger than All apps. */
     private fun tileStyle(favorites: Boolean): TileStyle {
         val dp = resources.displayMetrics.density
-        val shape = AuraSettings.get(this, AuraSettings.ICON_SHAPE)
-        val step = listOf("small", "medium", "large").indexOf(AuraSettings.get(this, AuraSettings.ICON_SIZE))
+        val shape = HaloSettings.get(this, HaloSettings.ICON_SHAPE)
+        val step = listOf("small", "medium", "large").indexOf(HaloSettings.get(this, HaloSettings.ICON_SIZE))
         val (w, h) = if (shape == "banner") {
             val width = (if (favorites) listOf(128, 160, 192) else listOf(96, 112, 136))[step]
             width to width * 9 / 16
@@ -202,16 +202,16 @@ class MainActivity : Activity() {
             shape = shape,
             widthPx = (w * dp).roundToInt(),
             heightPx = (h * dp).roundToInt(),
-            labels = AuraSettings.get(this, AuraSettings.LABELS),
-            glow = isOn(AuraSettings.GLOW),
-            motion = AuraSettings.get(this, AuraSettings.MOTION),
+            labels = HaloSettings.get(this, HaloSettings.LABELS),
+            glow = isOn(HaloSettings.GLOW),
+            motion = HaloSettings.get(this, HaloSettings.MOTION),
             density = dp,
         )
     }
 
     /** Re-reads every option and updates the screen in place. */
     private fun applySettings() {
-        appliedRevision = AuraSettings.revision(this)
+        appliedRevision = HaloSettings.revision(this)
         val dp = resources.displayMetrics.density
         for ((list, adapter, favorites) in listOf(Triple(favoritesList, favoritesAdapter, true), Triple(appsList, appsAdapter, false))) {
             val style = tileStyle(favorites)
@@ -227,24 +227,24 @@ class MainActivity : Activity() {
         focusedLabel.visibility = if (favoritesAdapter.style.labels == "always" && !favoritesAdapter.style.isBanner) View.GONE else View.VISIBLE
         findViewById<View>(R.id.hint).visibility = focusedLabel.visibility
 
-        val allApps = isOn(AuraSettings.ALL_APPS)
+        val allApps = isOn(HaloSettings.ALL_APPS)
         appsList.visibility = if (allApps) View.VISIBLE else View.GONE
         findViewById<View>(R.id.all_apps_label).visibility = appsList.visibility
 
-        clock.setStyle(AuraSettings.get(this, AuraSettings.CLOCK_STYLE))
-        greeting.visibility = if (isOn(AuraSettings.GREETING)) View.VISIBLE else View.GONE
-        date.visibility = if (isOn(AuraSettings.DATE)) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.weather_card).visibility = if (isOn(AuraSettings.WEATHER)) View.VISIBLE else View.GONE
+        clock.setStyle(HaloSettings.get(this, HaloSettings.CLOCK_STYLE))
+        greeting.visibility = if (isOn(HaloSettings.GREETING)) View.VISIBLE else View.GONE
+        date.visibility = if (isOn(HaloSettings.DATE)) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.weather_card).visibility = if (isOn(HaloSettings.WEATHER)) View.VISIBLE else View.GONE
         lastReport?.let(::showWeather)
         main.removeCallbacks(tick)
         main.post(tick)
 
         findViewById<View>(R.id.dim).animate().alpha(dimLevel()).setDuration(300).start()
-        sceneTitle.visibility = if (isOn(AuraSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
-        player?.shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
-        hero.backdropEnabled = isOn(AuraSettings.BACKDROP)
-        trailer.enabled = isOn(AuraSettings.TRAILERS)
-        trailer.sound = isOn(AuraSettings.TRAILER_SOUND)
+        sceneTitle.visibility = if (isOn(HaloSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
+        player?.shuffleModeEnabled = isOn(HaloSettings.SHUFFLE)
+        hero.backdropEnabled = isOn(HaloSettings.BACKDROP)
+        trailer.enabled = isOn(HaloSettings.TRAILERS)
+        trailer.sound = isOn(HaloSettings.TRAILER_SOUND)
         movieRows.rebuild()
         startWallpaper()
         if (!idle) scheduleIdle()
@@ -362,7 +362,7 @@ class MainActivity : Activity() {
         ))
     }
 
-    private fun dimLevel() = when (AuraSettings.get(this, AuraSettings.DIM)) {
+    private fun dimLevel() = when (HaloSettings.get(this, HaloSettings.DIM)) {
         "low" -> 0f
         "high" -> 0.3f
         else -> 0.12f
@@ -417,7 +417,7 @@ class MainActivity : Activity() {
         settingsOpen = false
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
-        if (appliedRevision != AuraSettings.revision(this)) applySettings()
+        if (appliedRevision != HaloSettings.revision(this)) applySettings()
         if (browsing) main.postDelayed(pauseForBackdrop, 1500)
         movieRows.refreshContinue()
         player?.play()
@@ -490,7 +490,7 @@ class MainActivity : Activity() {
 
     private fun scheduleIdle() {
         main.removeCallbacks(goIdle)
-        val seconds = AuraSettings.get(this, AuraSettings.IDLE).toLongOrNull() ?: return
+        val seconds = HaloSettings.get(this, HaloSettings.IDLE).toLongOrNull() ?: return
         main.postDelayed(goIdle, seconds * 1000)
     }
 
@@ -526,7 +526,7 @@ class MainActivity : Activity() {
     private fun bindRows() {
         val byPackage = allApps.associateBy { it.packageName }
         val favorites = repo.favorites
-        val tile = if (isOn(AuraSettings.ALL_APPS_TILE)) listOf(repo.allAppsTile()) else emptyList()
+        val tile = if (isOn(HaloSettings.ALL_APPS_TILE)) listOf(repo.allAppsTile()) else emptyList()
         favoritesAdapter.items = favorites.mapNotNull { byPackage[it] } + tile
         appsAdapter.items = allApps.filter { it.packageName !in favorites }
     }
@@ -667,7 +667,7 @@ class MainActivity : Activity() {
 
     private fun showWeather(report: Weather.Report) {
         lastReport = report
-        val f = AuraSettings.get(this, AuraSettings.UNITS) == "f"
+        val f = HaloSettings.get(this, HaloSettings.UNITS) == "f"
         fun t(c: Int) = if (f) (c * 9f / 5f + 32f).roundToInt() else c
         findViewById<TextView>(R.id.weather_place).text = report.place
         findViewById<TextView>(R.id.weather_icon).text = report.icon
@@ -713,7 +713,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun videoWallpaper() = AuraSettings.get(this, AuraSettings.WALLPAPER) == "video"
+    private fun videoWallpaper() = HaloSettings.get(this, HaloSettings.WALLPAPER) == "video"
 
     private fun startWallpaper() {
         if (!videoWallpaper()) {
@@ -740,7 +740,7 @@ class MainActivity : Activity() {
             .build().apply {
             volume = 0f
             repeatMode = Player.REPEAT_MODE_ALL
-            shuffleModeEnabled = isOn(AuraSettings.SHUFFLE)
+            shuffleModeEnabled = isOn(HaloSettings.SHUFFLE)
             setMediaItems(videos.map { MediaItem.Builder().setUri(it.uri).setTag(it.title).build() })
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {

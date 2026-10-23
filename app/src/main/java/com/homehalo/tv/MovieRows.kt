@@ -1,4 +1,4 @@
-package com.tvlauncher.aura
+package com.homehalo.tv
 
 import android.app.Activity
 import android.graphics.Color
@@ -36,22 +36,22 @@ class MovieRows(
     fun rebuild() {
         container.removeAllViews()
         rows.clear()
-        if (!AuraSettings.isOn(activity, AuraSettings.SUGGESTIONS)) return
-        val genre = AuraSettings.get(activity, AuraSettings.GENRE).takeIf { it != "all" }
+        if (!HaloSettings.isOn(activity, HaloSettings.SUGGESTIONS)) return
+        val genre = HaloSettings.get(activity, HaloSettings.GENRE).takeIf { it != "all" }
         val sources = Addons.rows(activity).filter { it.enabled }
-        val (w, h) = when (AuraSettings.get(activity, AuraSettings.POSTER_SIZE)) {
+        val (w, h) = when (HaloSettings.get(activity, HaloSettings.POSTER_SIZE)) {
             "small" -> 72 to 108
             "large" -> 100 to 150
             else -> 86 to 129
         }
-        if (!NuvioAccount.isSignedIn(activity) && AuraSettings.isOn(activity, AuraSettings.CONTINUE_WATCHING) &&
+        if (!NuvioAccount.isSignedIn(activity) && HaloSettings.isOn(activity, HaloSettings.CONTINUE_WATCHING) &&
             activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
             rows += row
             container.addView(row.view)
             show(row, listOf(SIGN_IN))
         }
-        if (NuvioAccount.isSignedIn(activity) && AuraSettings.isOn(activity, AuraSettings.CONTINUE_WATCHING)) {
+        if (NuvioAccount.isSignedIn(activity) && HaloSettings.isOn(activity, HaloSettings.CONTINUE_WATCHING)) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
             rows += row
             container.addView(row.view)
@@ -75,14 +75,14 @@ class MovieRows(
         lastContinueAt = System.currentTimeMillis()
         net.execute {
             val titles = runCatching { NuvioAccount.continueWatching(activity) }
-                .onFailure { android.util.Log.w("Aura", "Continue watching failed", it) }
+                .onFailure { android.util.Log.w("HomeHalo", "Continue watching failed", it) }
                 .getOrNull() ?: return@execute
             main.post { if (row in rows) show(row, titles) }
         }
     }
 
     private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?): Row {
-        val springy = AuraSettings.get(activity, AuraSettings.MOTION) == "spring"
+        val springy = HaloSettings.get(activity, HaloSettings.MOTION) == "spring"
         val adapter = PosterAdapter(w, h, dp, springy, onFocus, onOpen, onMenu)
         val title = TextView(activity).apply {
             val kind = if (source.type == "series") "Series" else "Movies"
@@ -143,7 +143,7 @@ class MovieRows(
         val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
 
         /** Placeholder card shown in Continue watching while signed out; opening it starts sign-in. */
-        val SIGN_IN = Catalog.Title("aura:signin", "movie", "Sign in to Nuvio to see what you were watching",
+        val SIGN_IN = Catalog.Title("halo:signin", "movie", "Sign in to Nuvio to see what you were watching",
             null, null, null, null, null, null, emptyList(), "Scan a code with your phone — it takes a few seconds.")
     }
 
