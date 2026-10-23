@@ -13,7 +13,12 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.text.format.DateFormat
+import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
+import android.view.animation.AnimationUtils
+import android.view.animation.DecelerateInterpolator
+import android.widget.LinearLayout
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -36,7 +41,9 @@ class MainActivity : Activity() {
 
     private lateinit var clock: TextView
     private lateinit var date: TextView
-    private lateinit var weather: TextView
+    private lateinit var greeting: TextView
+    private lateinit var ui: View
+    private lateinit var scrim: View
     private lateinit var focusedLabel: TextView
     private lateinit var sceneTitle: TextView
     private lateinit var videoView: PlayerView
@@ -51,12 +58,16 @@ class MainActivity : Activity() {
     private var allApps: List<AppEntry> = emptyList()
     private var lastWeatherAt = 0L
     private var initialFocusDone = false
+    private var idle = false
+
+    private val goIdle = Runnable { setIdle(true) }
 
     private val tick = object : Runnable {
         override fun run() {
             val now = Date()
             clock.text = DateFormat.format(if (DateFormat.is24HourFormat(this@MainActivity)) "HH:mm" else "h:mm", now)
             date.text = DateFormat.format("EEEE, d MMMM", now)
+            greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
             main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000)
         }
     }
@@ -75,7 +86,9 @@ class MainActivity : Activity() {
 
         clock = findViewById(R.id.clock)
         date = findViewById(R.id.date)
-        weather = findViewById(R.id.weather)
+        greeting = findViewById(R.id.greeting)
+        ui = findViewById(R.id.ui)
+        scrim = findViewById(R.id.scrim)
         focusedLabel = findViewById(R.id.focused_label)
         sceneTitle = findViewById(R.id.scene_title)
         videoView = findViewById(R.id.wallpaper_video)
@@ -86,6 +99,7 @@ class MainActivity : Activity() {
         appsAdapter = AppAdapter((112 * dp).roundToInt(), (63 * dp).roundToInt(), ::onAppFocused, ::launch, ::showAppMenu)
         favoritesList = setUpRow(R.id.favorites, favoritesAdapter)
         setUpRow(R.id.apps, appsAdapter)
+        playEntrance()
 
         findViewById<View>(R.id.qs_inputs).setOnClickListener { openInputs() }
         findViewById<View>(R.id.qs_wifi).setOnClickListener { open(Intent(Settings.ACTION_WIFI_SETTINGS)) }
@@ -108,17 +122,67 @@ class MainActivity : Activity() {
             itemAnimator = null
             setHasFixedSize(true)
             setItemViewCacheSize(20)
+            layoutAnimation = AnimationUtils.loadLayoutAnimation(this@MainActivity, R.anim.row_enter)
         }
+
+    /** Clock slides in from the left, the weather card from the right; the rows rise in one card at a time. */
+    private fun playEntrance() {
+        val dp = resources.displayMetrics.density
+        val ease = DecelerateInterpolator(2f)
+        findViewById<View>(R.id.clock_group).apply {
+            alpha = 0f
+            translationX = -28 * dp
+            animate().alpha(1f).translationX(0f).setDuration(650).setInterpolator(ease).start()
+        }
+        findViewById<View>(R.id.quick_settings).apply {
+            alpha = 0f
+            translationY = -16 * dp
+            animate().alpha(1f).translationY(0f).setStartDelay(150).setDuration(550).setInterpolator(ease).start()
+        }
+    }
+
+    private fun greetingFor(hour: Int) = when (hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        in 17..21 -> "Good evening"
+        else -> "Good night"
+    }
+
+    // ---- Idle mode: after a quiet minute the UI fades away and leaves just the scenery ----
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (idle) {
+            if (event.action == KeyEvent.ACTION_UP) setIdle(false)
+            return true // the key that wakes the screen shouldn't also move focus
+        }
+        scheduleIdle()
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun scheduleIdle() {
+        main.removeCallbacks(goIdle)
+        main.postDelayed(goIdle, IDLE_AFTER_MS)
+    }
+
+    private fun setIdle(value: Boolean) {
+        idle = value
+        val duration = if (value) 1200L else 350L
+        ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).start()
+        scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
+        if (!value) scheduleIdle()
+    }
 
     override fun onStart() {
         super.onStart()
         main.post(tick)
+        if (idle) setIdle(false) else scheduleIdle()
         refreshWeather()
         startWallpaper()
     }
 
     override fun onStop() {
         main.removeCallbacks(tick)
+        main.removeCallbacks(goIdle)
         main.removeCallbacks(nextImage)
         player?.release()
         player = null
@@ -162,7 +226,15 @@ class MainActivity : Activity() {
     }
 
     private fun onAppFocused(app: AppEntry) {
-        focusedLabel.text = app.label
+        if (focusedLabel.text == app.label) return
+        val dp = resources.displayMetrics.density
+        focusedLabel.animate().cancel()
+        focusedLabel.animate().alpha(0f).translationY(4 * dp).setDuration(90).withEndAction {
+            focusedLabel.text = app.label
+            focusedLabel.translationY = -4 * dp
+            focusedLabel.animate().alpha(1f).translationY(0f).setDuration(200)
+                .setInterpolator(DecelerateInterpolator()).start()
+        }.start()
     }
 
     private fun launch(app: AppEntry) {
@@ -204,11 +276,41 @@ class MainActivity : Activity() {
     private fun refreshWeather() {
         if (System.currentTimeMillis() - lastWeatherAt < 30 * 60_000) return
         io.execute {
-            val now = Weather.fetch() ?: return@execute
+            val report = Weather.fetch() ?: return@execute
             main.post {
                 lastWeatherAt = System.currentTimeMillis()
-                weather.text = "${now.icon}  ${now.temperature}  ·  ${now.place}"
+                showWeather(report)
             }
+        }
+    }
+
+    private fun showWeather(report: Weather.Report) {
+        findViewById<TextView>(R.id.weather_place).text = report.place
+        findViewById<TextView>(R.id.weather_icon).text = report.icon
+        findViewById<TextView>(R.id.weather_temp).text = "${report.temperature}°"
+        findViewById<TextView>(R.id.weather_condition).text = report.condition
+        findViewById<TextView>(R.id.weather_details).text =
+            "Feels ${report.feelsLike}° · ${report.humidity}% · ${report.windKmh} km/h"
+
+        val forecast = findViewById<LinearLayout>(R.id.forecast)
+        forecast.removeAllViews()
+        for (day in report.days.take(3)) {
+            forecast.addView(TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                gravity = Gravity.CENTER
+                setTextColor(0xFFFFFFFF.toInt())
+                textSize = 10f
+                setLineSpacing(0f, 1.25f)
+                text = "${day.name}\n${day.icon}\n${day.high}°  ${day.low}°"
+                alpha = 0.92f
+            })
+        }
+
+        val card = findViewById<View>(R.id.weather_card)
+        if (card.alpha < 1f) {
+            card.translationX = 24 * resources.displayMetrics.density
+            card.animate().alpha(1f).translationX(0f).setDuration(600)
+                .setInterpolator(DecelerateInterpolator(2f)).start()
         }
     }
 
@@ -248,15 +350,24 @@ class MainActivity : Activity() {
                 }
 
                 override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
-                    sceneTitle.text = item?.localConfiguration?.tag as? String ?: ""
+                    showSceneTitle(item?.localConfiguration?.tag as? String)
                 }
             })
             prepare()
             playWhenReady = true
         }
-        sceneTitle.text = videos.first().title ?: ""
+        showSceneTitle(videos.first().title)
         videoView.player = exo
         player = exo
+    }
+
+    private fun showSceneTitle(title: String?) {
+        val text = if (title.isNullOrBlank()) "" else "◉  $title"
+        if (sceneTitle.text == text) return
+        sceneTitle.animate().alpha(0f).setDuration(250).withEndAction {
+            sceneTitle.text = text
+            sceneTitle.animate().alpha(0.8f).setDuration(600).start()
+        }.start()
     }
 
     private fun showImage(index: Int) {
@@ -273,10 +384,14 @@ class MainActivity : Activity() {
             }.getOrNull() ?: return@execute
             main.post {
                 imageView.setImageBitmap(bitmap)
-                sceneTitle.text = item.title ?: ""
+                showSceneTitle(item.title)
                 main.removeCallbacks(nextImage)
                 main.postDelayed(nextImage, 5 * 60_000)
             }
         }
+    }
+
+    private companion object {
+        const val IDLE_AFTER_MS = 60_000L
     }
 }

@@ -11,6 +11,8 @@ data class AppEntry(
     val banner: Drawable?,
     val icon: Drawable,
     val launchIntent: Intent,
+    /** Dominant colour of the banner, used for the focus glow. */
+    val accent: Int,
 )
 
 class AppRepository(private val context: Context) {
@@ -29,12 +31,16 @@ class AppRepository(private val context: Context) {
                     ?: pm.getLaunchIntentForPackage(pkg)
                     ?: continue
                 val appInfo = info.activityInfo.applicationInfo
+                val icon = info.loadIcon(pm)
+                val banner = if (pkg == SMARTTUBE) YouTubeBanner()
+                else info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm)
                 result += AppEntry(
                     packageName = pkg,
-                    label = info.loadLabel(pm).toString(),
-                    banner = info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm),
-                    icon = info.loadIcon(pm),
+                    label = if (pkg == SMARTTUBE) "YouTube" else info.loadLabel(pm).toString(),
+                    banner = banner,
+                    icon = icon,
                     launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    accent = Accent.of(banner ?: icon),
                 )
             }
         }
@@ -42,9 +48,21 @@ class AppRepository(private val context: Context) {
     }
 
     var favorites: List<String>
-        get() = prefs.getString(KEY_FAVORITES, null)?.split(',')?.filter { it.isNotBlank() }
-            ?: DEFAULT_FAVORITES
+        get() {
+            migrateOrder()
+            return prefs.getString(KEY_FAVORITES, null)?.split(',')?.filter { it.isNotBlank() }
+                ?: DEFAULT_FAVORITES
+        }
         set(value) = prefs.edit().putString(KEY_FAVORITES, value.joinToString(",")).apply()
+
+    /** Puts the apps the user asked to lead the row first, keeping any other favourites after them. */
+    private fun migrateOrder() {
+        if (prefs.getInt(KEY_ORDER_VERSION, 0) >= ORDER_VERSION) return
+        val saved = prefs.getString(KEY_FAVORITES, null)?.split(',')?.filter { it.isNotBlank() }
+            ?: DEFAULT_FAVORITES
+        val ordered = LEADING + saved.filter { it !in LEADING }
+        prefs.edit().putString(KEY_FAVORITES, ordered.joinToString(",")).putInt(KEY_ORDER_VERSION, ORDER_VERSION).apply()
+    }
 
     fun toggleFavorite(pkg: String) {
         favorites = if (pkg in favorites) favorites - pkg else favorites + pkg
@@ -61,14 +79,16 @@ class AppRepository(private val context: Context) {
 
     companion object {
         private const val KEY_FAVORITES = "favorites"
+        private const val KEY_ORDER_VERSION = "favorites_order_version"
+        private const val ORDER_VERSION = 2
+        private const val SMARTTUBE = "org.smarttube.stable"
+        private val LEADING = listOf("com.nuvio.tv", "ar.tvplayer.tv", SMARTTUBE)
         private val HIDDEN = setOf("com.spocky.projengmenu")
-        private val DEFAULT_FAVORITES = listOf(
-            "org.smarttube.stable",
+        private val DEFAULT_FAVORITES = LEADING + listOf(
             "com.stremio.one",
             "in.startv.hotstar",
             "com.sonyliv",
             "com.graymatrix.did",
-            "com.nuvio.tv",
             "org.videolan.vlc",
         )
     }

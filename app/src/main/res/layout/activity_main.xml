@@ -24,16 +24,18 @@
         app:use_controller="false" />
 
     <View
+        android:id="@+id/scrim"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/scrim" />
 
     <LinearLayout
+        android:id="@+id/ui"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingTop="28dp"
-        android:paddingBottom="22dp">
+        android:paddingTop="26dp"
+        android:paddingBottom="20dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -42,17 +44,26 @@
             android:paddingEnd="44dp">
 
             <LinearLayout
+                android:id="@+id/clock_group"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/greeting"
+                    style="@style/Aura.Text.Muted"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.14"
+                    android:textAllCaps="true"
+                    android:textSize="11sp" />
+
+                <TextView
                     android:id="@+id/clock"
                     style="@style/Aura.Text"
                     android:fontFamily="sans-serif-thin"
                     android:includeFontPadding="false"
-                    android:textSize="64sp" />
+                    android:textSize="66sp" />
 
                 <TextView
                     android:id="@+id/date"
@@ -61,37 +72,115 @@
                     android:fontFamily="sans-serif-light"
                     android:letterSpacing="0.04"
                     android:textSize="16sp" />
-
-                <TextView
-                    android:id="@+id/weather"
-                    style="@style/Aura.Text.Muted"
-                    android:layout_marginTop="6dp"
-                    android:textSize="14sp" />
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/quick_settings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:gravity="end"
+                android:orientation="vertical">
 
-                <ImageButton
-                    android:id="@+id/qs_inputs"
-                    style="@style/Aura.QuickButton"
-                    android:contentDescription="Inputs"
-                    android:src="@drawable/ic_input" />
+                <LinearLayout
+                    android:id="@+id/quick_settings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
 
-                <ImageButton
-                    android:id="@+id/qs_wifi"
-                    style="@style/Aura.QuickButton"
-                    android:contentDescription="Network"
-                    android:src="@drawable/ic_wifi" />
+                    <ImageButton
+                        android:id="@+id/qs_inputs"
+                        style="@style/Aura.QuickButton"
+                        android:contentDescription="Inputs"
+                        android:src="@drawable/ic_input" />
 
-                <ImageButton
-                    android:id="@+id/qs_settings"
-                    style="@style/Aura.QuickButton"
-                    android:contentDescription="Settings"
-                    android:src="@drawable/ic_settings" />
+                    <ImageButton
+                        android:id="@+id/qs_wifi"
+                        style="@style/Aura.QuickButton"
+                        android:contentDescription="Network"
+                        android:src="@drawable/ic_wifi" />
+
+                    <ImageButton
+                        android:id="@+id/qs_settings"
+                        style="@style/Aura.QuickButton"
+                        android:contentDescription="Settings"
+                        android:src="@drawable/ic_settings" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/weather_card"
+                    android:layout_width="264dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:alpha="0"
+                    android:background="@drawable/glass"
+                    android:orientation="vertical"
+                    android:paddingStart="16dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/weather_place"
+                        style="@style/Aura.Text.Muted"
+                        android:letterSpacing="0.14"
+                        android:textAllCaps="true"
+                        android:textSize="10sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/weather_icon"
+                            style="@style/Aura.Text"
+                            android:textSize="28sp" />
+
+                        <TextView
+                            android:id="@+id/weather_temp"
+                            style="@style/Aura.Text"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="sans-serif-light"
+                            android:includeFontPadding="false"
+                            android:textSize="36sp" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/weather_condition"
+                                style="@style/Aura.Text"
+                                android:ellipsize="end"
+                                android:fontFamily="sans-serif-medium"
+                                android:maxLines="1"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/weather_details"
+                                style="@style/Aura.Text.Muted"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="8dp"
+                        android:background="#26FFFFFF" />
+
+                    <LinearLayout
+                        android:id="@+id/forecast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
@@ -104,9 +193,10 @@
             android:id="@+id/scene_title"
             style="@style/Aura.Text.Muted"
             android:layout_marginStart="44dp"
-            android:layout_marginBottom="10dp"
-            android:alpha="0.75"
-            android:textSize="12sp" />
+            android:layout_marginBottom="6dp"
+            android:alpha="0.8"
+            android:drawablePadding="6dp"
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/focused_label"
@@ -122,10 +212,11 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             android:paddingStart="40dp"
-            android:paddingEnd="40dp"
-            android:paddingTop="14dp" />
+            android:paddingTop="14dp"
+            android:paddingEnd="40dp" />
 
         <TextView
+            android:id="@+id/all_apps_label"
             style="@style/Aura.Text.Muted"
             android:layout_marginStart="44dp"
             android:layout_marginTop="2dp"
@@ -140,7 +231,7 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             android:paddingStart="40dp"
-            android:paddingEnd="40dp"
-            android:paddingTop="10dp" />
+            android:paddingTop="10dp"
+            android:paddingEnd="40dp" />
     </LinearLayout>
 </FrameLayout>

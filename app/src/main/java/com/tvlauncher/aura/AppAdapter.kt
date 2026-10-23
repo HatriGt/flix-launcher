@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -57,10 +58,14 @@ class AppAdapter(
             itemView.contentDescription = app.label
             itemView.setOnClickListener { onClick(app) }
             itemView.setOnLongClickListener { onLongClick(app); true }
+            itemView.outlineSpotShadowColor = app.accent
+            itemView.outlineAmbientShadowColor = app.accent
             itemView.setOnFocusChangeListener { v, focused ->
                 val scale = if (focused) FOCUS_SCALE else 1f
-                v.animate().scaleX(scale).scaleY(scale).translationZ(if (focused) 12f else 0f)
-                    .setDuration(140).setInterpolator(INTERPOLATOR).start()
+                val lift = if (focused) GLOW_ELEVATION * v.resources.displayMetrics.density else 0f
+                v.animate().scaleX(scale).scaleY(scale).translationZ(lift)
+                    .setDuration(if (focused) 260 else 180)
+                    .setInterpolator(if (focused) SPRING else EASE_OUT).start()
                 if (focused) onFocus(app)
             }
         }
@@ -68,6 +73,8 @@ class AppAdapter(
 
     private companion object {
         const val FOCUS_SCALE = 1.12f
-        val INTERPOLATOR = DecelerateInterpolator(1.6f)
+        const val GLOW_ELEVATION = 18f
+        val SPRING = OvershootInterpolator(1.6f)
+        val EASE_OUT = DecelerateInterpolator(1.6f)
     }
 }
