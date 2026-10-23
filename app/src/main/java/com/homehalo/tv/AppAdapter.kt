@@ -211,10 +211,10 @@ class AppAdapter(
             }
             val duration = when {
                 instant || s.motion == "none" -> 0L
-                focused -> 280L
-                else -> 180L
+                focused -> 200L
+                else -> 140L
             }
-            tile.animate().scaleX(scale).scaleY(scale).translationZ(lift).setDuration(duration)
+            tile.animate().scaleX(scale).scaleY(scale).setDuration(duration)
                 .setInterpolator(if (focused && s.motion == "spring") SPRING else EASE_OUT).start()
             label.animate().alpha(labelAlpha).translationY(if (focused && !s.isBanner) 5 * s.density else 0f)
                 .setDuration(duration).setInterpolator(EASE_OUT).start()

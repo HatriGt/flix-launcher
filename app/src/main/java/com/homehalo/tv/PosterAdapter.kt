@@ -38,6 +38,8 @@ class PosterAdapter(
 
     override fun getItemId(position: Int) = items[position].id.hashCode().toLong()
 
+    private val placeholder = GradientDrawable().apply { cornerRadius = 10 * density; setColor(0x33FFFFFF) }
+
     override fun getItemCount() = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -50,10 +52,6 @@ class PosterAdapter(
             }
             isFocusable = true
             clipToOutline = true
-            background = GradientDrawable().apply {
-                cornerRadius = radius
-                setColor(0x33FFFFFF)
-            }
             foreground = StateListDrawable().apply {
                 setEnterFadeDuration(120)
                 setExitFadeDuration(120)
@@ -140,6 +138,9 @@ class PosterAdapter(
             if (progress != null) bar.layoutParams = bar.layoutParams.apply { width = (widthPx * progress.coerceIn(0.03f, 1f)).toInt() }
             fallback.text = title.name
             Images.into(poster, title.poster, widthPx)
+            // The grey placeholder only matters until the poster arrives; drawing it under a
+            // full poster doubles the pixels the GPU fills.
+            itemView.background = if (title.poster == null) placeholder else null
             badge.text = title.rating?.let { "★ $it" }
             badge.visibility = if (title.rating == null) View.GONE else View.VISIBLE
             itemView.contentDescription = title.name
@@ -149,8 +150,8 @@ class PosterAdapter(
             itemView.setOnLongClickListener { onLongClick(title); true }
             itemView.setOnFocusChangeListener { v, focused ->
                 val scale = if (focused) 1.1f else 1f
-                v.animate().scaleX(scale).scaleY(scale).translationZ(if (focused) 14 * density else 0f)
-                    .setDuration(if (focused) 260 else 160)
+                v.animate().scaleX(scale).scaleY(scale)
+                    .setDuration(if (focused) 200 else 140)
                     .setInterpolator(if (focused && springy) SPRING else EASE).start()
                 if (focused) onFocus(title)
             }

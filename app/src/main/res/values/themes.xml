@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Halo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowBackground">@null</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowAnimationStyle">@null</item>
@@ -23,8 +23,8 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">#FFFFFFFF</item>
-        <item name="android:shadowColor">#99000000</item>
-        <item name="android:shadowRadius">8</item>
+        <item name="android:shadowColor">#00000000</item>
+        <item name="android:shadowRadius">0</item>
         <item name="android:shadowDy">1</item>
     </style>
 

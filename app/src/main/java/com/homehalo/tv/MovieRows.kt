@@ -93,7 +93,6 @@ class MovieRows(
             textSize = 14f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setShadowLayer(8f, 0f, 1f, 0x99000000.toInt())
             setPadding((44 * dp).toInt(), (10 * dp).toInt(), 0, 0)
         }
         val grow = (h * 0.06f + 10 * dp).roundToInt()
@@ -184,7 +183,7 @@ class Hero(root: View) {
         if (current?.id == title.id) return
         current = title
         main.removeCallbacksAndMessages(null)
-        main.postDelayed({ if (current?.id == title.id) apply(title) }, 160)
+        main.postDelayed({ if (current?.id == title.id) apply(title) }, 120)
     }
 
     private fun apply(title: Catalog.Title) {
@@ -228,8 +227,8 @@ class Hero(root: View) {
             next.alpha = 0f
             next.scaleX = 1.06f
             next.scaleY = 1.06f
-            next.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(700).start()
-            prev.animate().alpha(0f).setStartDelay(400).setDuration(300).start()
+            next.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(500).start()
+            prev.animate().alpha(0f).setStartDelay(300).setDuration(250).withEndAction { prev.setImageDrawable(null) }.start()
             front = 1 - front
         }
     }

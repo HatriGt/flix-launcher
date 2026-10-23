@@ -80,6 +80,7 @@ class MainActivity : Activity() {
     private lateinit var header: View
     private lateinit var favoritesBlock: View
     private var browsing = false
+    private val hideUnderHero = Runnable { if (browsing) scrim.visibility = View.INVISIBLE }
     private lateinit var trailer: Trailer
     private var scrollAnimator: android.animation.ObjectAnimator? = null
     private val pauseForBackdrop = Runnable { if (browsing && hero.backdropEnabled) player?.pause() }
@@ -239,7 +240,7 @@ class MainActivity : Activity() {
         main.removeCallbacks(tick)
         main.post(tick)
 
-        findViewById<View>(R.id.dim).animate().alpha(dimLevel()).setDuration(300).start()
+        paintScrim(dimLevel())
         sceneTitle.visibility = if (isOn(HaloSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
         player?.shuffleModeEnabled = isOn(HaloSettings.SHUFFLE)
         hero.backdropEnabled = isOn(HaloSettings.BACKDROP)
@@ -306,7 +307,7 @@ class MainActivity : Activity() {
         if (rowsScroll.scrollY == y) return
         scrollAnimator?.cancel()
         scrollAnimator = android.animation.ObjectAnimator.ofInt(rowsScroll, "scrollY", y).apply {
-            duration = 420
+            duration = 300
             interpolator = DecelerateInterpolator(2.2f)
             start()
         }
@@ -319,6 +320,8 @@ class MainActivity : Activity() {
         header.animate().alpha(0f).translationY(-24 * dp).setDuration(300).start()
         favoritesBlock.animate().alpha(0f).setDuration(250).start()
         hero.show()
+        // Once the artwork covers everything, stop drawing the layers hidden beneath it.
+        main.postDelayed(hideUnderHero, 400)
         // Once the artwork covers the scenery, stop decoding video nobody can see.
         main.removeCallbacks(pauseForBackdrop)
         main.postDelayed(pauseForBackdrop, 1500)
@@ -330,6 +333,8 @@ class MainActivity : Activity() {
         header.animate().alpha(1f).translationY(0f).setDuration(350).start()
         favoritesBlock.animate().alpha(1f).setDuration(300).start()
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
+        main.removeCallbacks(hideUnderHero)
+        scrim.visibility = View.VISIBLE
         hero.hide()
         trailer.stop()
         main.removeCallbacks(pauseForBackdrop)
@@ -360,6 +365,19 @@ class MainActivity : Activity() {
                 movieRows.refreshHidden()
             },
         ))
+    }
+
+    /**
+     * One full-screen gradient does the shading and the dimming together: each extra
+     * full-screen layer costs the TV's GPU a whole frame's worth of pixels.
+     */
+    private fun paintScrim(dim: Float) {
+        findViewById<View>(R.id.dim).visibility = View.GONE
+        fun shade(a: Float) = (((a + dim * (1 - a)).coerceIn(0f, 1f) * 255).toInt() shl 24)
+        scrim.background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,
+            intArrayOf(shade(0.85f), shade(0.25f), shade(0.05f), shade(0.45f)),
+        )
     }
 
     private fun dimLevel() = when (HaloSettings.get(this, HaloSettings.DIM)) {
@@ -502,7 +520,7 @@ class MainActivity : Activity() {
         val duration = if (value) 1200L else 350L
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
-        findViewById<View>(R.id.dim).animate().alpha(if (value) 0f else dimLevel()).setDuration(duration).start()
+        paintScrim(if (value) 0f else dimLevel())
         if (!value) scheduleIdle()
     }
 
