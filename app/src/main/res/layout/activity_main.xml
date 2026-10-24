@@ -103,7 +103,8 @@
                     android:id="@+id/hero_title"
                     style="@style/Halo.Text"
                     android:fontFamily="sans-serif-medium"
-                    android:maxLines="2"
+                    android:maxLines="1"
+                    android:ellipsize="end"
                     android:letterSpacing="-0.01"
                     android:textStyle="bold"
                     android:textSize="38sp" />

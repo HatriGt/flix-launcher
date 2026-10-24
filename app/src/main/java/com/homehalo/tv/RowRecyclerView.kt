@@ -15,13 +15,17 @@ class RowRecyclerView(context: Context) : RecyclerView(context) {
     private var pending = false
 
     /** Called by a card as its width animates. */
-    fun relayoutFor(@Suppress("UNUSED_PARAMETER") child: View) {
-        if (!isLaidOut || width == 0) return
+    fun relayoutFor(child: View) {
+        // The child must be measured again, and this row laid out even though its own size
+        // hasn't changed (View.layout skips onLayout for an unchanged, un-forced view).
+        child.forceLayout()
+        if (!isLaidOut || width == 0) return super.requestLayout()
         if (pending) return
         pending = true
         postOnAnimation {
             pending = false
             localPass = true
+            forceLayout()
             measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
             layout(left, top, right, bottom)
             localPass = false

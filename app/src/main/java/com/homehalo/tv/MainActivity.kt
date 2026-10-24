@@ -365,7 +365,16 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
         }
-        open(intent)
+        // Nuvio is a heavy app to start; give it the TV's full attention. Stop the trailer
+        // (its process and memory) and skip the home screen's zoom-out, which competed with
+        // Nuvio's launch for the GPU and made the hand-over judder. A plain crossfade instead.
+        trailer.stop()
+        main.removeCallbacks(pauseForBackdrop)
+        player?.pause()
+        runCatching {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                android.app.ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle())
+        }.onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
     }
 
     private fun showTitleMenu(title: Catalog.Title) {
@@ -555,9 +564,48 @@ class MainActivity : Activity() {
             return true // the key that wakes the screen shouldn't also move focus
         }
         scheduleIdle()
+        if (event.action == KeyEvent.ACTION_DOWN && steerMovieRows(event)) return true
         return super.dispatchKeyEvent(event)
     }
 
+
+    /**
+     * Movie-row navigation, Netflix style:
+     *  - Left at the first card / Right at the last card stays put instead of jumping rows.
+     *  - Up/Down lands on the card at the start of the next row (where its big card sits),
+     *    rather than whichever card happens to be geometrically closest.
+     */
+    private fun steerMovieRows(event: KeyEvent): Boolean {
+        val focused = currentFocus ?: return false
+        val row = movieRows.rowOf(focused) ?: return false
+        val pos = row.list.getChildAdapterPosition(focused)
+        val last = row.adapter.itemCount - 1
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> return pos == 0
+            KeyEvent.KEYCODE_DPAD_RIGHT -> return pos == last
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_UP -> {
+                val visible = movieRows.rows.filter { it.view.visibility == View.VISIBLE }
+                val i = visible.indexOf(row) + if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) 1 else -1
+                if (i < 0) return false // Up from the first row: back to the apps dock as before
+                if (i >= visible.size) return true // nothing below: stay
+                if (event.repeatCount > 0 && rowsScrolling()) return true // don't outrun the scroll
+                focusRowStart(visible[i])
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun rowsScrolling() = scrollAnimator?.isRunning == true
+
+    private fun focusRowStart(target: MovieRows.Row) {
+        val lm = target.list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+        val pos = lm.findFirstCompletelyVisibleItemPosition().takeIf { it >= 0 } ?: lm.findFirstVisibleItemPosition().coerceAtLeast(0)
+        val card = target.list.findViewHolderForAdapterPosition(pos)?.itemView
+        if (card != null) { card.requestFocus(); return }
+        target.list.scrollToPosition(pos)
+        target.list.post { target.list.findViewHolderForAdapterPosition(pos)?.itemView?.requestFocus() }
+    }
 
     private fun scheduleIdle() {
         main.removeCallbacks(goIdle)
