@@ -80,7 +80,20 @@ class MainActivity : Activity() {
     private lateinit var header: View
     private lateinit var favoritesBlock: View
     private var browsing = false
-    private val hideUnderHero = Runnable { if (browsing) scrim.visibility = View.INVISIBLE }
+    /**
+     * Once the artwork covers everything, take the hidden full-screen layers (scrim,
+     * scenery video, its veil) out of the frame: each costs the GPU and the compositor
+     * a whole screen of pixels, which weaker TVs can't afford.
+     */
+    private val hideUnderHero = Runnable {
+        if (!browsing) return@Runnable
+        scrim.visibility = View.INVISIBLE
+        if (hero.backdropEnabled) {
+            videoView.visibility = View.INVISIBLE
+            veil.visibility = View.INVISIBLE
+            imageView.visibility = View.INVISIBLE
+        }
+    }
     private lateinit var trailer: Trailer
     private var scrollAnimator: android.animation.ObjectAnimator? = null
     private val pauseForBackdrop = Runnable { if (browsing && hero.backdropEnabled) player?.pause() }
@@ -335,6 +348,9 @@ class MainActivity : Activity() {
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
         main.removeCallbacks(hideUnderHero)
         scrim.visibility = View.VISIBLE
+        videoView.visibility = View.VISIBLE
+        veil.visibility = View.VISIBLE
+        imageView.visibility = View.VISIBLE
         hero.hide()
         trailer.stop()
         main.removeCallbacks(pauseForBackdrop)

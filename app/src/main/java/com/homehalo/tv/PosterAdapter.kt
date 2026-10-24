@@ -15,7 +15,10 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-/** Poster cards for one catalogue row. */
+/**
+ * Poster cards for one catalogue row. Like Netflix, the focused card widens into a
+ * landscape card showing the title's backdrop, logo and rating; the others stay posters.
+ */
 class PosterAdapter(
     private val widthPx: Int,
     private val heightPx: Int,
@@ -41,6 +44,9 @@ class PosterAdapter(
     private val placeholder = GradientDrawable().apply { cornerRadius = 10 * density; setColor(0x33FFFFFF) }
 
     override fun getItemCount() = items.size
+
+    /** Width of the focused card: a 16:9 landscape at the poster's height. */
+    private val expandedPx = heightPx * 16 / 9
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val context = parent.context
@@ -92,10 +98,37 @@ class PosterAdapter(
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
+        // Shown only on the focused, widened card.
+        val backdrop = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
+        val info = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((12 * density).toInt(), 0, (12 * density).toInt(), (11 * density).toInt())
+            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xF0000000.toInt(), 0x99000000.toInt(), 0))
+            gravity = Gravity.BOTTOM
+            alpha = 0f
+        }
+        val logo = ImageView(context).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START }
+        val name = TextView(context).apply {
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            maxLines = 2
+        }
+        val meta = TextView(context).apply {
+            textSize = 10.5f
+            setTextColor(0xE6FFFFFF.toInt())
+            maxLines = 1
+            setPadding(0, (4 * density).toInt(), 0, 0)
+        }
+        info.addView(logo, android.widget.LinearLayout.LayoutParams(-2, (34 * density).toInt()))
+        info.addView(name)
+        info.addView(meta)
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
         val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
         card.addView(poster, FrameLayout.LayoutParams(-1, -1))
+        card.addView(backdrop, FrameLayout.LayoutParams(-1, -1))
+        card.addView(info, FrameLayout.LayoutParams(-1, -1))
         card.addView(badge, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
             topMargin = (5 * density).toInt()
             marginEnd = (5 * density).toInt()
@@ -108,13 +141,14 @@ class PosterAdapter(
         })
         card.addView(track, FrameLayout.LayoutParams(-1, barHeight, Gravity.BOTTOM))
         card.addView(bar, FrameLayout.LayoutParams(0, barHeight, Gravity.BOTTOM))
-        return Holder(card, poster, fallback, badge, shade, episode, track, bar)
+        return Holder(card, poster, fallback, badge, shade, episode, track, bar, backdrop, info, logo, name, meta)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
 
     override fun onViewRecycled(holder: Holder) {
         holder.poster.tag = null
+        holder.collapse(instant = true)
     }
 
     private fun h(fraction: Float) = (heightPx * fraction).toInt()
@@ -128,8 +162,78 @@ class PosterAdapter(
         private val episode: TextView,
         private val track: View,
         private val bar: View,
+        private val backdrop: ImageView,
+        private val info: View,
+        private val logo: ImageView,
+        private val name: TextView,
+        private val meta: TextView,
     ) : RecyclerView.ViewHolder(view) {
+        private var widthAnim: android.animation.ValueAnimator? = null
+        private var current: Catalog.Title? = null
+
+        private fun sizeBar(cardWidth: Int) {
+            val p = current?.progress ?: return
+            bar.layoutParams = bar.layoutParams.apply { width = (cardWidth * p.coerceIn(0.03f, 1f)).toInt() }
+        }
+
+        private fun animateWidth(to: Int, instant: Boolean) {
+            widthAnim?.cancel()
+            val lp = itemView.layoutParams
+            if (instant || lp.width == to) {
+                if (lp.width != to) { lp.width = to; itemView.layoutParams = lp }
+                sizeBar(to)
+                return
+            }
+            widthAnim = android.animation.ValueAnimator.ofInt(lp.width, to).apply {
+                duration = 230
+                interpolator = EASE
+                addUpdateListener {
+                    lp.width = it.animatedValue as Int
+                    sizeBar(lp.width)
+                    val row = itemView.parent as? RowRecyclerView
+                    // Inside a fixed-height row, only the row re-lays out; elsewhere use the normal path.
+                    if (row != null) row.relayoutFor(itemView) else itemView.layoutParams = lp
+                }
+                start()
+            }
+        }
+
+        /** Widen into the landscape card and fetch its artwork (only now, to keep memory low). */
+        private fun expand(title: Catalog.Title) {
+            animateWidth(expandedPx, instant = false)
+            name.text = title.name
+            meta.text = listOfNotNull(title.rating?.let { "★ $it" }, title.year,
+                title.genres.take(2).joinToString(" · ").ifBlank { null }, title.episodeLabel).joinToString("   ")
+            logo.setImageDrawable(null)
+            logo.visibility = View.GONE
+            name.visibility = View.VISIBLE
+            title.logo?.let { url ->
+                Images.get(url, (220 * density).toInt()) { bmp ->
+                    if (bmp == null || current?.id != title.id || !itemView.isFocused) return@get
+                    logo.setImageBitmap(bmp); logo.visibility = View.VISIBLE; name.visibility = View.GONE
+                }
+            }
+            info.animate().alpha(1f).setStartDelay(90).setDuration(200).start()
+            badge.animate().alpha(0f).setDuration(120).start()
+            val url = title.backdrop ?: return
+            Images.get(url, expandedPx) { bmp ->
+                if (bmp == null || current?.id != title.id || !itemView.isFocused) return@get
+                backdrop.setImageBitmap(bmp)
+                backdrop.animate().alpha(1f).setDuration(220).start()
+            }
+        }
+
+        fun collapse(instant: Boolean) {
+            animateWidth(widthPx, instant)
+            info.animate().cancel(); backdrop.animate().cancel()
+            if (instant) { info.alpha = 0f; backdrop.alpha = 0f; badge.alpha = 1f; backdrop.setImageDrawable(null); return }
+            info.animate().alpha(0f).setDuration(110).start()
+            badge.animate().alpha(1f).setDuration(160).start()
+            backdrop.animate().alpha(0f).setDuration(160).withEndAction { if (!itemView.isFocused) backdrop.setImageDrawable(null) }.start()
+        }
+
         fun bind(title: Catalog.Title) {
+            current = title
             val progress = title.progress
             val inProgress = progress != null
             listOf(shade, track, bar).forEach { it.visibility = if (inProgress) View.VISIBLE else View.GONE }
@@ -148,16 +252,15 @@ class PosterAdapter(
                 itemView.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).withEndAction { onClick(title) }.start()
             }
             itemView.setOnLongClickListener { onLongClick(title); true }
-            itemView.setOnFocusChangeListener { v, focused ->
-                val scale = if (focused) 1.1f else 1f
-                v.animate().scaleX(scale).scaleY(scale)
-                    .setDuration(if (focused) 200 else 140)
-                    .setInterpolator(if (focused && springy) SPRING else EASE).start()
-                if (focused) onFocus(title)
+            itemView.setOnFocusChangeListener { _, focused ->
+                if (focused) {
+                    expand(title)
+                    // Keep the widened card at the start of the row, as Netflix does.
+                    (itemView.parent as? RecyclerView)?.let { rv -> rv.smoothScrollBy(itemView.left - rv.paddingStart - (7 * density).toInt(), 0) }
+                    onFocus(title)
+                } else collapse(instant = false)
             }
-            val focused = itemView.isFocused
-            itemView.scaleX = if (focused) 1.1f else 1f
-            itemView.scaleY = itemView.scaleX
+            if (itemView.isFocused) expand(title) else collapse(instant = true)
         }
     }
 

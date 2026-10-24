@@ -40,9 +40,9 @@ class MovieRows(
         val genre = HaloSettings.get(activity, HaloSettings.GENRE).takeIf { it != "all" }
         val sources = Addons.rows(activity).filter { it.enabled }
         val (w, h) = when (HaloSettings.get(activity, HaloSettings.POSTER_SIZE)) {
-            "small" -> 72 to 108
-            "large" -> 100 to 150
-            else -> 86 to 129
+            "small" -> 84 to 126
+            "large" -> 112 to 168
+            else -> 98 to 147
         }
         if (!NuvioAccount.isSignedIn(activity) && HaloSettings.isOn(activity, HaloSettings.CONTINUE_WATCHING) &&
             activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
@@ -95,8 +95,8 @@ class MovieRows(
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setPadding((44 * dp).toInt(), (10 * dp).toInt(), 0, 0)
         }
-        val grow = (h * 0.06f + 10 * dp).roundToInt()
-        val list = RecyclerView(activity).apply {
+        val grow = (8 * dp).roundToInt() // room for the focus ring; cards widen rather than scale
+        val list = RowRecyclerView(activity).apply {
             layoutManager = LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false)
             this.adapter = adapter
             itemAnimator = null
@@ -161,6 +161,23 @@ class Hero(root: View) {
     private val info: View = root.findViewById(R.id.hero_info)
     private val main = Handler(Looper.getMainLooper())
     private val width = root.resources.displayMetrics.widthPixels
+
+    /** On 2 GB TVs (weak GPUs) the backdrop swaps on a single layer instead of crossfading two. */
+    private val lite = (root.context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager)
+        .let { am -> android.app.ActivityManager.MemoryInfo().also(am::getMemoryInfo).totalMem < 2_600_000_000L }
+
+    init {
+        // Both shading gradients baked into one small bitmap: one full-screen draw instead of two.
+        val shadeW = 192; val shadeH = 108
+        val bmp = android.graphics.Bitmap.createBitmap(shadeW, shadeH, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        root.context.getDrawable(R.drawable.hero_shade)!!.apply { setBounds(0, 0, shadeW, shadeH); draw(c) }
+        (backdrops[0].parent as View).let { holder ->
+            val parent = holder.parent as android.view.ViewGroup
+            val shadeView = parent.getChildAt(parent.indexOfChild(holder) + 2)
+            shadeView.background = android.graphics.drawable.BitmapDrawable(root.resources, bmp).apply { isFilterBitmap = true }
+        }
+    }
     private var front = 0
     private var current: Catalog.Title? = null
     var backdropEnabled = true
@@ -220,6 +237,14 @@ class Hero(root: View) {
         }
         Images.get(url, width / 2) { bitmap ->
             if (bitmap == null || current?.id != title.id) return@get
+            if (lite) {
+                val only = backdrops[0]
+                backdrops[1].setImageDrawable(null)
+                only.setImageBitmap(bitmap)
+                only.alpha = 0.35f
+                only.animate().alpha(1f).setDuration(200).start()
+                return@get
+            }
             val next = backdrops[1 - front]
             val prev = backdrops[front]
             next.setImageBitmap(bitmap)
