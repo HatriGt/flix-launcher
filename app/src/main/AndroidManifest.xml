@@ -87,6 +87,12 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.Halo.Settings" />
 
+        <!-- Trailer player in its own process, so its memory is freed when a trailer stops. -->
+        <service
+            android:name=".TrailerService"
+            android:exported="false"
+            android:process=":trailer" />
+
         <receiver
             android:name=".HomeGuard$Receiver"
             android:exported="false">

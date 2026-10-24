@@ -1,14 +1,18 @@
 package com.homehalo.tv
 
-import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
-import android.graphics.Color
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
+import android.os.Message
+import android.os.Messenger
+import android.view.SurfaceControlViewHost
+import android.view.SurfaceView
 import android.view.View
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebView
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -17,14 +21,17 @@ import java.util.concurrent.Executor
 
 /**
  * Plays a title's YouTube trailer behind the preview once a poster has held
- * focus for a few seconds, as Nuvio does. The player sits under the hero
- * shading and fades in only when the video is actually playing.
+ * focus for a few seconds, as Nuvio does. The player itself runs in a separate
+ * process ([TrailerService]) and is shown here through a SurfaceView; stopping
+ * the trailer unbinds it, which ends that process and frees Chromium's memory.
  */
 class Trailer(private val context: Context, private val host: android.widget.FrameLayout, private val net: Executor) {
-    private var view: WebView? = null
     private val main = Handler(Looper.getMainLooper())
     private var pending: Catalog.Title? = null
     private var playingId: String? = null
+    private var surface: SurfaceView? = null
+    private var service: Messenger? = null
+    private var connection: ServiceConnection? = null
     var enabled = true
     val isPlaying get() = playingId != null
     var sound = false
@@ -32,39 +39,27 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     /** Called whenever the playing state changes, so the scenery video can pause. */
     var onPlaying: (Boolean) -> Unit = {}
 
-
-    /** Builds a fresh WebView; Chromium is only loaded while a trailer is actually wanted. */
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun create(): WebView {
-        val view = WebView(context)
-        host.addView(view, android.widget.FrameLayout.LayoutParams(-1, -1))
-        view.setBackgroundColor(Color.TRANSPARENT)
-        view.alpha = 0f
-        view.isFocusable = false
-        view.isFocusableInTouchMode = false
-        view.settings.javaScriptEnabled = true
-        view.settings.mediaPlaybackRequiresUserGesture = false
-        view.settings.domStorageEnabled = true
-        view.webChromeClient = WebChromeClient()
-        view.addJavascriptInterface(object {
-            @JavascriptInterface
-            fun state(playing: Boolean) = main.post {
-                if (playing && playingId != null) {
-                    view?.let { it.animate().alpha(1f).setDuration(900).start() }
-                    onPlaying(true)
-                } else if (!playing) {
-                    stop()
-                }
+    private val replies = Messenger(Handler(Looper.getMainLooper()) { msg ->
+        when (msg.what) {
+            TrailerService.MSG_SURFACE -> {
+                @Suppress("DEPRECATION")
+                val pkg = msg.data.getParcelable<SurfaceControlViewHost.SurfacePackage>("surface")
+                if (pkg != null && playingId != null) surface?.setChildSurfacePackage(pkg)
             }
-        }, "HomeHalo")
-        return view
-    }
+            TrailerService.MSG_STATE -> if (msg.arg1 == 1 && playingId != null) {
+                surface?.let { it.visibility = View.VISIBLE; it.alpha = 0f; it.animate().alpha(1f).setDuration(900).start() }
+                onPlaying(true)
+            } else if (msg.arg1 == 0) stop()
+        }
+        true
+    })
 
     /** Starts the countdown for [title]; moving focus elsewhere calls this again or [stop]. */
     fun focus(title: Catalog.Title) {
         if (playingId == title.id) return
         stop()
-        if (!enabled) return
+        // Embedding another process's surface needs Android 11+; older TVs keep the still backdrop.
+        if (!enabled || android.os.Build.VERSION.SDK_INT < 30) return
         pending = title
         main.postDelayed({ if (pending?.id == title.id) start(title) }, DELAY_MS)
     }
@@ -74,14 +69,14 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
         pending = null
         if (playingId == null) return
         playingId = null
-        val old = view ?: return onPlaying(false)
-        view = null
-        old.animate().cancel()
-        old.animate().alpha(0f).setDuration(300).withEndAction {
-            // Destroying the WebView hands Chromium's memory back as soon as the trailer ends.
-            host.removeView(old)
-            old.destroy()
-        }.start()
+        connection?.let { runCatching { context.unbindService(it) } }
+        connection = null
+        service = null
+        surface?.let { old ->
+            surface = null
+            old.animate().cancel()
+            old.animate().alpha(0f).setDuration(250).withEndAction { host.removeView(old) }.start()
+        }
         onPlaying(false)
     }
 
@@ -91,28 +86,42 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
             main.post {
                 if (pending?.id != title.id) return@post
                 playingId = title.id
-                val view = this.view ?: create().also { this.view = it }
-                view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId), "text/html", "utf-8", null)
+                val sv = SurfaceView(context).apply {
+                    visibility = View.INVISIBLE
+                    // Above the backdrop but under the page, like the old WebView.
+                    setZOrderMediaOverlay(false)
+                }
+                surface = sv
+                host.addView(sv, android.widget.FrameLayout.LayoutParams(-1, -1))
+                sv.post { bind(ytId, sv) }
             }
         }
     }
 
-    private fun page(ytId: String) = """
-        <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}
-        #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.32)}</style></head>
-        <body><div id="p"></div>
-        <script src="https://www.youtube.com/iframe_api"></script>
-        <script>
-        function onYouTubeIframeAPIReady(){
-          new YT.Player('p',{videoId:'$ytId',host:'https://www.youtube-nocookie.com',
-            playerVars:{autoplay:1,mute:${if (sound) 0 else 1},controls:0,disablekb:1,fs:0,modestbranding:1,rel:0,iv_load_policy:3,playsinline:1,start:4},
-            events:{onReady:function(e){e.target.playVideo()},
-              onStateChange:function(e){ if(e.data===1) HomeHalo.state(true); if(e.data===0) HomeHalo.state(false) },
-              onError:function(){ HomeHalo.state(false) }}});
+    private fun bind(ytId: String, sv: SurfaceView) {
+        if (surface !== sv) return
+        val conn = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                if (connection !== this) return
+                val m = Messenger(binder)
+                service = m
+                val msg = Message.obtain(null, TrailerService.MSG_PLAY)
+                msg.replyTo = replies
+                msg.data = Bundle().apply {
+                    putString("ytId", ytId)
+                    putBoolean("sound", sound)
+                    putBinder("hostToken", sv.hostToken)
+                    putInt("displayId", sv.display.displayId)
+                    putInt("w", sv.width.coerceAtLeast(1))
+                    putInt("h", sv.height.coerceAtLeast(1))
+                }
+                runCatching { m.send(msg) }
+            }
+            override fun onServiceDisconnected(name: ComponentName) { if (connection === this) stop() }
         }
-        </script></body></html>
-    """.trimIndent()
+        connection = conn
+        context.bindService(Intent(context, TrailerService::class.java), conn, Context.BIND_AUTO_CREATE)
+    }
 
     /** The title's YouTube trailer id from Cinemeta (or the addon it came from), cached for a week. */
     private fun trailerId(title: Catalog.Title): String? = runCatching {
