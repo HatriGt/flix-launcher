@@ -159,7 +159,12 @@ class MainActivity : Activity() {
         favoritesBlock = findViewById(R.id.favorites_block)
         hero = Hero(findViewById(R.id.ui))
         trailer = Trailer(this, findViewById(R.id.hero_trailer), net)
-        trailer.onPlaying = { playing -> if (playing) player?.pause() }
+        trailer.onPlaying = { playing ->
+            if (playing) {
+                player?.pause()
+                scheduleImmersive()
+            } else endImmersive()
+        }
         movieRows = MovieRows(this, findViewById(R.id.movie_rows), net, { title ->
             hero.present(title)
             trailer.focus(title)
@@ -500,7 +505,40 @@ class MainActivity : Activity() {
     }
 
     @Deprecated("Home screen has nowhere to go back to")
-    override fun onBackPressed() = returnToStart()
+    override fun onBackPressed() {
+        // While a trailer has the screen to itself, Back just brings the page back.
+        if (immersed) return endImmersive()
+        returnToStart()
+    }
+
+    // ---- Immersive trailer: like Netflix, the page steps aside so the trailer fills the screen ----
+
+    private var immersed = false
+    private val immersiveViews by lazy {
+        // The header is already hidden while browsing, so it stays out of this.
+        listOf(rowsScroll, findViewById<View>(R.id.hero_info), findViewById<View>(R.id.hero_shade))
+    }
+    private val dimPage = Runnable { if (trailer.isPlaying) { immersed = true; fadePage(0.3f, 600) } }
+    private val clearPage = Runnable { if (trailer.isPlaying) fadePage(0f, 700) }
+
+    /** 4 s into a trailer the page drops to 30%; a second later it's gone. */
+    private fun scheduleImmersive() {
+        main.removeCallbacks(dimPage); main.removeCallbacks(clearPage)
+        main.postDelayed(dimPage, 4000)
+        main.postDelayed(clearPage, 5000)
+    }
+
+    private fun endImmersive() {
+        main.removeCallbacks(dimPage); main.removeCallbacks(clearPage)
+        if (!immersed) return
+        immersed = false
+        fadePage(1f, 250)
+    }
+
+    private fun fadePage(alpha: Float, ms: Long) = immersiveViews.forEach {
+        it.animate().cancel()
+        it.animate().alpha(alpha).setDuration(ms).start()
+    }
 
     private fun returnToStart() {
         if (idle) setIdle(false)
@@ -513,6 +551,11 @@ class MainActivity : Activity() {
     // ---- Idle mode: after a quiet minute the UI fades away and leaves just the scenery ----
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (immersed && event.keyCode != KeyEvent.KEYCODE_BACK) {
+            // Any other key brings the page back first, without acting on what can't be seen.
+            if (event.action == KeyEvent.ACTION_UP) { trailer.stop(); endImmersive() }
+            return true
+        }
         if (idle) {
             if (event.action == KeyEvent.ACTION_UP) setIdle(false)
             return true // the key that wakes the screen shouldn't also move focus

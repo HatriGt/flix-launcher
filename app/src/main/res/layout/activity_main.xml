@@ -81,6 +81,7 @@
                 android:layout_height="match_parent" />
 
             <View
+                android:id="@+id/hero_shade"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@drawable/hero_shade" />
@@ -90,16 +91,16 @@
                 android:layout_width="470dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="44dp"
-                android:layout_marginTop="26dp"
+                android:layout_marginTop="18dp"
                 android:orientation="vertical">
 
                 <ImageView
                     android:id="@+id/hero_logo"
                     android:layout_width="wrap_content"
-                    android:layout_height="58dp"
+                    android:layout_height="96dp"
                     android:adjustViewBounds="true"
                     android:importantForAccessibility="no"
-                    android:maxWidth="320dp"
+                    android:maxWidth="470dp"
                     android:scaleType="fitStart"
                     android:visibility="gone" />
 
@@ -108,14 +109,16 @@
                     style="@style/Halo.Text"
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="2"
-                    android:textSize="30sp" />
+                    android:letterSpacing="-0.01"
+                    android:textStyle="bold"
+                    android:textSize="38sp" />
 
                 <TextView
                     android:id="@+id/hero_meta"
                     style="@style/Halo.Text"
                     android:layout_marginTop="10dp"
                     android:fontFamily="sans-serif-medium"
-                    android:textSize="12sp" />
+                    android:textSize="14sp" />
 
                 <TextView
                     android:id="@+id/hero_description"
@@ -124,14 +127,8 @@
                     android:ellipsize="end"
                     android:lineSpacingMultiplier="1.2"
                     android:maxLines="2"
-                    android:textSize="12sp" />
+                    android:textSize="14sp" />
 
-                <TextView
-                    style="@style/Halo.Text.Muted"
-                    android:layout_marginTop="10dp"
-                    android:alpha="0.7"
-                    android:text="OK to open in Nuvio  ·  Hold OK for more"
-                    android:textSize="10sp" />
             </LinearLayout>
         </FrameLayout>
 

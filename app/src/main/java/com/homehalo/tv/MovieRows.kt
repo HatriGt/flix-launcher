@@ -159,6 +159,20 @@ class Hero(root: View) {
     private val meta: TextView = root.findViewById(R.id.hero_meta)
     private val description: TextView = root.findViewById(R.id.hero_description)
     private val info: View = root.findViewById(R.id.hero_info)
+
+    /** Netflix's small "N SERIES" line above the title: a red bar and the type, spaced out. */
+    private val kind: TextView = TextView(root.context).apply {
+        textSize = 12f
+        letterSpacing = 0.3f
+        setTextColor(Color.WHITE)
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        val d = root.resources.displayMetrics.density
+        setCompoundDrawablesRelativeWithIntrinsicBounds(android.graphics.drawable.GradientDrawable().apply {
+            setColor(0xFFE50914.toInt()); setSize((4 * d).toInt(), (16 * d).toInt())
+        }, null, null, null)
+        compoundDrawablePadding = (10 * d).toInt()
+        setPadding(0, 0, 0, (8 * d).toInt())
+    }.also { (info as android.view.ViewGroup).addView(it, 0) }
     private val main = Handler(Looper.getMainLooper())
     private val width = root.resources.displayMetrics.widthPixels
 
@@ -203,17 +217,29 @@ class Hero(root: View) {
         main.postDelayed({ if (current?.id == title.id) apply(title) }, 120)
     }
 
+    /** "122" or "122 min" becomes "2h 2m", as Netflix writes it. */
+    private fun runtimeText(raw: String?): String? {
+        val m = raw?.filter { it.isDigit() }?.toIntOrNull() ?: return raw
+        if (raw.contains("h")) return raw
+        return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+    }
+
     private fun apply(title: Catalog.Title) {
         info.animate().cancel()
         info.animate().alpha(0f).setDuration(120).withEndAction {
             name.text = title.name
-            meta.text = listOfNotNull(
-                title.rating?.let { "★ $it" },
-                title.year,
-                title.runtime,
-                title.genres.take(3).joinToString(" · ").ifBlank { null },
-                if (title.type == "series") "Series" else null,
-            ).joinToString("   ")
+            kind.text = if (title.type == "series") "SERIES" else "FILM"
+            // Netflix leads with a highlighted score; ours is the rating, in gold.
+            val rating = title.rating?.let { "★ $it" }
+            val rest = listOfNotNull(title.year, runtimeText(title.runtime),
+                title.genres.take(3).joinToString(" • ").ifBlank { null }).joinToString("    ")
+            meta.text = android.text.SpannableStringBuilder().apply {
+                if (rating != null) {
+                    append(rating, android.text.style.ForegroundColorSpan(0xFFF5C518.toInt()), 0)
+                    append("    ")
+                }
+                append(rest)
+            }
             description.text = title.description
             logo.setImageDrawable(null)
             logo.visibility = View.GONE
