@@ -46,6 +46,8 @@ class RowsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         remote = PhoneRemote(this) { changed(); render() }
+        // The phone page only runs while this screen is open, so keep the screensaver away.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
