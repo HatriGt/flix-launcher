@@ -21,14 +21,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.net.URL
@@ -54,14 +46,14 @@ class MainActivity : Activity() {
     private lateinit var veil: View
     private lateinit var focusedLabel: TextView
     private lateinit var sceneTitle: TextView
-    private lateinit var videoView: PlayerView
+    private lateinit var videoView: android.view.SurfaceView
     private lateinit var imageView: ImageView
     private lateinit var favoritesAdapter: AppAdapter
     private lateinit var appsAdapter: AppAdapter
     private lateinit var favoritesList: RecyclerView
     private lateinit var appsList: RecyclerView
 
-    private var player: ExoPlayer? = null
+    private var player: SceneryPlayer? = null
     private var media: List<AerialSource.Media> = emptyList()
     private var imageIndex = 0
     private var allApps: List<AppEntry> = emptyList()
@@ -112,7 +104,6 @@ class MainActivity : Activity() {
     private val releasePlayer = Runnable {
         player?.release()
         player = null
-        videoView.player = null
     }
 
     private val tick = object : Runnable {
@@ -260,7 +251,7 @@ class MainActivity : Activity() {
 
         paintScrim(dimLevel())
         sceneTitle.visibility = if (isOn(HaloSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
-        player?.shuffleModeEnabled = isOn(HaloSettings.SHUFFLE)
+        player?.shuffle = isOn(HaloSettings.SHUFFLE)
         hero.backdropEnabled = isOn(HaloSettings.BACKDROP)
         trailer.enabled = isOn(HaloSettings.TRAILERS)
         trailer.sound = isOn(HaloSettings.TRAILER_SOUND)
@@ -352,7 +343,7 @@ class MainActivity : Activity() {
         favoritesBlock.animate().alpha(1f).setDuration(300).start()
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
         main.removeCallbacks(hideUnderHero)
-        scrim.visibility = View.VISIBLE
+        scrim.visibility = if (player == null && media.none { it.isVideo }) View.GONE else View.VISIBLE
         videoView.visibility = View.VISIBLE
         veil.visibility = View.VISIBLE
         imageView.visibility = View.VISIBLE
@@ -393,6 +384,9 @@ class MainActivity : Activity() {
      * full-screen layer costs the TV's GPU a whole frame's worth of pixels.
      */
     private fun paintScrim(dim: Float) {
+        // With no scenery (no wallpaper source, or the plain background), the dark backdrop
+        // needs no shading on top: one less full-screen layer for the GPU to fill.
+        scrim.visibility = if (player == null && media.none { it.isVideo }) View.GONE else View.VISIBLE
         findViewById<View>(R.id.dim).visibility = View.GONE
         fun shade(a: Float) = (((a + dim * (1 - a)).coerceIn(0f, 1f) * 255).toInt() shl 24)
         scrim.background = android.graphics.drawable.GradientDrawable(
@@ -810,42 +804,19 @@ class MainActivity : Activity() {
             return
         }
         veil.alpha = 1f
-        // Some catalogue clips no longer exist; give up on them quickly instead of after the 8 s default.
-        val http = DefaultHttpDataSource.Factory().setConnectTimeoutMs(3500).setReadTimeoutMs(5000)
-        val exo = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)))
-            .build().apply {
-            volume = 0f
-            repeatMode = Player.REPEAT_MODE_ALL
-            shuffleModeEnabled = isOn(HaloSettings.SHUFFLE)
-            setMediaItems(videos.map { MediaItem.Builder().setUri(it.uri).setTag(it.title).build() })
-            addListener(object : Player.Listener {
-                override fun onRenderedFirstFrame() {
-                    veil.animate().alpha(0f).setDuration(900).start()
+        player = SceneryPlayer(videoView, videos, isOn(HaloSettings.SHUFFLE),
+            onFirstFrame = {
+                scrim.visibility = View.VISIBLE
+                veil.animate().alpha(0f).setDuration(900).start()
+            },
+            onClip = { title, auto ->
+                showSceneTitle(title)
+                if (auto) {
+                    // Soften the hard cut between clips with a quick dip.
+                    veil.alpha = 0.55f
+                    veil.animate().alpha(0f).setDuration(1100).start()
                 }
-
-                override fun onPlayerError(error: PlaybackException) {
-                    // Skip a clip that won't load rather than leaving the background frozen.
-                    if (mediaItemCount > 1) {
-                        seekToNextMediaItem()
-                        prepare()
-                    }
-                }
-
-                override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
-                    showSceneTitle(item?.localConfiguration?.tag as? String)
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                        // Soften the hard cut between clips with a quick dip.
-                        veil.alpha = 0.55f
-                        veil.animate().alpha(0f).setDuration(1100).start()
-                    }
-                }
-            })
-            prepare()
-            playWhenReady = resumed
-        }
-        videoView.player = exo
-        player = exo
+            }).also { if (resumed) it.play() }
     }
 
     private fun showSceneTitle(title: String?) {

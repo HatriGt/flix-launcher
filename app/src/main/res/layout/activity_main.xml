@@ -11,16 +11,11 @@
         android:importantForAccessibility="no"
         android:scaleType="centerCrop" />
 
-    <androidx.media3.ui.PlayerView
+    <SurfaceView
         android:id="@+id/wallpaper_video"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:alpha="0"
-        android:focusable="false"
-        app:resize_mode="zoom"
-        app:shutter_background_color="@android:color/transparent"
-        app:surface_type="surface_view"
-        app:use_controller="false" />
+        android:focusable="false" />
 
     <!-- SurfaceView ignores view alpha, so the video fades in from under this veil instead. -->
     <View

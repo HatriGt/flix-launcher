@@ -241,6 +241,9 @@ class PosterAdapter(
             episode.text = title.episodeLabel
             if (progress != null) bar.layoutParams = bar.layoutParams.apply { width = (widthPx * progress.coerceIn(0.03f, 1f)).toInt() }
             fallback.text = title.name
+            // The name underneath is only for posters that don't exist; drawing it under a real
+            // poster costs the GPU a second layer of pixels for every card.
+            fallback.visibility = if (title.poster == null) View.VISIBLE else View.GONE
             Images.into(poster, title.poster, widthPx)
             // The grey placeholder only matters until the poster arrives; drawing it under a
             // full poster doubles the pixels the GPU fills.

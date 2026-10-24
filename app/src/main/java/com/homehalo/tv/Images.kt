@@ -97,7 +97,9 @@ object Images {
         while (bounds.outWidth / (sample * 2) >= widthPx) sample *= 2
         return BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply {
             inSampleSize = sample
-            inPreferredConfig = Bitmap.Config.ARGB_8888
+            // Hardware bitmaps live only on the GPU: no copy in the app's memory and no
+            // upload to the GPU on first draw, which is where the poster rows stuttered.
+            inPreferredConfig = Bitmap.Config.HARDWARE
         })
     }
 
