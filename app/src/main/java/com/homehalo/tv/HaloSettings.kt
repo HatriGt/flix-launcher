@@ -43,7 +43,7 @@ object HaloSettings {
     val UNITS = Option("units", "Temperature", listOf("c" to "Celsius", "f" to "Fahrenheit"), "c")
 
     // Wallpaper
-    val WALLPAPER = Option("wallpaper", "Background", listOf("city" to "City skylines", "video" to "Scenic video", "gradient" to "Plain gradient"), "city")
+    val WALLPAPER = Option("wallpaper", "Background", listOf("nature" to "Nature", "video" to "Scenic video", "gradient" to "Plain gradient"), "nature")
     val SHUFFLE = toggle("shuffle", "Shuffle scenes")
     val DIM = Option("dim", "Background dimming", listOf("low" to "Low", "medium" to "Medium", "high" to "High"), "medium")
     val SCENE_NAME = toggle("scene_name", "Scene name")

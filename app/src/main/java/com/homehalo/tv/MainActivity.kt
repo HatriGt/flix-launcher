@@ -832,15 +832,15 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Any scenery at all (city photos or provider video), rather than the plain gradient. */
+    /** Any scenery at all (nature photos or provider video), rather than the plain gradient. */
     private fun videoWallpaper() = HaloSettings.get(this, HaloSettings.WALLPAPER) != "gradient"
 
     /**
-     * What the background shows: the city skylines, or the wallpaper provider's scenes
-     * (falling back to the cities when no provider such as Aerial Views is installed).
+     * What the background shows: nature photos, or the wallpaper provider's scenes
+     * (falling back to nature photos when no provider such as Aerial Views is installed).
      */
     private fun scenery(): List<AerialSource.Media> =
-        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "city" || media.isEmpty()) CitySkylines.all else media
+        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "nature" || media.isEmpty()) NatureWalls.all else media
 
     private fun startWallpaper() {
         if (!videoWallpaper()) {
@@ -900,7 +900,7 @@ class MainActivity : Activity() {
         val uri = Uri.parse(item.uri)
         val ready = { bitmap: android.graphics.Bitmap ->
             if (!isDestroyed) {
-                // Dip through the dark backdrop so one city dissolves into the next.
+                // Dip through the dark backdrop so one photo dissolves into the next.
                 val first = imageView.drawable == null
                 veil.animate().cancel()
                 veil.animate().alpha(if (first) 1f else 0.7f).setDuration(if (first) 0 else 600).withEndAction {
