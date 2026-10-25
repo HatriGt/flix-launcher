@@ -8,8 +8,6 @@ import android.graphics.drawable.StateListDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -41,50 +39,63 @@ class PosterAdapter(
 
     override fun getItemId(position: Int) = items[position].id.hashCode().toLong()
 
-    private val placeholder = GradientDrawable().apply { cornerRadius = 10 * density; setColor(0x33FFFFFF) }
+    private val radius = 12 * density
+
+    /** Cards without a poster: a dark, softly lit tile rather than a flat grey box. */
+    private val placeholder = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF323A4C.toInt(), 0xFF171B24.toInt())).apply {
+        cornerRadius = radius
+        setStroke(density.toInt().coerceAtLeast(1), 0x26FFFFFF)
+    }
 
     override fun getItemCount() = items.size
 
-    /** Width of the focused card: a 16:9 landscape at the poster's height. */
-    private val expandedPx = heightPx * 16 / 9
+    /** The focused card grows in both directions, into a 16:9 landscape a third taller than a poster. */
+    private val expandedH = (heightPx * GROW).toInt()
+    private val expandedPx = expandedH * 16 / 9
+    private val inset = (expandedH - heightPx) / 2
+
+    /** The card in this row that's currently big, if any. */
+    private var big: Holder? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val context = parent.context
-        val radius = 10 * density
-        val card = FrameLayout(context).apply {
+        val card = Card(context).apply {
             layoutParams = ViewGroup.MarginLayoutParams(widthPx, heightPx).apply {
                 marginStart = (7 * density).toInt()
                 marginEnd = (7 * density).toInt()
+                topMargin = inset
             }
             isFocusable = true
-            clipToOutline = true
             foreground = StateListDrawable().apply {
-                setEnterFadeDuration(120)
+                setEnterFadeDuration(RowRecyclerView.DURATION.toInt())
                 setExitFadeDuration(120)
                 addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
                     cornerRadius = radius
-                    setStroke((2.5f * density).toInt(), Color.WHITE)
+                    setStroke((3 * density).toInt(), Color.WHITE)
                 })
                 addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
             }
-            outlineSpotShadowColor = Color.WHITE
-            outlineAmbientShadowColor = Color.WHITE
         }
         val fallback = TextView(context).apply {
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            textSize = 11f
-            setPadding((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+            setTextColor(0xF2FFFFFF.toInt())
+            textSize = 13f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            letterSpacing = 0.02f
+            setLineSpacing(0f, 1.15f)
+            maxLines = 4
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding((10 * density).toInt(), 0, (10 * density).toInt(), 0)
         }
         val poster = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         val badge = TextView(context).apply {
-            textSize = 9f
+            textSize = 9.5f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setPadding((5 * density).toInt(), (1 * density).toInt(), (5 * density).toInt(), (1 * density).toInt())
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setPadding((4 * density).toInt(), (2 * density).toInt(), (6 * density).toInt(), (2 * density).toInt())
             background = GradientDrawable().apply {
                 cornerRadius = 6 * density
-                setColor(0xCC0B0F14.toInt())
+                setColor(0xD9090B10.toInt())
             }
         }
         // Continue watching: a progress bar and episode tag along the bottom.
@@ -102,25 +113,27 @@ class PosterAdapter(
         val backdrop = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
         val info = android.widget.LinearLayout(context).apply {
             orientation = android.widget.LinearLayout.VERTICAL
-            setPadding((12 * density).toInt(), 0, (12 * density).toInt(), (11 * density).toInt())
-            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xF0000000.toInt(), 0x99000000.toInt(), 0))
+            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (14 * density).toInt())
+            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xF2000000.toInt(), 0x8C000000.toInt(), 0, 0))
             gravity = Gravity.BOTTOM
             alpha = 0f
         }
         val logo = ImageView(context).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START }
         val name = TextView(context).apply {
-            textSize = 15f
+            textSize = 19f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         val meta = TextView(context).apply {
-            textSize = 10.5f
+            textSize = 11.5f
             setTextColor(0xE6FFFFFF.toInt())
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             maxLines = 1
-            setPadding(0, (4 * density).toInt(), 0, 0)
+            setPadding(0, (6 * density).toInt(), 0, 0)
         }
-        info.addView(logo, android.widget.LinearLayout.LayoutParams(-2, (34 * density).toInt()))
+        info.addView(logo, android.widget.LinearLayout.LayoutParams(-2, (46 * density).toInt()))
         info.addView(name)
         info.addView(meta)
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
@@ -176,23 +189,29 @@ class PosterAdapter(
             bar.layoutParams = bar.layoutParams.apply { width = (cardWidth * p.coerceIn(0.03f, 1f)).toInt() }
         }
 
-        private fun animateWidth(to: Int, instant: Boolean) {
-            widthAnim?.cancel()
-            val lp = itemView.layoutParams
-            if (instant || lp.width == to) {
-                if (lp.width != to) { lp.width = to; itemView.layoutParams = lp }
-                sizeBar(to)
-                return
-            }
-            widthAnim = android.animation.ValueAnimator.ofInt(lp.width, to).apply {
-                duration = 230
-                interpolator = EASE
+        private var reveal: android.animation.ValueAnimator? = null
+
+        /** Sets the card's laid-out size; the row's next layout (see [RowRecyclerView.flip]) applies it. */
+        fun size(expanded: Boolean) {
+            val lp = itemView.layoutParams as ViewGroup.MarginLayoutParams
+            lp.width = if (expanded) expandedPx else widthPx
+            lp.height = if (expanded) expandedH else heightPx
+            lp.topMargin = if (expanded) 0 else inset
+            itemView.forceLayout()
+            sizeBar(lp.width)
+            if (expanded) big = this else if (big === this) big = null
+        }
+
+        /** Grows the visible part of the card from poster size to its full size, without any re-layout. */
+        private fun revealFromPoster() {
+            val card = itemView as Card
+            reveal?.cancel()
+            reveal = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = RowRecyclerView.DURATION
+                interpolator = RowRecyclerView.EASE
                 addUpdateListener {
-                    lp.width = it.animatedValue as Int
-                    sizeBar(lp.width)
-                    val row = itemView.parent as? RowRecyclerView
-                    // Inside a fixed-height row, only the row re-lays out; elsewhere use the normal path.
-                    if (row != null) row.relayoutFor(itemView) else itemView.layoutParams = lp
+                    val f = it.animatedValue as Float
+                    card.clip(widthPx + (expandedPx - widthPx) * f, heightPx + (expandedH - heightPx) * f)
                 }
                 start()
             }
@@ -200,10 +219,15 @@ class PosterAdapter(
 
         /** Widen into the landscape card and fetch its artwork (only now, to keep memory low). */
         private fun expand(title: Catalog.Title) {
-            animateWidth(expandedPx, instant = false)
+            val row = itemView.parent as? RowRecyclerView
+            val others = big?.takeIf { it !== this }
+            if (row != null) row.flip(itemView) { others?.size(false); size(true) } else { others?.size(false); size(true) }
+            revealFromPoster()
             name.text = title.name
-            meta.text = listOfNotNull(title.rating?.let { "★ $it" }, title.year,
-                title.genres.take(2).joinToString(" · ").ifBlank { null }, title.episodeLabel).joinToString("   ")
+            meta.text = android.text.SpannableStringBuilder().apply {
+                Rating.text(title.rating)?.let { append(it); append("    ") }
+                append(listOfNotNull(title.year, title.genres.take(2).joinToString(" · ").ifBlank { null }, title.episodeLabel).joinToString("    "))
+            }
             logo.setImageDrawable(null)
             logo.visibility = View.GONE
             name.visibility = View.VISIBLE
@@ -214,6 +238,7 @@ class PosterAdapter(
                 }
             }
             info.animate().alpha(1f).setStartDelay(90).setDuration(200).start()
+            fallback.animate().alpha(0f).setDuration(120).start() // the info line names it now
             badge.animate().alpha(0f).setDuration(120).start()
             val url = title.backdrop ?: return
             Images.get(url, expandedPx) { bmp ->
@@ -224,10 +249,13 @@ class PosterAdapter(
         }
 
         fun collapse(instant: Boolean) {
-            animateWidth(widthPx, instant)
+            reveal?.cancel()
+            (itemView as Card).clip(-1f, -1f)
+            if (instant) size(false)
             info.animate().cancel(); backdrop.animate().cancel()
-            if (instant) { info.alpha = 0f; backdrop.alpha = 0f; badge.alpha = 1f; backdrop.setImageDrawable(null); return }
+            if (instant) { fallback.alpha = 1f; info.alpha = 0f; backdrop.alpha = 0f; badge.alpha = 1f; backdrop.setImageDrawable(null); return }
             info.animate().alpha(0f).setDuration(110).start()
+            fallback.animate().alpha(1f).setDuration(160).start()
             badge.animate().alpha(1f).setDuration(160).start()
             backdrop.animate().alpha(0f).setDuration(160).withEndAction { if (!itemView.isFocused) backdrop.setImageDrawable(null) }.start()
         }
@@ -248,8 +276,8 @@ class PosterAdapter(
             // The grey placeholder only matters until the poster arrives; drawing it under a
             // full poster doubles the pixels the GPU fills.
             itemView.background = if (title.poster == null) placeholder else null
-            badge.text = title.rating?.let { "★ $it" }
-            badge.visibility = if (title.rating == null) View.GONE else View.VISIBLE
+            badge.text = Rating.text(title.rating)
+            badge.visibility = if (badge.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             itemView.contentDescription = title.name
             itemView.setOnClickListener {
                 itemView.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).withEndAction { onClick(title) }.start()
@@ -257,18 +285,49 @@ class PosterAdapter(
             itemView.setOnLongClickListener { onLongClick(title); true }
             itemView.setOnFocusChangeListener { _, focused ->
                 if (focused) {
-                    expand(title)
-                    // Keep the widened card at the start of the row, as Netflix does.
-                    (itemView.parent as? RecyclerView)?.let { rv -> rv.smoothScrollBy(itemView.left - rv.paddingStart - (7 * density).toInt(), 0) }
+                    expand(title) // also pins the card to the start of the row, as Netflix does
                     onFocus(title)
-                } else collapse(instant = false)
+                } else {
+                    collapse(instant = false)
+                    // Focus moving along the row resizes both cards in one go (see expand);
+                    // only when it leaves the row does this card shrink on its own.
+                    itemView.post {
+                        val row = itemView.parent as? RowRecyclerView
+                        if (big === this && !itemView.isFocused && row?.hasFocus() != true) {
+                            if (row != null) row.flip(null) { size(false) } else size(false)
+                        }
+                    }
+                }
             }
-            if (itemView.isFocused) expand(title) else collapse(instant = true)
+            if (itemView.isFocused) { size(true); expand(title) } else collapse(instant = true)
         }
     }
 
-    private companion object {
-        val SPRING = OvershootInterpolator(1.4f)
-        val EASE = DecelerateInterpolator(1.6f)
+    /** A card with rounded corners that can show just part of itself while it grows. */
+    private inner class Card(context: android.content.Context) : FrameLayout(context) {
+        private var clipW = -1f
+        private var clipH = -1f
+
+        init {
+            clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: android.graphics.Outline) {
+                    val w = if (clipW < 0) view.width else clipW.toInt().coerceAtMost(view.width)
+                    val h = if (clipH < 0) view.height else clipH.toInt().coerceAtMost(view.height)
+                    // Grows from the top-left; the row's translation moves it up to centre it.
+                    outline.setRoundRect(0, 0, w, h, radius)
+                }
+            }
+        }
+
+        fun clip(w: Float, h: Float) {
+            clipW = w; clipH = h
+            invalidateOutline()
+        }
+    }
+
+    companion object {
+        /** How much taller the focused card is than a poster. */
+        const val GROW = 1.3f
     }
 }

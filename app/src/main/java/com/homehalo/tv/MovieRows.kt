@@ -90,14 +90,14 @@ class MovieRows(
             val clash = Addons.rows(activity).count { it.enabled && it.title == source.title } > 1
             val base = if (clash) "${source.title} · $kind" else source.title
             text = if (genre == null || !source.supportsGenre) base else "$base · $genre"
-            textSize = 14f
+            textSize = 15f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setPadding((44 * dp).toInt(), (10 * dp).toInt(), 0, 0)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            letterSpacing = 0.01f
+            setPadding((44 * dp).toInt(), (6 * dp).toInt(), 0, 0)
         }
         val grow = (8 * dp).roundToInt() // room for the focus ring; cards widen rather than scale
         val list = RowRecyclerView(activity).apply {
-            layoutManager = LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false)
             this.adapter = adapter
             itemAnimator = null
             setHasFixedSize(true)
@@ -105,7 +105,7 @@ class MovieRows(
             clipChildren = false
             setItemViewCacheSize(12)
             setPadding((37 * dp).toInt(), grow, (37 * dp).toInt(), grow)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h + grow * 2)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (h * PosterAdapter.GROW).toInt() + grow * 2)
         }
         val view = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -214,7 +214,8 @@ class Hero(root: View) {
         if (current?.id == title.id) return
         current = title
         main.removeCallbacksAndMessages(null)
-        main.postDelayed({ if (current?.id == title.id) apply(title) }, 120)
+        // Waits until the card has finished growing, so the two big animations never share frames.
+        main.postDelayed({ if (current?.id == title.id) apply(title) }, RowRecyclerView.DURATION + 60)
     }
 
     /** "122" or "122 min" becomes "2h 2m", as Netflix writes it. */
@@ -230,16 +231,14 @@ class Hero(root: View) {
             name.text = title.name
             kind.text = if (title.type == "series") "SERIES" else "FILM"
             // Netflix leads with a highlighted score; ours is the rating, in gold.
-            val rating = title.rating?.let { "★ $it" }
+            val rating = Rating.text(title.rating)
             val rest = listOfNotNull(title.year, runtimeText(title.runtime),
                 title.genres.take(3).joinToString(" • ").ifBlank { null }).joinToString("    ")
             meta.text = android.text.SpannableStringBuilder().apply {
-                if (rating != null) {
-                    append(rating, android.text.style.ForegroundColorSpan(0xFFF5C518.toInt()), 0)
-                    append("    ")
-                }
+                if (rating != null) append(rating).append("    ")
                 append(rest)
             }
+            meta.visibility = if (meta.text.isBlank()) View.GONE else View.VISIBLE
             description.text = title.description
             logo.setImageDrawable(null)
             logo.visibility = View.GONE

@@ -115,8 +115,8 @@ class MainActivity : Activity() {
                 else -> DateFormat.is24HourFormat(this@MainActivity)
             }
             clock.setTime(DateFormat.format(if (is24) "HH" else "h", now).toString(), DateFormat.format("mm", now).toString())
-            date.text = DateFormat.format("EEE, d MMM", now)
-            greeting.text = "Hello, ${greetingFor(DateFormat.format("H", now).toString().toInt()).lowercase()}"
+            date.text = DateFormat.format("EEEE  ·  d MMMM", now)
+            greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
             sunArc.tick()
             main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50)
         }

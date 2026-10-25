@@ -17,7 +17,7 @@ import android.view.animation.DecelerateInterpolator
  * When the time changes, only the digits that changed roll up into place.
  */
 class ClockView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    private var size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 30f, resources.displayMetrics)
+    private var size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 40f, resources.displayMetrics)
     private val hourPaint = textPaint("sans-serif-medium")
     private val minutePaint = textPaint("sans-serif-thin")
     private val colonPaint = textPaint("sans-serif-thin").apply { color = 0xB3FFFFFF.toInt() }

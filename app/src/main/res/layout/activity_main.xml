@@ -139,43 +139,60 @@
             android:paddingTop="20dp"
             android:paddingEnd="48dp">
 
+            <!-- Clock on the left; greeting and date stacked beside it, split by a hairline. -->
             <LinearLayout
                 android:id="@+id/clock_group"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/greeting"
-                    style="@style/Halo.Text"
-                    android:fontFamily="sans-serif-medium"
-                    android:textSize="15sp" />
+                <com.homehalo.tv.ClockView
+                    android:id="@+id/clock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="18dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="#40FFFFFF" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="vertical">
 
-                    <com.homehalo.tv.ClockView
-                        android:id="@+id/clock"
+                    <TextView
+                        android:id="@+id/greeting"
+                        style="@style/Halo.Text"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.01"
+                        android:textSize="17sp" />
+
+                    <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/date"
-                        style="@style/Halo.Text.Muted"
-                        android:layout_marginStart="12dp"
-                        android:textSize="12sp" />
+                        <TextView
+                            android:id="@+id/date"
+                            style="@style/Halo.Text.Muted"
+                            android:letterSpacing="0.14"
+                            android:textAllCaps="true"
+                            android:textColor="#A6FFFFFF"
+                            android:textSize="11sp" />
 
-                    <TextView
-                        android:id="@+id/scene_title"
-                        style="@style/Halo.Text.Muted"
-                        android:layout_marginStart="14dp"
-                        android:alpha="0.7"
-                        android:textSize="11sp" />
+                        <TextView
+                            android:id="@+id/scene_title"
+                            style="@style/Halo.Text.Muted"
+                            android:layout_marginStart="14dp"
+                            android:alpha="0.7"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <com.homehalo.tv.SunArcView
