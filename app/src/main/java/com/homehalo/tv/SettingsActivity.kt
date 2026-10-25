@@ -2,12 +2,16 @@ package com.homehalo.tv
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -15,6 +19,9 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -23,40 +30,44 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * HomeHalo's settings. The home screen blurs behind a floating panel; sections sit
- * in a rail of colour-coded tiles and their options in grouped cards, with
- * switches for on/off and segmented controls for short lists of choices.
- * Every change applies to the home screen behind as it is made.
+ * Flix Launcher's settings, full screen over the blurred home. A search box sits at the
+ * top and finds any setting by name, by what it does or by everyday words ("sound",
+ * "screensaver", "english"). Below it, sections sit in a rail on the left and their
+ * options in grouped cards on the right, each with its own line icon. Every change
+ * applies to the home screen behind as it is made.
  */
 class SettingsActivity : Activity() {
     private val dp by lazy { resources.displayMetrics.density }
-    private lateinit var panel: View
+    private lateinit var root: View
     private lateinit var repo: AppRepository
     private lateinit var rail: LinearLayout
     private lateinit var content: LinearLayout
     private lateinit var scroll: ScrollView
+    private lateinit var search: EditText
+    private lateinit var searchBox: LinearLayout
     private var sectionIndex = 0
     private var created = false
 
-    private val accent get() = SECTIONS[sectionIndex].color
+    private val query get() = search.text.toString().trim()
+    private val searching get() = query.isNotEmpty()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repo = AppRepository(this)
         blurBehind()
+        val top = topBar() // first: the rail reads the search box
 
         rail = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(px(18), px(26), px(14), px(20))
+            setPadding(px(40), px(6), px(16), px(28))
         }
-        rail.addView(brand())
         SECTIONS.forEachIndexed { i, s -> rail.addView(railItem(i, s)) }
         rail.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        rail.addView(text("Changes apply instantly", 10f, alpha = 0.45f).apply { setPadding(px(10), 0, 0, 0) })
+        rail.addView(text("Changes apply instantly", 11f, alpha = 0.4f).apply { setPadding(px(14), 0, 0, 0) })
 
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(px(10), px(30), px(30), px(36))
+            setPadding(px(14), px(4), px(48), px(40))
             clipChildren = false
             clipToPadding = false
         }
@@ -68,55 +79,70 @@ class SettingsActivity : Activity() {
         }
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(rail, LinearLayout.LayoutParams(px(214), ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(rail, LinearLayout.LayoutParams(px(268), ViewGroup.LayoutParams.MATCH_PARENT))
             addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         }
-        panel = FrameLayout(this).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xF2161D28.toInt(), 0xF50C1118.toInt())).apply {
-                cornerRadii = floatArrayOf(28 * dp, 28 * dp, 0f, 0f, 0f, 0f, 28 * dp, 28 * dp)
-                setStroke(px(1), 0x1FFFFFFF)
-            }
-            addView(body)
-            elevation = 40 * dp
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xF2140A0C.toInt(), 0xF50A0A0C.toInt(), 0xF7080809.toInt()))
+            addView(top, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(96)))
+            addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
-        setContentView(FrameLayout(this).apply {
-            addView(panel, FrameLayout.LayoutParams(px(PANEL_DP), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END))
-        })
+        setContentView(root)
 
-        // Panel glides in with a soft settle; the content follows a beat later.
-        panel.translationX = PANEL_DP * dp * 0.35f
-        panel.alpha = 0f
-        panel.animate().translationX(0f).alpha(1f).setDuration(420).setInterpolator(OvershootInterpolator(0.6f)).start()
+        root.alpha = 0f
+        root.animate().alpha(1f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
         showSection(0, stagger = true)
-        rail.getChildAt(1)?.post { rail.getChildAt(1)?.requestFocus() }
+        rail.getChildAt(0)?.post { rail.getChildAt(0)?.requestFocus() }
     }
 
-    /** Blurs the home screen behind the panel where the TV supports it, and dims it otherwise. */
+    /** Blurs the home screen behind where the TV supports it, and dims it otherwise. */
     private fun blurBehind() {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        window.setDimAmount(0.45f)
+        window.setDimAmount(0.5f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && windowManager.isCrossWindowBlurEnabled) {
             window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            window.attributes = window.attributes.apply { blurBehindRadius = px(40) }
-            window.setDimAmount(0.25f)
+            window.attributes = window.attributes.apply { blurBehindRadius = px(48) }
+            window.setDimAmount(0.3f)
         }
     }
 
     /**
-     * Up/Down stays inside the pane it started in: running off the end of the
-     * options shouldn't land on a section and switch it, and vice versa.
+     * Up/Down stays inside the pane it started in, except that going up off the top of
+     * either pane reaches the search box, and down from the search box goes back in.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         if (event.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_UP)) {
             val focused = currentFocus
+            if (focused === search) {
+                if (code == KeyEvent.KEYCODE_DPAD_DOWN) intoContentOrRail()
+                return true
+            }
             if (focused != null) {
                 val pane = if (isInside(focused, rail)) rail else if (isInside(focused, content)) content else null
                 val next = focused.focusSearch(if (code == KeyEvent.KEYCODE_DPAD_DOWN) View.FOCUS_DOWN else View.FOCUS_UP)
-                if (pane != null && (next == null || !isInside(next, pane))) return true
+                if (pane != null && (next == null || !isInside(next, pane))) {
+                    if (code == KeyEvent.KEYCODE_DPAD_UP) search.requestFocus()
+                    return true
+                }
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun intoContentOrRail() {
+        val target = if (searching) firstFocusable(content) else rail.getChildAt(sectionIndex)
+        (target ?: rail.getChildAt(sectionIndex))?.requestFocus()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        // Back clears a search first, then closes.
+        if (searching) {
+            search.setText("")
+            rail.getChildAt(sectionIndex)?.requestFocus()
+        } else @Suppress("DEPRECATION") super.onBackPressed()
     }
 
     private fun isInside(view: View, ancestor: View): Boolean {
@@ -134,71 +160,141 @@ class SettingsActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // Coming back from the Nuvio or rows screens: their summary cards may have changed.
-        if (created) showSection(sectionIndex, stagger = false)
+        if (created) refresh()
         created = true
+    }
+
+    private fun refresh() = if (searching) showResults(query) else showSection(sectionIndex, stagger = false)
+
+    // ---- Top bar ----
+
+    /** The FLIX wordmark and "Settings" on the left; the search box on the right. */
+    private fun topBar(): View {
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(context).apply {
+                text = "FLIX"
+                textSize = 26f
+                letterSpacing = -0.02f
+                setTextColor(RED)
+                typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            })
+            addView(View(context).apply { setBackgroundColor(0x33FFFFFF) },
+                LinearLayout.LayoutParams(px(1), px(22)).apply { marginStart = px(16); marginEnd = px(16) })
+            addView(text("Settings", 20f, alpha = 0.9f).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) })
+        }
+        return FrameLayout(this).apply {
+            setPadding(px(54), px(26), px(48), px(14))
+            clipToPadding = false // the focused search box grows a little past its slot
+            clipChildren = false
+            addView(brand, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
+            addView(searchBox(), FrameLayout.LayoutParams(px(400), px(48), Gravity.END or Gravity.CENTER_VERTICAL))
+        }
+    }
+
+    /**
+     * A pill that turns white when focused, like the search on streaming apps. OK opens
+     * the keyboard; results update with every letter.
+     */
+    private fun searchBox(): View {
+        val icon = ImageView(this).apply { setImageResource(R.drawable.ic_o_search); setColorFilter(0xB3FFFFFF.toInt()) }
+        search = EditText(this).apply {
+            hint = "Search settings"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            setHintTextColor(0x8CFFFFFF.toInt())
+            background = null
+            isSingleLine = true
+            setPadding(0, 0, 0, 0)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            imeOptions = EditorInfo.IME_ACTION_SEARCH or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
+            setOnEditorActionListener { _, _, _ -> hideKeyboard(); intoContentOrRail(); true }
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    repaintRail()
+                    typeHint.visibility = if (searching) View.GONE else View.VISIBLE
+                    refresh()
+                }
+            })
+        }
+        typeHint = text("OK to type", 11f, alpha = 0.55f)
+        val bg = GradientDrawable().apply { cornerRadius = 24 * dp; setColor(0x14FFFFFF); setStroke(px(1), 0x24FFFFFF) }
+        searchBox = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = bg
+            setPadding(px(18), 0, px(18), 0)
+            addView(icon, LinearLayout.LayoutParams(px(20), px(20)).apply { marginEnd = px(12) })
+            addView(search, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(typeHint)
+        }
+        search.setOnFocusChangeListener { _, has ->
+            bg.setColor(if (has) Color.WHITE else 0x14FFFFFF)
+            bg.setStroke(px(1), if (has) Color.WHITE else 0x24FFFFFF)
+            search.setTextColor(if (has) INK else Color.WHITE)
+            search.setHintTextColor(if (has) 0x99141414.toInt() else 0x8CFFFFFF.toInt())
+            icon.setColorFilter(if (has) INK else 0xB3FFFFFF.toInt())
+            typeHint.setTextColor(if (has) INK else Color.WHITE)
+            searchBox.animate().scaleX(if (has) 1.03f else 1f).scaleY(if (has) 1.03f else 1f).setDuration(160).start()
+            if (!has) hideKeyboard()
+        }
+        return searchBox
+    }
+
+    private lateinit var typeHint: TextView
+
+    private fun hideKeyboard() {
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(search.windowToken, 0)
     }
 
     // ---- Rail ----
 
-    /** Wordmark: "homehalo" set light with a small gradient dot, the way the brand reads everywhere. */
-    private fun brand(): View {
-        val word = TextView(this).apply {
-            text = "homehalo"
-            textSize = 24f
-            letterSpacing = 0.02f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-        }
-        val dot = View(this).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF7AA2FF.toInt(), 0xFFC084FC.toInt())).apply {
-                shape = GradientDrawable.OVAL
-            }
-        }
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(px(10), 0, 0, px(24))
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.BOTTOM
-                addView(word)
-                addView(dot, LinearLayout.LayoutParams(px(7), px(7)).apply { marginStart = px(3); bottomMargin = px(7) })
-            })
-            addView(text("Settings", 11f, alpha = 0.5f).apply { letterSpacing = 0.12f; isAllCaps = true })
-        }
-    }
-
     private fun railItem(index: Int, section: Section): View {
-        val tileBg = GradientDrawable().apply { cornerRadius = 10 * dp; setColor(tint(section.color, 0.18f)) }
-        val icon = ImageView(this).apply { setImageResource(section.icon); setColorFilter(section.color) }
-        val tile = FrameLayout(this).apply {
-            background = tileBg
-            addView(icon, FrameLayout.LayoutParams(px(17), px(17), Gravity.CENTER))
-        }
-        val label = text(section.title, 13f)
-        val bg = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.TRANSPARENT) }
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val icon = ImageView(this).apply { setImageResource(section.icon) }
+        val label = text(section.title, 15f)
+        val bar = View(this).apply { background = GradientDrawable().apply { cornerRadius = 2 * dp; setColor(RED) } }
+        val bg = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(Color.TRANSPARENT) }
+        return FrameLayout(this).apply {
             isFocusable = true
             background = bg
-            setPadding(px(8), 0, px(8), 0)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)).apply { topMargin = px(4) }
-            addView(tile, LinearLayout.LayoutParams(px(32), px(32)))
-            addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(12) })
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(50)).apply { topMargin = px(4) }
+            addView(bar, FrameLayout.LayoutParams(px(3), px(20), Gravity.START or Gravity.CENTER_VERTICAL))
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(px(16), 0, px(12), 0)
+                addView(icon, LinearLayout.LayoutParams(px(22), px(22)))
+                addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(16) })
+            })
+            // Focused: a white pill with dark text. Selected: a red bar. Others: dimmed.
             fun paint(focused: Boolean) {
-                val selected = sectionIndex == index
-                bg.setColor(when { focused -> 0x2EFFFFFF; selected -> 0x14FFFFFF; else -> Color.TRANSPARENT })
-                label.alpha = if (focused || selected) 1f else 0.7f
-                label.typeface = Typeface.create(if (selected) "sans-serif-medium" else "sans-serif", Typeface.NORMAL)
+                val selected = sectionIndex == index && !searching
+                bg.setColor(if (focused) Color.WHITE else Color.TRANSPARENT)
+                val ink = if (focused) INK else Color.WHITE
+                label.setTextColor(ink)
+                icon.setColorFilter(ink)
+                label.alpha = if (focused || selected) 1f else 0.62f
+                icon.alpha = label.alpha
+                label.typeface = Typeface.create(if (focused || selected) "sans-serif-medium" else "sans-serif", Typeface.NORMAL)
+                bar.visibility = if (selected && !focused) View.VISIBLE else View.INVISIBLE
             }
             tag = ::paint
             setOnFocusChangeListener { v, has ->
                 v.animate().scaleX(if (has) 1.03f else 1f).scaleY(if (has) 1.03f else 1f).setDuration(160).start()
-                if (has && sectionIndex != index) {
-                    // Wait for the rail to settle before rebuilding, so scrolling through sections stays smooth.
-                    pendingSection = index
-                    main.removeCallbacksAndMessages(null)
-                    main.postDelayed({ if (pendingSection == index) showSection(index, stagger = false) }, 140)
+                if (has && (sectionIndex != index || searching)) {
+                    if (searching) {
+                        // Moving into the sections ends a search.
+                        sectionIndex = index
+                        search.setText("")
+                    } else {
+                        // Wait for the rail to settle before rebuilding, so scrolling through sections stays smooth.
+                        pendingSection = index
+                        main.removeCallbacksAndMessages(null)
+                        main.postDelayed({ if (pendingSection == index) showSection(index, stagger = false) }, 140)
+                    }
                 }
                 repaintRail()
                 paint(has)
@@ -215,135 +311,215 @@ class SettingsActivity : Activity() {
 
     @Suppress("UNCHECKED_CAST")
     private fun repaintRail() {
-        for (i in 1..SECTIONS.size) {
+        for (i in SECTIONS.indices) {
             val item = rail.getChildAt(i)
             (item.tag as? (Boolean) -> Unit)?.invoke(item.isFocused)
         }
     }
 
+    // ---- Catalogue ----
+
+    /** One searchable setting: where it lives, the words it answers to, and how to draw it. */
+    private class Entry(val section: Int, val group: String?, val words: String, val build: () -> View)
+
+    /** Every setting and action, in the order they appear. Built fresh so account cards stay current. */
+    private fun catalogue(): List<Entry> = buildList {
+        fun opt(s: Int, group: String?, o: HaloSettings.Option, icon: Int, extra: String = "") =
+            add(Entry(s, group, listOfNotNull(o.title, o.summary, extra, SECTIONS[s].title, o.choices.joinToString(" ") { it.second }).joinToString(" ")) { optionRow(o, icon) })
+        fun act(s: Int, group: String?, title: String, sub: String, icon: Int, extra: String, onClick: () -> Unit) =
+            add(Entry(s, group, "$title $sub $extra ${SECTIONS[s].title}") { actionRow(title, sub, icon, onClick) })
+
+        // Home screen
+        opt(0, "App tiles", HaloSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
+        opt(0, "App tiles", HaloSettings.ICON_SIZE, R.drawable.ic_o_size, "icons big bigger smaller")
+        opt(0, "App tiles", HaloSettings.LABELS, R.drawable.ic_o_text, "names titles text")
+        opt(0, "App tiles", HaloSettings.GLOW, R.drawable.ic_o_glow, "light colour color shine")
+        opt(0, "App tiles", HaloSettings.MOTION, R.drawable.ic_o_motion, "animation bounce speed")
+        opt(0, "All apps", HaloSettings.ALL_APPS, R.drawable.ic_o_grid, "every app list")
+        opt(0, "All apps", HaloSettings.ALL_APPS_TILE, R.drawable.ic_o_tile_plus, "every app button")
+        act(0, "All apps", "Hidden apps", "Bring back apps you hid from All apps", R.drawable.ic_o_eye, "unhide restore show") { showHiddenApps() }
+        act(0, "All apps", "Reset favourites order", "Nuvio, TiviMate and YouTube first", R.drawable.ic_o_reset, "sort order arrange") {
+            repo.resetOrder(); applyToHome(); toast("Favourites order reset")
+        }
+
+        // Movies & shows
+        add(Entry(1, null, "Nuvio account sign in login profile continue watching") { nuvioCard() })
+        add(Entry(1, null, "Addons rows catalogues order choose") { rowsCard() })
+        opt(1, "On the home screen", HaloSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
+        opt(1, "On the home screen", HaloSettings.CONTINUE_WATCHING, R.drawable.ic_o_resume, "resume progress")
+        opt(1, "On the home screen", HaloSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")
+        opt(1, "On the home screen", HaloSettings.GENRE, R.drawable.ic_o_filter, "category type")
+        opt(1, "Previews", HaloSettings.TRAILERS, R.drawable.ic_o_play, "video preview autoplay")
+        opt(1, "Previews", HaloSettings.TRAILER_SOUND, R.drawable.ic_o_sound, "audio volume mute loud")
+        opt(1, "Previews", HaloSettings.BACKDROP, R.drawable.ic_o_image, "artwork background picture")
+        opt(1, "Look", HaloSettings.POSTER_SIZE, R.drawable.ic_o_poster, "big bigger smaller tiles")
+        act(1, "Look", "Show hidden titles", "Bring back titles you hid from rows", R.drawable.ic_o_eye, "unhide restore films movies") {
+            Catalog.clearHiddenTitles(this@SettingsActivity); applyToHome(); toast("Hidden titles are back")
+        }
+
+        // Clock & weather
+        opt(2, "Clock", HaloSettings.CLOCK_STYLE, R.drawable.ic_o_text, "time font look")
+        opt(2, "Clock", HaloSettings.CLOCK_FORMAT, R.drawable.ic_o_clock, "time am pm 24 12 hour")
+        opt(2, "Clock", HaloSettings.GREETING, R.drawable.ic_o_chat, "hello good morning evening")
+        opt(2, "Clock", HaloSettings.DATE, R.drawable.ic_o_calendar, "day month today")
+        opt(2, "Weather", HaloSettings.WEATHER, R.drawable.ic_o_sun, "forecast rain temperature")
+        opt(2, "Weather", HaloSettings.UNITS, R.drawable.ic_o_thermo, "celsius fahrenheit degrees")
+
+        // Wallpaper
+        opt(3, "Picture", HaloSettings.WALLPAPER, R.drawable.ic_o_image, "background photo nature video scenery")
+        opt(3, "Picture", HaloSettings.DIM, R.drawable.ic_o_contrast, "dark bright brightness")
+        opt(3, "Picture", HaloSettings.SHUFFLE, R.drawable.ic_o_shuffle, "random change")
+        opt(3, "Picture", HaloSettings.SCENE_NAME, R.drawable.ic_o_pin, "caption place location title")
+        opt(3, "When the TV is idle", HaloSettings.IDLE, R.drawable.ic_o_moon, "screensaver sleep inactive timeout")
+
+        // About
+        add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
+        add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
+    }
+
+    private fun version() = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "1.0"
+
     // ---- Content ----
+
+    private fun header(title: String, blurb: String) {
+        content.addView(text(title, 28f, bold = true).apply { setPadding(px(10), 0, 0, 0) })
+        content.addView(text(blurb, 13f, alpha = 0.55f).apply { setPadding(px(10), px(4), 0, px(10)) })
+    }
 
     private fun showSection(index: Int, stagger: Boolean) {
         sectionIndex = index
         content.removeAllViews()
         val section = SECTIONS[index]
-        content.addView(text(section.title, 26f, bold = true).apply { setPadding(px(8), 0, 0, 0) })
-        content.addView(text(section.blurb, 12f, alpha = 0.55f).apply { setPadding(px(8), px(4), 0, px(8)) })
-
-        val options = HaloSettings.SECTIONS[index].options
-        when (section.title) {
-            "Movies & shows" -> {
-                group(null, listOf(nuvioCard(), rowsCard()))
-                group("Discovery", options.take(4).map(::optionRow))
-                group("Look", options.drop(4).map(::optionRow) + listOf(
-                    actionRow("Show hidden titles", "Bring back titles you hid from rows", R.drawable.ic_visibility) {
-                        Catalog.clearHiddenTitles(this); applyToHome(); toast("Hidden titles are back")
-                    },
-                ))
-            }
-            "Behaviour" -> {
-                group(null, options.map(::optionRow))
-                group("Apps", listOf(
-                    actionRow("Hidden apps", "Bring back apps you hid from All apps", R.drawable.ic_visibility) { showHiddenApps() },
-                    actionRow("Reset favourites order", "Nuvio, TiviMate and YouTube first", R.drawable.ic_restore) {
-                        repo.resetOrder(); applyToHome(); toast("Favourites order reset")
-                    },
-                ))
-            }
-            else -> group(null, options.map(::optionRow))
+        header(section.title, section.blurb)
+        catalogue().filter { it.section == index }.groupBy { it.group }.forEach { (caption, entries) ->
+            group(caption, entries.map { it.build() })
         }
         repaintRail()
+        rise(stagger)
+        scroll.scrollTo(0, 0)
+    }
 
-        // Cards rise in one after another.
+    /** Everything whose words contain every word typed, grouped by the section it lives in. */
+    private fun showResults(q: String) {
+        content.removeAllViews()
+        val terms = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val found = catalogue().filter { e -> val w = e.words.lowercase(); terms.all { it in w } }
+        if (found.isEmpty()) {
+            content.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, px(70), 0, 0)
+                addView(ImageView(context).apply { setImageResource(R.drawable.ic_o_search); alpha = 0.3f }, LinearLayout.LayoutParams(px(44), px(44)))
+                addView(text("Nothing matches “$q”", 18f, bold = true).apply { gravity = Gravity.CENTER; setPadding(0, px(18), 0, px(6)) })
+                addView(text("Try words like trailer, clock, sound or wallpaper", 13f, alpha = 0.5f).apply { gravity = Gravity.CENTER })
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        } else {
+            header("Results", if (found.size == 1) "1 setting matches “$q”" else "${found.size} settings match “$q”")
+            found.groupBy { it.section }.forEach { (s, entries) -> group(SECTIONS[s].title, entries.map { it.build() }) }
+        }
+        rise(stagger = false)
+        scroll.scrollTo(0, 0)
+    }
+
+    /** Cards rise in one after another. */
+    private fun rise(stagger: Boolean) {
         for (i in 0 until content.childCount) {
             val child = content.getChildAt(i)
             child.alpha = 0f
-            child.translationY = 14 * dp
-            if (!stagger) child.translationY = 4 * dp
+            child.translationY = (if (stagger) 14 else 4) * dp
             child.animate().alpha(1f).translationY(0f)
                 .setStartDelay(if (stagger) i * 35L else 0L)
                 .setDuration(if (stagger) 320 else 160)
                 .setInterpolator(DecelerateInterpolator(2f)).start()
         }
-        scroll.scrollTo(0, 0)
     }
 
     /** A rounded card holding rows separated by hairlines, with an optional caption above. */
     private fun group(caption: String?, rows: List<View>) {
-        if (caption != null) content.addView(text(caption.uppercase(), 10f, bold = true, alpha = 0.45f).apply {
-            letterSpacing = 0.16f
-            setPadding(px(10), px(18), 0, px(6))
+        if (caption != null) content.addView(text(caption.uppercase(), 11f, bold = true, alpha = 0.45f).apply {
+            letterSpacing = 0.14f
+            setPadding(px(12), px(20), 0, px(8))
         })
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(0x12FFFFFF); setStroke(px(1), 0x0FFFFFFF) }
+            background = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(0x0FFFFFFF); setStroke(px(1), 0x0DFFFFFF) }
             setPadding(px(4), px(4), px(4), px(4))
             clipChildren = false
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = if (caption == null) px(10) else 0
+                topMargin = if (caption == null) px(12) else 0
             }
         }
         rows.forEachIndexed { i, row ->
-            if (i > 0) card.addView(View(this).apply { setBackgroundColor(0x14FFFFFF) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(1)).apply { marginStart = px(16); marginEnd = px(16) })
+            if (i > 0) card.addView(View(this).apply { setBackgroundColor(0x12FFFFFF) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(1)).apply { marginStart = px(66); marginEnd = px(16) })
             card.addView(row)
         }
         content.addView(card)
     }
 
-    /** Shared row shell: soft highlight and a slight lift when focused. */
-    private fun rowShell(): LinearLayout {
+    /** How a row draws its focus: its background, and the icon tile that turns red. */
+    private class Look(val bg: GradientDrawable, val tile: GradientDrawable?)
+
+    private fun rowShell(tile: GradientDrawable? = null): LinearLayout {
         val bg = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.TRANSPARENT) }
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             isFocusable = true
             background = bg
-            setPadding(px(16), px(11), px(14), px(11))
-            minimumHeight = px(54)
+            setPadding(px(12), px(10), px(16), px(10))
+            minimumHeight = px(60)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            tag = bg
+            tag = Look(bg, tile)
         }
     }
 
-    /** Focus lights the row and draws a short bar in the section colour on its left edge, within the card. */
     private fun focusRow(row: View, has: Boolean) {
-        val bg = row.tag as GradientDrawable
-        bg.setColor(if (has) 0x24FFFFFF else Color.TRANSPARENT)
-        row.foreground = if (has) android.graphics.drawable.LayerDrawable(arrayOf(GradientDrawable().apply {
-            cornerRadius = 2 * dp
-            setColor(accent)
-        })).apply { setLayerSize(0, px(3), px(22)); setLayerGravity(0, Gravity.START or Gravity.CENTER_VERTICAL); setLayerInsetLeft(0, px(5)) } else null
+        val look = row.tag as Look
+        look.bg.setColor(if (has) 0x24FFFFFF else Color.TRANSPARENT)
+        look.bg.setStroke(px(1), if (has) 0x33FFFFFF else Color.TRANSPARENT)
+        look.tile?.setColor(if (has) RED else 0x14FFFFFF)
     }
 
-    private fun textBlock(title: String, subtitle: String?): Pair<LinearLayout, TextView> {
-        val t = text(title, 14f)
-        val block = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(t)
-            subtitle?.let { addView(text(it, 10.5f, alpha = 0.5f).apply { setPadding(0, px(2), 0, 0) }) }
+    /** A line icon on a soft square tile, which takes the brand red when its row is focused. */
+    private fun iconTile(iconRes: Int): Pair<View, GradientDrawable> {
+        val bg = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(0x14FFFFFF) }
+        val view = FrameLayout(this).apply {
+            background = bg
+            addView(ImageView(context).apply { setImageResource(iconRes); alpha = 0.92f },
+                FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER))
         }
-        return block to t
+        return view to bg
+    }
+
+    private fun iconRow(iconRes: Int): LinearLayout {
+        val (tile, bg) = iconTile(iconRes)
+        return rowShell(bg).apply { addView(tile, LinearLayout.LayoutParams(px(38), px(38)).apply { marginEnd = px(16) }) }
+    }
+
+    private fun textBlock(title: String, subtitle: String?): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(text(title, 15f))
+        subtitle?.let { addView(text(it, 12f, alpha = 0.52f).apply { setPadding(0, px(2), 0, 0) }) }
     }
 
     private fun isToggle(option: HaloSettings.Option) = option.choices.map { it.first } == listOf("on", "off")
 
-    private fun optionRow(option: HaloSettings.Option): View {
-        val row = rowShell()
-        val (block, _) = textBlock(option.title, option.summary)
-        row.addView(block, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    private fun optionRow(option: HaloSettings.Option, iconRes: Int): View {
+        val row = iconRow(iconRes)
+        row.addView(textBlock(option.title, option.summary), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val ids = option.choices.map { it.first }
         val toggle = isToggle(option)
-        val segmented = !toggle && ids.size <= 4
+        val segmented = !toggle && ids.size <= 3 && option.choices.sumOf { it.second.length } <= 30
         val switch = if (toggle) PillSwitch().also { row.addView(it.view) } else null
         val segments = if (segmented) Segments(option).also { row.addView(it.view) } else null
-        val value = if (!toggle && !segmented) text("", 12.5f, bold = true).also { row.addView(it) } else null
+        val value = if (!toggle && !segmented) Stepper(option).also { row.addView(it.view) } else null
 
         fun refresh(animate: Boolean) {
             val id = HaloSettings.get(this, option)
             switch?.set(id == "on", animate)
             segments?.select(id, animate)
-            value?.text = if (row.isFocused) "‹  ${option.label(id)}  ›" else option.label(id)
+            value?.set(option.label(id), row.isFocused, ids.indexOf(id), ids.size)
         }
         fun step(delta: Int) {
             val index = ids.indexOf(HaloSettings.get(this, option))
@@ -351,7 +527,7 @@ class SettingsActivity : Activity() {
             if (next == index) return
             HaloSettings.set(this, option, ids[next])
             refresh(animate = true)
-            value?.let { v -> v.translationX = 8 * dp * delta; v.animate().translationX(0f).setDuration(180).start() }
+            value?.nudge(delta)
             applyToHome()
         }
         // Steps happen on key down: the OK press that opened this screen ends here as a key up.
@@ -363,7 +539,7 @@ class SettingsActivity : Activity() {
                 keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { if (!toggle) step(1); true }
                 keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val atStart = toggle || (segmented && ids.indexOf(HaloSettings.get(this, option)) == 0)
-                    if (atStart) rail.getChildAt(sectionIndex + 1)?.requestFocus() else step(-1); true
+                    if (atStart) rail.getChildAt(sectionIndex)?.requestFocus() else step(-1); true
                 }
                 else -> false
             }
@@ -374,13 +550,32 @@ class SettingsActivity : Activity() {
     }
 
     private fun actionRow(title: String, subtitle: String, iconRes: Int, onClick: () -> Unit): View {
-        val row = rowShell()
-        row.addView(glyph(iconRes, accent), LinearLayout.LayoutParams(px(32), px(32)).apply { marginEnd = px(14) })
-        row.addView(textBlock(title, subtitle).first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(text("›", 20f, alpha = 0.45f))
+        val row = iconRow(iconRes)
+        row.addView(textBlock(title, subtitle), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(chevron())
         row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
         row.setOnClickListener { onClick() }
+        row.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+        }
         return row
+    }
+
+    /** A plain fact, focusable so the remote can reach it. */
+    private fun infoRow(title: String, subtitle: String, iconRes: Int): View {
+        val row = iconRow(iconRes)
+        row.addView(textBlock(title, subtitle), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
+        row.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+        }
+        return row
+    }
+
+    private fun chevron() = ImageView(this).apply {
+        setImageResource(R.drawable.ic_o_chevron)
+        alpha = 0.45f
+        layoutParams = LinearLayout.LayoutParams(px(18), px(18)).apply { marginStart = px(12) }
     }
 
     // ---- Movies & shows cards ----
@@ -389,18 +584,18 @@ class SettingsActivity : Activity() {
         val signedIn = NuvioAccount.isSignedIn(this)
         val profile = NuvioAccount.profile(this)?.name
         val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
-        val art = ImageView(this).apply {
-            if (logo != null) setImageDrawable(logo) else { setImageResource(R.drawable.ic_sec_movies); setColorFilter(accent) }
-            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xFF0B0F1A.toInt()) }
+        val art = if (logo != null) ImageView(this).apply {
+            setImageDrawable(logo)
+            background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(0xFF0B0F1A.toInt()) }
             clipToOutline = true
             scaleType = ImageView.ScaleType.CENTER_CROP
-        }
+        } else iconTile(R.drawable.ic_s_film).first
         return heroRow(
             art = art,
             title = "Nuvio",
             subtitle = if (signedIn) "Continue watching from “${profile ?: "?"}”" else "Sign in to bring Continue watching here",
             badge = if (signedIn) "Connected" else "Sign in",
-            badgeColor = if (signedIn) 0xFF16A34A.toInt() else accent,
+            badgeColor = if (signedIn) 0xFF16A34A.toInt() else RED,
         ) { open(NuvioLoginActivity::class.java) }
     }
 
@@ -408,8 +603,10 @@ class SettingsActivity : Activity() {
         val rows = Addons.rows(this)
         val shown = rows.count { it.enabled }
         val addons = rows.map { it.addonName }.distinct().size
+        val (tile, bg) = iconTile(R.drawable.ic_o_layers)
         return heroRow(
-            art = glyph(R.drawable.ic_layers, 0xFFFB923C.toInt(), size = 40),
+            art = tile,
+            tile = bg,
             title = "Addons & rows",
             subtitle = "$addons addons · choose and order what appears",
             badge = "$shown on home",
@@ -417,78 +614,73 @@ class SettingsActivity : Activity() {
         ) { open(RowsActivity::class.java) }
     }
 
-    private fun heroRow(art: View, title: String, subtitle: String, badge: String, badgeColor: Int, onClick: () -> Unit): View {
-        val row = rowShell().apply { setPadding(px(14), px(14), px(14), px(14)) }
-        row.addView(art, LinearLayout.LayoutParams(px(40), px(40)))
-        row.addView(textBlock(title, subtitle).first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(14) })
-        row.addView(text(badge, 10.5f, bold = true).apply {
-            setPadding(px(10), px(4), px(10), px(4))
+    private fun heroRow(art: View, tile: GradientDrawable? = null, title: String, subtitle: String, badge: String, badgeColor: Int, onClick: () -> Unit): View {
+        val row = rowShell(tile).apply { setPadding(px(12), px(14), px(16), px(14)) }
+        row.addView(art, LinearLayout.LayoutParams(px(38), px(38)))
+        row.addView(textBlock(title, subtitle), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(16) })
+        row.addView(text(badge, 11f, bold = true).apply {
+            setPadding(px(11), px(4), px(11), px(4))
             background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(badgeColor) }
         })
-        row.addView(text("›", 20f, alpha = 0.45f), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(10) })
+        row.addView(chevron())
         row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
         row.setOnClickListener { onClick() }
+        row.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+        }
         return row
     }
 
-    /** An icon on a soft tile tinted with its own colour. */
-    private fun glyph(iconRes: Int, color: Int, size: Int = 32): View = FrameLayout(this).apply {
-        background = GradientDrawable().apply { cornerRadius = size * 0.31f * dp; setColor(tint(color, 0.16f)) }
-        addView(ImageView(context).apply { setImageResource(iconRes); setColorFilter(color) },
-            FrameLayout.LayoutParams(px((size * 0.52f).toInt()), px((size * 0.52f).toInt()), Gravity.CENTER))
-    }
-
-    private fun tint(color: Int, alpha: Float) = (color and 0x00FFFFFF) or ((alpha * 255).toInt() shl 24)
-
     // ---- Controls ----
 
-    /** A pill switch in the section's colour whose knob slides when flipped. */
+    /** A pill switch in brand red whose knob slides when flipped. */
     private inner class PillSwitch {
         private val knob = View(this@SettingsActivity).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
             elevation = 2 * dp
         }
-        private val track = GradientDrawable().apply { cornerRadius = 13 * dp }
+        private val track = GradientDrawable().apply { cornerRadius = 14 * dp }
         val view = FrameLayout(this@SettingsActivity).apply {
             background = track
-            addView(knob, FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER_VERTICAL).apply { marginStart = px(3) })
-            layoutParams = LinearLayout.LayoutParams(px(46), px(26)).apply { marginStart = px(14) }
+            addView(knob, FrameLayout.LayoutParams(px(22), px(22), Gravity.CENTER_VERTICAL).apply { marginStart = px(3) })
+            layoutParams = LinearLayout.LayoutParams(px(50), px(28)).apply { marginStart = px(14) }
         }
 
         fun set(on: Boolean, animate: Boolean) {
-            track.setColor(if (on) accent else 0x33FFFFFF)
-            val x = if (on) 20 * dp else 0f
+            track.setColor(if (on) RED else 0x33FFFFFF)
+            val x = if (on) 22 * dp else 0f
             if (animate) knob.animate().translationX(x).setDuration(200).setInterpolator(OvershootInterpolator(1.4f)).start()
             else knob.translationX = x
         }
     }
 
-    /** All choices side by side; the selected one sits in a sliding pill. */
+    /** All choices side by side; the selected one sits in a sliding white pill. */
     private inner class Segments(option: HaloSettings.Option) {
         private val ids = option.choices.map { it.first }
         private val pill = View(this@SettingsActivity).apply {
-            background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(accent) }
+            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(Color.WHITE) }
         }
         private val labels = option.choices.map { (_, label) ->
-            text(label, 11f, bold = true).apply { gravity = Gravity.CENTER; setPadding(px(10), 0, px(10), 0) }
+            text(label, 12f, bold = true).apply { gravity = Gravity.CENTER; setPadding(px(12), 0, px(12), 0) }
         }
         private val strip = LinearLayout(this@SettingsActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             labels.forEach { addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)) }
         }
         val view = FrameLayout(this@SettingsActivity).apply {
-            background = GradientDrawable().apply { cornerRadius = 13 * dp; setColor(0x1FFFFFFF) }
+            background = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(0x1AFFFFFF) }
             setPadding(px(3), px(3), px(3), px(3))
             addView(pill, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(strip, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(30)).apply { marginStart = px(14) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32)).apply { marginStart = px(14) }
         }
-        private var current = -1
 
         fun select(id: String, animate: Boolean) {
             val index = ids.indexOf(id).coerceAtLeast(0)
-            labels.forEachIndexed { i, l -> l.alpha = if (i == index) 1f else 0.55f }
-            current = index
+            labels.forEachIndexed { i, l ->
+                l.setTextColor(if (i == index) INK else Color.WHITE)
+                l.alpha = if (i == index) 1f else 0.6f
+            }
             strip.post {
                 val target = labels[index]
                 pill.layoutParams = pill.layoutParams.apply { width = target.width }
@@ -496,6 +688,51 @@ class SettingsActivity : Activity() {
                     .setInterpolator(OvershootInterpolator(1.1f)).start()
                 else pill.translationX = target.left.toFloat()
             }
+        }
+    }
+
+    /** For longer lists: the current choice between arrows, with dots showing where it sits in the list. */
+    private inner class Stepper(option: HaloSettings.Option) {
+        // As wide as the longest choice, so the row doesn't shift as the value changes.
+        private val label = text("", 13f, bold = true).apply {
+            gravity = Gravity.CENTER
+            maxLines = 1
+            minWidth = option.choices.maxOf { paint.measureText(it.second) }.toInt() + px(10)
+        }
+        private val prev = text("‹", 18f, alpha = 0f)
+        private val next = text("›", 18f, alpha = 0f)
+        private val dots = LinearLayout(this@SettingsActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val view = LinearLayout(this@SettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(prev)
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                addView(dots, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(4) })
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(10); marginEnd = px(10) })
+            addView(next)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(14) }
+        }
+
+        fun set(text: String, focused: Boolean, index: Int, count: Int) {
+            label.text = text
+            prev.alpha = if (focused) 0.8f else 0f
+            next.alpha = prev.alpha
+            if (dots.childCount != count) {
+                dots.removeAllViews()
+                repeat(count) { dots.addView(View(this@SettingsActivity), LinearLayout.LayoutParams(px(4), px(4)).apply { marginStart = px(2); marginEnd = px(2) }) }
+            }
+            for (i in 0 until count) dots.getChildAt(i).background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(if (i == index) RED else 0x40FFFFFF)
+            }
+        }
+
+        fun nudge(delta: Int) {
+            label.translationX = 8 * dp * delta
+            label.animate().translationX(0f).setDuration(180).start()
         }
     }
 
@@ -528,9 +765,12 @@ class SettingsActivity : Activity() {
         sendBroadcast(Intent(ACTION_CHANGED).setPackage(packageName))
     }
 
+    private var closing = false
+
     override fun finish() {
-        if (panel.translationX != 0f) return super.finish()
-        panel.animate().translationX(PANEL_DP * dp * 0.3f).alpha(0f).setDuration(240).setInterpolator(DecelerateInterpolator())
+        if (closing) return super.finish()
+        closing = true
+        root.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
             .withEndAction { super.finish(); overridePendingTransition(0, 0) }.start()
     }
 
@@ -554,17 +794,18 @@ class SettingsActivity : Activity() {
 
     private fun px(value: Int) = (value * dp).toInt()
 
-    private class Section(val title: String, val blurb: String, val icon: Int, val color: Int)
+    private class Section(val title: String, val blurb: String, val icon: Int)
 
     companion object {
         const val ACTION_CHANGED = "com.homehalo.tv.SETTINGS_CHANGED"
-        private const val PANEL_DP = 680
+        private const val RED = 0xFFE50914.toInt()
+        private const val INK = 0xFF141414.toInt()
         private val SECTIONS = listOf(
-            Section("Icons", "Shape, size and how apps react to focus", R.drawable.ic_sec_icons, 0xFF60A5FA.toInt()),
-            Section("Clock & widgets", "What the header shows", R.drawable.ic_sec_clock, 0xFFFBBF24.toInt()),
-            Section("Movies & shows", "Your Nuvio rows, trailers and previews", R.drawable.ic_sec_movies, 0xFFF87171.toInt()),
-            Section("Background", "Scenery behind the home screen", R.drawable.ic_sec_background, 0xFFA78BFA.toInt()),
-            Section("Behaviour", "Idle mode, rows and app housekeeping", R.drawable.ic_sec_behaviour, 0xFF34D399.toInt()),
+            Section("Home screen", "App tiles, names and the All apps list", R.drawable.ic_s_home),
+            Section("Movies & shows", "Your Nuvio rows, the Top 10 and trailers", R.drawable.ic_s_film),
+            Section("Clock & weather", "What the top of the screen shows", R.drawable.ic_o_clock),
+            Section("Wallpaper", "The picture behind everything, and the screensaver", R.drawable.ic_o_image),
+            Section("About", "Flix Launcher and this TV", R.drawable.ic_s_info),
         )
     }
 }

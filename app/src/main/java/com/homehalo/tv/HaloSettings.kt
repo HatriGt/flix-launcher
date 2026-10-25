@@ -3,9 +3,9 @@ package com.homehalo.tv
 import android.content.Context
 
 /**
- * Every user-facing option in HomeHalo. Each one is a list of choices stored by id;
- * on/off switches are just two-choice options. The settings screen is built
- * from [SECTIONS], so adding an option here is all it takes to expose it.
+ * Every user-facing option in Flix Launcher. Each one is a list of choices stored by id;
+ * on/off switches are just two-choice options. The settings screen lists
+ * each one with its icon and search words.
  */
 object HaloSettings {
     class Option(
@@ -17,8 +17,6 @@ object HaloSettings {
     ) {
         fun label(id: String) = choices.firstOrNull { it.first == id }?.second ?: id
     }
-
-    class Section(val title: String, val options: List<Option>, val actions: List<String> = emptyList())
 
     private fun toggle(key: String, title: String, default: Boolean = true, summary: String? = null) =
         Option(key, title, listOf("on" to "On", "off" to "Off"), if (default) "on" else "off", summary)
@@ -68,19 +66,6 @@ object HaloSettings {
     val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
     val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 
-    const val ACTION_NUVIO = "Nuvio account…"
-    const val ACTION_ROWS = "Addons & rows…"
-    const val ACTION_SHOW_TITLES = "Show hidden titles"
-    const val ACTION_HIDDEN = "Hidden apps"
-    const val ACTION_RESET = "Reset favourites order"
-
-    val SECTIONS = listOf(
-        Section("Icons", listOf(ICON_SHAPE, ICON_SIZE, LABELS, GLOW, MOTION)),
-        Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, WEATHER, UNITS)),
-        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, TOP_TEN, TRAILERS, TRAILER_SOUND, BACKDROP, POSTER_SIZE, GENRE)),
-        Section("Background", listOf(WALLPAPER, SHUFFLE, DIM, SCENE_NAME)),
-        Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE)),
-    )
 
     private fun prefs(context: Context) = context.getSharedPreferences("halo_settings", Context.MODE_PRIVATE)
 

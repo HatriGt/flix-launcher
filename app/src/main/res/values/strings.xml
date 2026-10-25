@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_key_service_label">HomeHalo Home button</string>
-    <string name="home_key_service_description">Opens HomeHalo when you press the Home button on the remote.</string>
+    <string name="home_key_service_label">Flix Launcher Home button</string>
+    <string name="home_key_service_description">Opens Flix Launcher when you press the Home button on the remote.</string>
 </resources>

@@ -82,7 +82,7 @@ class PhoneRemote(private val context: Context, private val onChanged: () -> Uni
         }.joinToString("\n")
         return """
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HomeHalo rows</title>
+<title>Flix Launcher rows</title>
 <style>
 :root{color-scheme:dark}body{font:15px system-ui,sans-serif;background:#0b0f14;color:#eef2f6;margin:0;padding:16px;max-width:640px;margin:auto}
 h1{font-size:22px;margin:8px 0 4px}p{color:#9aa7b4;margin:0 0 14px}
@@ -93,7 +93,7 @@ li.off{opacity:.45}li small{display:block;color:#9aa7b4;margin-top:2px}nav{displ
 nav a{display:inline-block;padding:8px 10px;border-radius:8px;background:#222c38;color:#fff;text-decoration:none}nav a.del{background:#3a1f24}
 .msg{padding:10px 12px;border-radius:10px;background:#1d2a1f;color:#bfe8c4;margin-bottom:12px}
 </style></head><body>
-<h1>HomeHalo · Addons &amp; rows</h1>
+<h1>Flix Launcher · Addons &amp; rows</h1>
 <p>Paste a Stremio/Nuvio addon manifest URL. Each of its catalogues becomes a row on your TV.</p>
 ${if (message.isNotBlank()) "<div class=\"msg\">${esc(message)}</div>" else ""}
 <form action="/add"><input name="url" placeholder="https://…/manifest.json" autocomplete="off" autocapitalize="off"><button>Add</button></form>

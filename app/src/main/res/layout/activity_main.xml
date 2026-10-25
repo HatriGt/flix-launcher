@@ -395,7 +395,7 @@
                         <ImageButton
                             android:id="@+id/qs_halo"
                             style="@style/Halo.QuickButton"
-                            android:contentDescription="HomeHalo settings"
+                            android:contentDescription="Flix Launcher settings"
                             android:src="@drawable/ic_tune" />
 
                         <ImageButton

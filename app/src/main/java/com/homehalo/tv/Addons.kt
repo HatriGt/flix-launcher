@@ -172,7 +172,7 @@ object Addons {
             )
             if (existing.none { it.key == row.key } && added.none { it.key == row.key }) added += row
         }
-        if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues HomeHalo can show")
+        if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues Flix Launcher can show")
         // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
         val rows = if (added.size > MAX_SHOWN_ON_ADD) added.map { it.copy(enabled = false) } else added
         save(context, existing + rows)

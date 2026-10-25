@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Granted once with adb; lets HomeHalo re-enable its Home service after updates. -->
+    <!-- Granted once with adb; lets Flix Launcher re-enable its Home service after updates. -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
@@ -35,7 +35,7 @@
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
-        android:label="HomeHalo"
+        android:label="Flix Launcher"
         android:theme="@style/Theme.Halo"
         android:usesCleartextTraffic="true">
 
