@@ -289,11 +289,9 @@ class MainActivity : Activity() {
             open(Intent(this, AllAppsActivity::class.java))
         }
         findViewById<View>(R.id.nav_search).setOnClickListener {
-            // Nuvio's own search; just Nuvio if it doesn't take the link.
-            val search = Intent(Intent.ACTION_VIEW, Uri.parse("nuvio://search")).setPackage(NUVIO)
-            if (search.resolveActivity(packageManager) != null) open(search)
-            else packageManager.getLaunchIntentForPackage(NUVIO)?.let(::open)
-                ?: Toast.makeText(this, "Install Nuvio to search", Toast.LENGTH_SHORT).show()
+            // Nuvio has no link into its search, so search here: the library's search box finds
+            // apps and every film and series (Cinemeta), and a result opens in Nuvio.
+            open(Intent(this, AllAppsActivity::class.java).putExtra(AllAppsActivity.EXTRA_SEARCH, true))
         }
     }
 
@@ -616,6 +614,10 @@ class MainActivity : Activity() {
      */
     private fun steerMovieRows(event: KeyEvent): Boolean {
         val focused = currentFocus ?: return false
+        // Up from the apps dock goes to the top menu's current tab (it isn't straight above most apps).
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && isInside(focused, favoritesList)) {
+            tabs.firstOrNull { it.isSelected }?.let { it.requestFocus(); return true }
+        }
         // Down from the billboard lands on the first row's first card, not wherever focus search guesses.
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, movieRows.billboard.view)) {
             movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }

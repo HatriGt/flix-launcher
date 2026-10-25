@@ -38,7 +38,9 @@ class RowRecyclerView(context: Context) : RecyclerView(context) {
             val id = getChildItemId(c)
             if (id != NO_ID) before[id] = floatArrayOf(c.left + c.translationX, c.top + c.translationY)
         }
+        localPass = true // the size changes below are laid out right here, not by the whole screen
         change()
+        localPass = false
         stopScroll()
         val pos = pinned?.let { getChildAdapterPosition(it) } ?: NO_POSITION
         if (pos != NO_POSITION) (layoutManager as LinearLayoutManager).scrollToPositionWithOffset(pos, 0)
@@ -63,9 +65,27 @@ class RowRecyclerView(context: Context) : RecyclerView(context) {
         }
     }
 
+    private var pending = false
+
+    /**
+     * The row's own size never changes, so when something inside it asks for a new layout
+     * (a card's text or logo arriving, new data) only the row is laid out again, on the next
+     * frame, rather than the whole home screen being measured from the top.
+     */
     override fun requestLayout() {
         if (localPass) return
-        super.requestLayout()
+        if (!isLaidOut || width == 0) return super.requestLayout()
+        forceLayout()
+        if (pending) return
+        pending = true
+        postOnAnimation {
+            pending = false
+            if (!isAttachedToWindow) return@postOnAnimation
+            localPass = true
+            measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+            layout(left, top, right, bottom)
+            localPass = false
+        }
     }
 
     companion object {

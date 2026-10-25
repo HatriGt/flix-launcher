@@ -90,6 +90,10 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
 
     private var featured: Catalog.Title? = null
 
+    /** Candidates gathered from every catalogue, so a tab switch can feature a film or a series. */
+    private val pool = mutableListOf<Catalog.Title>()
+    private var type: String? = null
+
     init {
         play.setOnClickListener { featured?.let(onOpen) }
         more.setOnClickListener { featured?.let(onOpen) }
@@ -119,8 +123,19 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
 
     /** Offered every catalogue as it loads; the first one with artwork supplies the featured title. */
     fun offer(titles: List<Catalog.Title>) {
-        if (featured != null) return
-        val pick = titles.take(12).filter { it.backdrop != null && !it.description.isNullOrBlank() }.randomOrNull() ?: return
+        titles.take(12).filterTo(pool) { it.backdrop != null && pool.none { p -> p.id == it.id } }
+        if (featured == null) feature(type)
+    }
+
+    /** Features a title of [type] ("movie", "series" or null for any), as the Movies and Shows tabs ask. */
+    fun feature(type: String?) {
+        this.type = type
+        if (featured != null && (type == null || featured?.type == type)) return
+        val pick = pool.filter { type == null || it.type == type }.randomOrNull()
+        if (pick == null) { featured = null; view.visibility = View.GONE; return }
+        backdrop.setImageDrawable(null)
+        logo.setImageDrawable(null)
+        logo.visibility = View.GONE
         featured = pick
         kind.text = if (pick.type == "series") "SERIES" else "FILM"
         name.text = pick.name
@@ -145,6 +160,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     /** Forgets the featured title so the next load picks a new one. */
     fun reset() {
         featured = null
+        pool.clear()
         view.visibility = View.GONE
         backdrop.setImageDrawable(null)
         logo.setImageDrawable(null)

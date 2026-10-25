@@ -146,8 +146,9 @@ class MovieRows(
             orientation = LinearLayout.VERTICAL
             setPadding((44 * dp).toInt() + if (ranked) adapter.rankRoom - (7 * dp).toInt() else 0, (2 * dp).toInt(), (44 * dp).toInt(), (6 * dp).toInt())
             visibility = View.GONE
-            addView(meta)
-            addView(about, LinearLayout.LayoutParams((520 * dp).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
+            // Fixed sizes: changing the text then only redraws it instead of re-laying out the page.
+            addView(meta, LinearLayout.LayoutParams((760 * dp).toInt(), (20 * dp).toInt()))
+            addView(about, LinearLayout.LayoutParams((560 * dp).toInt(), (44 * dp).toInt()))
         }
         val view = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -178,9 +179,7 @@ class MovieRows(
             Rating.text(t.rating)?.let { append(it).append("    ") }
             append(listOfNotNull(t.year, runtimeText(t.runtime), t.genres.take(3).joinToString(" · ").ifBlank { null }).joinToString("    "))
         }
-        row.meta.visibility = if (row.meta.text.isBlank()) View.GONE else View.VISIBLE
         row.about.text = t.description
-        row.about.visibility = if (t.description.isNullOrBlank()) View.GONE else View.VISIBLE
         if (detailed !== row) {
             detailed?.details?.visibility = View.GONE
             row.details.visibility = View.VISIBLE
@@ -201,6 +200,7 @@ class MovieRows(
             r.view.visibility = if (match && r.adapter.items.isNotEmpty()) View.VISIBLE else View.GONE
         }
         typeFilter = type
+        billboard.feature(type)
     }
 
     private var typeFilter: String? = null
@@ -284,32 +284,48 @@ class Hero(root: View) {
      * Ambient light: a soft glow in the focused title's own colour rising from the bottom
      * of the screen behind the rows, the way a lit room picks up the colour of the film.
      */
-    private val glowColors = intArrayOf(0, 0)
-    private val glow = android.graphics.drawable.GradientDrawable().apply {
-        gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
-        setGradientCenter(0.3f, 1f)
-        gradientRadius = root.resources.displayMetrics.widthPixels * 0.75f
-    }
-    private val glowView = View(root.context).apply { background = glow }.also { v ->
+    // A radial gradient computed for every pixel of the screen cost this TV's GPU ~6 ms a
+    // frame; instead a tiny pre-drawn falloff is stretched over the lower-left of the screen
+    // (where the rows are) and tinted, which costs a fraction of that.
+    private val glow = android.graphics.drawable.BitmapDrawable(root.resources, falloff()).apply { isFilterBitmap = true }
+    // Left out on lite TVs (weak GPUs), where even this tinted layer costs ~3 ms a frame.
+    private val glowView = View(root.context).apply { background = glow; alpha = 0f; if (lite) visibility = View.GONE }.also { v ->
         val shade = root.findViewById<View>(R.id.hero_shade)
         val parent = shade.parent as android.view.ViewGroup
-        parent.addView(v, parent.indexOfChild(shade) + 1, android.view.ViewGroup.LayoutParams(-1, -1))
+        val m = root.resources.displayMetrics
+        parent.addView(v, parent.indexOfChild(shade) + 1,
+            android.widget.FrameLayout.LayoutParams((m.widthPixels * 0.8f).toInt(), (m.heightPixels * 0.8f).toInt(),
+                android.view.Gravity.BOTTOM or android.view.Gravity.START))
     }
+
+    /** White with alpha falling off smoothly from the bottom-left corner. */
+    private fun falloff(): android.graphics.Bitmap {
+        val n = 48
+        val bmp = android.graphics.Bitmap.createBitmap(n, n, android.graphics.Bitmap.Config.ARGB_8888)
+        for (y in 0 until n) for (x in 0 until n) {
+            val d = kotlin.math.hypot(x / (n - 1f), (n - 1 - y) / (n - 1f)).coerceAtMost(1f)
+            val a = ((1 - d) * (1 - d) * 255).toInt()
+            bmp.setPixel(x, y, (a shl 24) or 0xFFFFFF)
+        }
+        return bmp
+    }
+
     private var glowAnim: android.animation.ValueAnimator? = null
     private var glowNow = 0
 
     private fun ambient(target: Int) {
+        if (lite) return
+        val to = (target and 0x00FFFFFF) or 0xFF000000.toInt()
+        if (glowNow == to) return
         val from = glowNow
-        // Translucent: just under half strength at its centre, fading to nothing.
-        val to = (target and 0x00FFFFFF) or 0x73000000
-        if (from == to) return
         glowAnim?.cancel()
-        glowAnim = android.animation.ValueAnimator.ofArgb(from, to).apply {
+        // Just under half strength at its brightest, so it tints rather than glares.
+        glowView.animate().alpha(0.45f).setDuration(500).start()
+        glowAnim = android.animation.ValueAnimator.ofArgb(if (from == 0) to else from, to).apply {
             duration = 700
             addUpdateListener {
                 glowNow = it.animatedValue as Int
-                glowColors[0] = glowNow
-                glow.colors = glowColors
+                glow.setTint(glowNow)
             }
             start()
         }
@@ -395,9 +411,7 @@ class Hero(root: View) {
             next.setImageBitmap(bitmap)
             next.bringToFront()
             next.alpha = 0f
-            next.scaleX = 1.06f
-            next.scaleY = 1.06f
-            next.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(500).start()
+            next.animate().alpha(1f).setDuration(400).start()
             prev.animate().alpha(0f).setStartDelay(300).setDuration(250).withEndAction { prev.setImageDrawable(null) }.start()
             front = 1 - front
         }
