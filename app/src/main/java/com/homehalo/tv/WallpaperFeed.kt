@@ -120,10 +120,8 @@ object WallpaperFeed {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
         if (bounds.outWidth < bounds.outHeight) return null // portrait shots don't fill a TV
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= widthPx) sample *= 2
         return BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply {
-            inSampleSize = sample
+            with(Images) { exactWidth(bounds.outWidth, widthPx) }
             inPreferredConfig = Bitmap.Config.HARDWARE
         })
     }

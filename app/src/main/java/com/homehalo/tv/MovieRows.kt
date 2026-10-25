@@ -38,6 +38,7 @@ class MovieRows(
     val rows = mutableListOf<Row>()
     private val main = Handler(Looper.getMainLooper())
     private val dp = activity.resources.displayMetrics.density
+    private val sharedPool = RecyclerView.RecycledViewPool().apply { setMaxRecycledViews(0, 16) }
 
     /** Rebuilds the rows from the current settings; data comes from the disk cache first. */
     fun rebuild() {
@@ -69,12 +70,23 @@ class MovieRows(
             row.view.visibility = View.GONE // shown once progress arrives
             refreshContinue(force = true)
         }
-        if (HaloSettings.isOn(activity, HaloSettings.TOP_TEN)) {
-            val row = makeRow(TOP_TEN, (w * dp).roundToInt(), (h * dp).roundToInt(), null, ranked = true)
+        // Top 10: by default ranked from the family's own first movie row (their language),
+        // or Cinemeta's worldwide chart, or not at all.
+        topFrom = null
+        val topSetting = HaloSettings.get(activity, HaloSettings.TOP_TEN)
+        val mine = sources.firstOrNull { it.type == "movie" }
+        val topSource = when {
+            topSetting == "world" -> TOP_TEN
+            topSetting == "mine" && mine != null -> mine.copy(title = "Top 10 in ${mine.title}").also { topFrom = mine }
+            else -> null
+        }
+        if (topSource != null) {
+            val row = makeRow(topSource, (w * dp).roundToInt(), (h * dp).roundToInt(), null, ranked = true)
             rows += row
             container.addView(row.view)
             row.view.visibility = View.GONE
-            load(row, null)
+            topRow = row
+            if (topSource === TOP_TEN) load(row, null)
         }
         for (source in sources) {
             val row = makeRow(source, (w * dp).roundToInt(), (h * dp).roundToInt(), genre)
@@ -122,7 +134,10 @@ class MovieRows(
             setHasFixedSize(true)
             clipToPadding = false
             clipChildren = false
-            setItemViewCacheSize(12)
+            // A few spare cards per row, and one pool shared by all rows: idle rows no longer
+            // each keep a dozen detached cards alive.
+            setItemViewCacheSize(4)
+            setRecycledViewPool(sharedPool)
             setPadding((37 * dp).toInt(), grow, (37 * dp).toInt(), grow)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (h * PosterAdapter.GROW).toInt() + grow * 2)
             if (ranked) addItemDecoration(RankNumbers(adapter.rankRoom, dp))
@@ -205,13 +220,21 @@ class MovieRows(
 
     private var typeFilter: String? = null
 
+    /** The ranked row, and the catalogue it takes its ten from when it's the family's own. */
+    private var topRow: Row? = null
+    private var topFrom: Addons.Row? = null
+
+    private fun fillTop(row: Row, titles: List<Catalog.Title>) {
+        val hidden = Catalog.hiddenTitles(activity)
+        row.adapter.items = titles.filter { it.poster != null && it.id !in hidden }.take(10)
+        val match = typeFilter == null || typeFilter == "movie"
+        row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
+    }
+
     private fun show(row: Row, titles: List<Catalog.Title>) {
         row.all = titles
-        if (row.source === TOP_TEN) {
-            row.adapter.items = titles.filter { it.poster != null }.take(10)
-            row.view.visibility = if (row.adapter.items.isEmpty()) View.GONE else View.VISIBLE
-            return
-        }
+        if (row === topRow) return fillTop(row, titles)
+        if (row.source === topFrom) topRow?.let { fillTop(it, titles) }
         if (row.source !== CONTINUE) billboard.offer(titles)
         val hidden = Catalog.hiddenTitles(activity)
         row.adapter.items = titles.filter { it.id !in hidden }

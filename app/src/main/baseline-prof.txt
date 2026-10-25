@@ -1,5 +1,2 @@
-# Precompile HomeHalo's own code and the libraries the home screen touches at startup.
-HSPLcom/homehalo/tv/**->**(**)**
+HSPLcom/homehalo/tv/**;->**(**)**
 Lcom/homehalo/tv/**;
-HSPLandroidx/recyclerview/widget/**->**(**)**
-Landroidx/recyclerview/widget/**;

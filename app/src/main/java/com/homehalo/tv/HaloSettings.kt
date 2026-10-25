@@ -62,7 +62,9 @@ object HaloSettings {
         "Crime" to "Crime", "Family" to "Family"), "all", summary = "Only for rows whose addon supports it")
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
-    val TOP_TEN = toggle("top_ten", "Top 10 row", summary = "Today's most popular films, numbered")
+    val TOP_TEN = Option("top_ten_from", "Top 10 row",
+        listOf("mine" to "From my first row", "world" to "Worldwide (mostly English)", "off" to "Off"), "mine",
+        summary = "Numbered row of the ten most popular films")
     val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
     val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 

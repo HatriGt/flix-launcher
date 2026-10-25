@@ -282,9 +282,13 @@ class MainActivity : Activity() {
             movieRows.filter(type)
         }
         select(home, null)
-        home.setOnClickListener { select(home, null) }
-        movies.setOnClickListener { select(movies, "movie") }
-        shows.setOnClickListener { select(shows, "series") }
+        // Like Netflix, landing on a tab switches to it; no need to press OK. A short pause
+        // first, so sliding across tabs doesn't rebuild the rows for each one passed.
+        listOf(home to null, movies to "movie", shows to "series").forEach { (tab, type) ->
+            val pick = Runnable { if (tab.isFocused && !tab.isSelected) select(tab, type) }
+            tab.setOnClickListener { select(tab, type) }
+            tab.setOnFocusChangeListener { _, has -> main.removeCallbacks(pick); if (has) main.postDelayed(pick, 300) }
+        }
         findViewById<View>(R.id.nav_apps).setOnClickListener {
             open(Intent(this, AllAppsActivity::class.java))
         }
@@ -332,6 +336,16 @@ class MainActivity : Activity() {
         } else if (isInside(now, rowsScroll) || isInside(now, header)) {
             exitBrowse()
             scrollRowsTo(0)
+        }
+        if (row == null) {
+            // Nothing to preview off the rows: a trailer must not keep the page faded out
+            // (it did after switching tabs, leaving the home screen see-through).
+            trailer.stop()
+            endImmersive(force = true)
+        } else {
+            // The wallpaper's caption is for the idle screen only, never over the rows.
+            sceneTitle.animate().cancel()
+            sceneTitle.alpha = 0f
         }
     }
 
@@ -568,9 +582,9 @@ class MainActivity : Activity() {
         main.postDelayed(clearPage, 5000)
     }
 
-    private fun endImmersive() {
+    private fun endImmersive(force: Boolean = false) {
         main.removeCallbacks(dimPage); main.removeCallbacks(clearPage)
-        if (!immersed) return
+        if (!immersed && !(force && immersiveViews.any { it.alpha < 1f })) return
         immersed = false
         fadePage(1f, 250)
     }
@@ -939,7 +953,7 @@ class MainActivity : Activity() {
         sceneTitle.animate().cancel()
         sceneTitle.animate().alpha(0f).setDuration(250).withEndAction {
             sceneTitle.text = sceneTarget
-            sceneTitle.animate().alpha(if (idle) 0.8f else 0f).setDuration(600).start()
+            sceneTitle.animate().alpha(if (idle && !browsing) 0.8f else 0f).setDuration(600).start()
         }.start()
     }
 

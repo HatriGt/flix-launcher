@@ -24,6 +24,8 @@ object Images {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private var dir: File? = null
+    /** Callbacks waiting on a decode already under way; main thread only. */
+    private val inFlight = HashMap<String, MutableList<(Bitmap?) -> Unit>>()
 
     /** Drops decoded images; posters reload quickly from the disk cache. */
     fun trim() = memory.evictAll()
@@ -67,10 +69,13 @@ object Images {
     fun get(url: String, widthPx: Int, onReady: (Bitmap?) -> Unit) {
         val key = key(url, widthPx)
         memory.get(key)?.let { return onReady(it) }
+        // A poster scrolled past and back (or asked for by two views) shares one decode.
+        inFlight[key]?.let { it += onReady; return }
+        inFlight[key] = mutableListOf(onReady)
         pool.execute {
             val bitmap = runCatching { decode(bytes(url), widthPx) }.getOrNull()
             if (bitmap != null) memory.put(key, bitmap)
-            main.post { onReady(bitmap) }
+            main.post { inFlight.remove(key)?.forEach { it(bitmap) } }
         }
     }
 
@@ -134,14 +139,29 @@ object Images {
     private fun decode(data: ByteArray, widthPx: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= widthPx) sample *= 2
         return BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply {
-            inSampleSize = sample
+            exactWidth(bounds.outWidth, widthPx)
             // Hardware bitmaps live only on the GPU: no copy in the app's memory and no
             // upload to the GPU on first draw, which is where the poster rows stuttered.
             inPreferredConfig = Bitmap.Config.HARDWARE
         })
+    }
+
+    /**
+     * Decodes at the width actually drawn, not the next power of two above it: a 342 px
+     * poster shown 200 px wide was kept whole, nearly 3x the graphics memory it needs.
+     * Power-of-two sampling first (cheap), then the decoder's own density scaling for the rest.
+     */
+    internal fun BitmapFactory.Options.exactWidth(srcWidth: Int, widthPx: Int) {
+        var sample = 1
+        while (srcWidth / (sample * 2) >= widthPx) sample *= 2
+        inSampleSize = sample
+        val sampled = srcWidth / sample
+        if (widthPx in 1 until sampled) {
+            inScaled = true
+            inDensity = sampled
+            inTargetDensity = widthPx
+        }
     }
 
     private fun key(url: String, width: Int) = "$width|$url"
