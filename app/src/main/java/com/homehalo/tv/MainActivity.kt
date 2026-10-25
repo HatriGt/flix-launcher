@@ -781,7 +781,19 @@ class MainActivity : Activity() {
 
     private fun loadApps() {
         io.execute {
-            val apps = repo.loadApps()
+            // Favourites first: the row shows while every other app's icon is still being drawn.
+            val apps = repo.loadApps(repo.favorites) { firstApps ->
+                if (allApps.isNotEmpty()) return@loadApps
+                main.post {
+                    if (isDestroyed || allApps.isNotEmpty()) return@post
+                    allApps = firstApps
+                    bindRows()
+                    if (!initialFocusDone) {
+                        initialFocusDone = true
+                        focusFavorite(0)
+                    }
+                }
+            }
             main.post {
                 if (isDestroyed) return@post
                 allApps = apps

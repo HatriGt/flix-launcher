@@ -27,37 +27,55 @@ class AppRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("halo", Context.MODE_PRIVATE)
     private val pm: PackageManager = context.packageManager
 
-    fun loadApps(): List<AppEntry> {
+    /**
+     * Every launchable app, sorted by name. Apps in [first] are built before the rest and
+     * handed to [onFirst], so the favourites row can show while the other icons are drawn.
+     * Built tiles are kept per app version, so later reloads only list packages.
+     */
+    fun loadApps(first: Collection<String> = emptyList(), onFirst: ((List<AppEntry>) -> Unit)? = null): List<AppEntry> {
         val seen = HashSet<String>()
-        val result = ArrayList<AppEntry>()
+        val found = ArrayList<ResolveInfo>()
         for (category in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)) {
-            val query = Intent(Intent.ACTION_MAIN).addCategory(category)
-            for (info in pm.queryIntentActivities(query, 0)) {
+            for (info in pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
                 val pkg = info.activityInfo.packageName
                 if (pkg == context.packageName || pkg in HIDDEN || pkg in hidden || !seen.add(pkg)) continue
-                val launch = pm.getLeanbackLaunchIntentForPackage(pkg)
-                    ?: pm.getLaunchIntentForPackage(pkg)
-                    ?: continue
-                val appInfo = info.activityInfo.applicationInfo
-                val hasIcon = pkg == SMARTTUBE || info.activityInfo.iconResource != 0
-                val icon = if (pkg == SMARTTUBE) YouTubeBanner(iconOnly = true) else hiResIcon(info)
-                val banner = if (pkg == SMARTTUBE) YouTubeBanner()
-                else info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm)
-                val (accent, fullBleed) = look(pkg, appInfo, icon, banner, hasIcon)
-                result += AppEntry(
-                    packageName = pkg,
-                    label = if (pkg == SMARTTUBE) "YouTube" else info.loadLabel(pm).toString(),
-                    banner = banner?.let { compact(it, BANNER_W, BANNER_H) },
-                    icon = compact(icon, ICON_PX, ICON_PX),
-                    launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    hasIcon = hasIcon,
-                    iconFullBleed = fullBleed,
-                    accent = accent,
-                    category = appInfo.category,
-                )
+                found += info
             }
         }
+        val (early, late) = found.partition { it.activityInfo.packageName in first }
+        val result = ArrayList<AppEntry>()
+        early.mapNotNullTo(result, ::entry)
+        onFirst?.invoke(result.toList())
+        late.mapNotNullTo(result, ::entry)
         return result.sortedBy { it.label.lowercase() }
+    }
+
+    private fun entry(info: ResolveInfo): AppEntry? {
+        val pkg = info.activityInfo.packageName
+        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L)
+        built[pkg]?.takeIf { it.first == stamp }?.let { return it.second }
+        val launch = pm.getLeanbackLaunchIntentForPackage(pkg)
+            ?: pm.getLaunchIntentForPackage(pkg)
+            ?: return null
+        val appInfo = info.activityInfo.applicationInfo
+        val hasIcon = pkg == SMARTTUBE || info.activityInfo.iconResource != 0
+        val icon = if (pkg == SMARTTUBE) YouTubeBanner(iconOnly = true) else hiResIcon(info)
+        val banner = if (pkg == SMARTTUBE) YouTubeBanner()
+        else info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm)
+        val (accent, fullBleed) = look(pkg, appInfo, icon, banner, hasIcon)
+        val app = AppEntry(
+            packageName = pkg,
+            label = if (pkg == SMARTTUBE) "YouTube" else info.loadLabel(pm).toString(),
+            banner = banner?.let { compact(it, BANNER_W, BANNER_H) },
+            icon = compact(icon, ICON_PX, ICON_PX),
+            launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            hasIcon = hasIcon,
+            iconFullBleed = fullBleed,
+            accent = accent,
+            category = appInfo.category,
+        )
+        built[pkg] = stamp to app
+        return app
     }
 
     private val looks = context.getSharedPreferences("halo_looks", Context.MODE_PRIVATE)
@@ -175,6 +193,9 @@ class AppRepository(private val context: Context) {
     companion object {
         // Biggest tile: ~74 dp icons zoomed 1.42x for adaptive layers, 192 dp banners, at density 2.
         private const val ICON_PX = 224
+
+        /** Tiles already drawn, by package, with the app version they were drawn from. */
+        private val built = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, AppEntry>>()
         private const val BANNER_W = 384
         private const val BANNER_H = 216
         private const val KEY_FAVORITES = "favorites"
