@@ -23,7 +23,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import java.net.URL
 import java.util.Date
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
@@ -343,8 +342,9 @@ class MainActivity : Activity() {
         favoritesBlock.animate().alpha(1f).setDuration(300).start()
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
         main.removeCallbacks(hideUnderHero)
-        scrim.visibility = if (player == null && media.none { it.isVideo }) View.GONE else View.VISIBLE
-        videoView.visibility = View.VISIBLE
+        scrim.visibility = if (player == null && scenery().none { it.isVideo } || !videoWallpaper()) View.GONE else View.VISIBLE
+        // An idle SurfaceView punches a black hole through the window, hiding the photo under it.
+        videoView.visibility = if (player != null) View.VISIBLE else View.GONE
         veil.visibility = View.VISIBLE
         imageView.visibility = View.VISIBLE
         hero.hide()
@@ -395,7 +395,7 @@ class MainActivity : Activity() {
     private fun paintScrim(dim: Float) {
         // With no scenery (no wallpaper source, or the plain background), the dark backdrop
         // needs no shading on top: one less full-screen layer for the GPU to fill.
-        scrim.visibility = if (player == null && media.none { it.isVideo }) View.GONE else View.VISIBLE
+        scrim.visibility = if (player == null && scenery().none { it.isVideo } || !videoWallpaper()) View.GONE else View.VISIBLE
         findViewById<View>(R.id.dim).visibility = View.GONE
         fun shade(a: Float) = (((a + dim * (1 - a)).coerceIn(0f, 1f) * 255).toInt() shl 24)
         scrim.background = android.graphics.drawable.GradientDrawable(
@@ -614,7 +614,7 @@ class MainActivity : Activity() {
     }
 
     private fun setIdle(value: Boolean) {
-        if (value && (media.isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
+        if (value && (scenery().isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
         if (value && trailer.isPlaying) return scheduleIdle() // let the trailer play out
         if (value && browsing) returnToStart() // fade to the scenery, not to a paused backdrop
         idle = value
@@ -832,7 +832,15 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun videoWallpaper() = HaloSettings.get(this, HaloSettings.WALLPAPER) == "video"
+    /** Any scenery at all (city photos or provider video), rather than the plain gradient. */
+    private fun videoWallpaper() = HaloSettings.get(this, HaloSettings.WALLPAPER) != "gradient"
+
+    /**
+     * What the background shows: the city skylines, or the wallpaper provider's scenes
+     * (falling back to the cities when no provider such as Aerial Views is installed).
+     */
+    private fun scenery(): List<AerialSource.Media> =
+        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "city" || media.isEmpty()) CitySkylines.all else media
 
     private fun startWallpaper() {
         if (!videoWallpaper()) {
@@ -842,8 +850,13 @@ class MainActivity : Activity() {
             showSceneTitle(null)
             return
         }
-        val videos = media.filter { it.isVideo }
-        if (videos.isNotEmpty()) startVideos(videos) else if (media.isNotEmpty()) showImage(imageIndex)
+        val items = scenery()
+        val videos = items.filter { it.isVideo }
+        if (videos.isNotEmpty()) startVideos(videos) else {
+            releasePlayer.run()
+            videoView.visibility = View.GONE
+            if (items.isNotEmpty()) showImage(imageIndex)
+        }
     }
 
     private fun startVideos(videos: List<AerialSource.Media>) {
@@ -852,6 +865,7 @@ class MainActivity : Activity() {
             return
         }
         veil.alpha = 1f
+        videoView.visibility = View.VISIBLE
         player = SceneryPlayer(videoView, videos, isOn(HaloSettings.SHUFFLE),
             onFirstFrame = {
                 scrim.visibility = View.VISIBLE
@@ -879,25 +893,33 @@ class MainActivity : Activity() {
     }
 
     private fun showImage(index: Int) {
-        val images = media.filter { !it.isVideo }
+        val images = scenery().filter { !it.isVideo }
         if (images.isEmpty()) return
-        imageIndex = index % images.size
+        imageIndex = (if (isOn(HaloSettings.SHUFFLE) && index != imageIndex) (images.indices).random() else index) % images.size
         val item = images[imageIndex]
-        net.execute {
-            val bitmap = runCatching {
-                val uri = Uri.parse(item.uri)
-                val stream = if (uri.scheme == "http" || uri.scheme == "https") URL(item.uri).openStream()
-                else contentResolver.openInputStream(uri)
-                stream?.use { BitmapFactory.decodeStream(it) }
-            }.getOrNull() ?: return@execute
-            main.post {
-                if (isDestroyed) return@post
-                imageView.setImageBitmap(bitmap)
-                veil.animate().alpha(0f).setDuration(900).start()
+        val uri = Uri.parse(item.uri)
+        val ready = { bitmap: android.graphics.Bitmap ->
+            if (!isDestroyed) {
+                // Dip through the dark backdrop so one city dissolves into the next.
+                val first = imageView.drawable == null
+                veil.animate().cancel()
+                veil.animate().alpha(if (first) 1f else 0.7f).setDuration(if (first) 0 else 600).withEndAction {
+                    imageView.setImageBitmap(bitmap)
+                    veil.animate().alpha(0f).setDuration(1200).start()
+                }.start()
+                scrim.visibility = View.VISIBLE
                 showSceneTitle(item.title)
                 main.removeCallbacks(nextImage)
-                main.postDelayed(nextImage, 5 * 60_000)
+                main.postDelayed(nextImage, 2 * 60_000)
             }
+        }
+        if (uri.scheme == "http" || uri.scheme == "https") {
+            // Downscaled, cached on disk and kept on the GPU, like the posters.
+            Images.get(item.uri, resources.displayMetrics.widthPixels) { it?.let(ready) ?: main.postDelayed(nextImage, 10_000) }
+        } else net.execute {
+            val bitmap = runCatching { contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }.getOrNull()
+                ?: return@execute
+            main.post { ready(bitmap) }
         }
     }
 

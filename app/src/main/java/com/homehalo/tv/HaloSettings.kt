@@ -43,7 +43,7 @@ object HaloSettings {
     val UNITS = Option("units", "Temperature", listOf("c" to "Celsius", "f" to "Fahrenheit"), "c")
 
     // Wallpaper
-    val WALLPAPER = Option("wallpaper", "Background", listOf("video" to "Scenic video", "gradient" to "Plain gradient"), "video")
+    val WALLPAPER = Option("wallpaper", "Background", listOf("city" to "City skylines", "video" to "Scenic video", "gradient" to "Plain gradient"), "city")
     val SHUFFLE = toggle("shuffle", "Shuffle scenes")
     val DIM = Option("dim", "Background dimming", listOf("low" to "Low", "medium" to "Medium", "high" to "High"), "medium")
     val SCENE_NAME = toggle("scene_name", "Scene name")
@@ -63,7 +63,7 @@ object HaloSettings {
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
     val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
-    val TRAILER_SOUND = toggle("trailer_sound", "Trailer sound", default = false, summary = "Off keeps trailers silent")
+    val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 
     const val ACTION_NUVIO = "Nuvio account…"
     const val ACTION_ROWS = "Addons & rows…"
