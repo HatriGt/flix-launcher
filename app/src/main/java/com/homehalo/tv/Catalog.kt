@@ -32,13 +32,19 @@ object Catalog {
         val progress: Float? = null,
         val episodeLabel: String? = null,
     ) {
-        /** Opens the title's page in Nuvio, ready to pick a stream and play. */
-        val nuvioUri: String
-            get() {
-                val base = "nuvio://detail/$type/${java.net.URLEncoder.encode(id, "UTF-8")}"
-                return if (id.startsWith("tt") || addonBase == null) base
-                else "$base?addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}"
+        /**
+         * Opens the title in Nuvio. With [streams], a film goes straight to Nuvio's stream
+         * list (its page loads behind it, so Back still lands there); series always open
+         * their page, where the episode is picked.
+         */
+        fun nuvioUri(streams: Boolean): String {
+            val params = buildList {
+                if (!id.startsWith("tt") && addonBase != null) add("addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}")
+                if (streams && type == "movie") { add("playOnLoad=true"); add("manualSelection=true") }
             }
+            val base = "nuvio://detail/$type/${java.net.URLEncoder.encode(id, "UTF-8")}"
+            return if (params.isEmpty()) base else base + "?" + params.joinToString("&")
+        }
     }
 
     private const val MAX_AGE_MS = 6 * 60 * 60 * 1000L

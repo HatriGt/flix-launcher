@@ -429,7 +429,7 @@ class MainActivity : Activity() {
             overridePendingTransition(0, 0)
             return
         }
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(NUVIO)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri(HaloSettings.get(this, HaloSettings.OPEN_TO) == "streams"))).setPackage(NUVIO)
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return

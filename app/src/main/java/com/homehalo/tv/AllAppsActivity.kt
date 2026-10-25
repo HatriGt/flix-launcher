@@ -299,7 +299,7 @@ class AllAppsActivity : Activity() {
     }
 
     private fun openTitle(title: Catalog.Title) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(MainActivity.NUVIO)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri(HaloSettings.get(this, HaloSettings.OPEN_TO) == "streams"))).setPackage(MainActivity.NUVIO)
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
