@@ -62,6 +62,7 @@ object HaloSettings {
         "Crime" to "Crime", "Family" to "Family"), "all", summary = "Only for rows whose addon supports it")
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
+    val TOP_TEN = toggle("top_ten", "Top 10 row", summary = "Today's most popular films, numbered")
     val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
     val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 
@@ -74,7 +75,7 @@ object HaloSettings {
     val SECTIONS = listOf(
         Section("Icons", listOf(ICON_SHAPE, ICON_SIZE, LABELS, GLOW, MOTION)),
         Section("Clock & widgets", listOf(CLOCK_STYLE, CLOCK_FORMAT, GREETING, DATE, WEATHER, UNITS)),
-        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, TRAILERS, TRAILER_SOUND, BACKDROP, POSTER_SIZE, GENRE)),
+        Section("Movies & shows", listOf(SUGGESTIONS, CONTINUE_WATCHING, TOP_TEN, TRAILERS, TRAILER_SOUND, BACKDROP, POSTER_SIZE, GENRE)),
         Section("Background", listOf(WALLPAPER, SHUFFLE, DIM, SCENE_NAME)),
         Section("Behaviour", listOf(IDLE, ALL_APPS, ALL_APPS_TILE)),
     )

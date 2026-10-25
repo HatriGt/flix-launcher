@@ -24,9 +24,16 @@ class MovieRows(
     private val onOpen: (Catalog.Title) -> Unit,
     private val onMenu: (Catalog.Title) -> Unit,
 ) {
-    class Row(val source: Addons.Row, val view: View, val list: RecyclerView, val adapter: PosterAdapter) {
+    class Row(val source: Addons.Row, val view: View, val list: RecyclerView, val adapter: PosterAdapter,
+              val details: View, val meta: TextView, val about: TextView) {
         var all: List<Catalog.Title> = emptyList()
     }
+
+    /** The row whose details line is showing (only the focused row shows one, as on Netflix). */
+    private var detailed: Row? = null
+
+    /** Netflix's billboard at the top of the rows: one featured title with Play and More info. */
+    val billboard = Billboard(activity, container) { onOpen(it) }
 
     val rows = mutableListOf<Row>()
     private val main = Handler(Looper.getMainLooper())
@@ -36,14 +43,18 @@ class MovieRows(
     fun rebuild() {
         container.removeAllViews()
         rows.clear()
+        detailed = null
+        billboard.reset()
         if (!HaloSettings.isOn(activity, HaloSettings.SUGGESTIONS)) return
         val genre = HaloSettings.get(activity, HaloSettings.GENRE).takeIf { it != "all" }
         val sources = Addons.rows(activity).filter { it.enabled }
+        // Tall posters, as on Netflix; the focused one widens to 16:9 at the same height.
         val (w, h) = when (HaloSettings.get(activity, HaloSettings.POSTER_SIZE)) {
-            "small" -> 84 to 126
-            "large" -> 112 to 168
-            else -> 98 to 147
+            "small" -> 112 to 168
+            "large" -> 144 to 216
+            else -> 128 to 192
         }
+        container.addView(billboard.view)
         if (!NuvioAccount.isSignedIn(activity) && HaloSettings.isOn(activity, HaloSettings.CONTINUE_WATCHING) &&
             activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
@@ -57,6 +68,13 @@ class MovieRows(
             container.addView(row.view)
             row.view.visibility = View.GONE // shown once progress arrives
             refreshContinue(force = true)
+        }
+        if (HaloSettings.isOn(activity, HaloSettings.TOP_TEN)) {
+            val row = makeRow(TOP_TEN, (w * dp).roundToInt(), (h * dp).roundToInt(), null, ranked = true)
+            rows += row
+            container.addView(row.view)
+            row.view.visibility = View.GONE
+            load(row, null)
         }
         for (source in sources) {
             val row = makeRow(source, (w * dp).roundToInt(), (h * dp).roundToInt(), genre)
@@ -81,9 +99,10 @@ class MovieRows(
         }
     }
 
-    private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?): Row {
+    private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?, ranked: Boolean = false): Row {
         val springy = HaloSettings.get(activity, HaloSettings.MOTION) == "spring"
-        val adapter = PosterAdapter(w, h, dp, springy, onFocus, onOpen, onMenu)
+        lateinit var row: Row
+        val adapter = PosterAdapter(w, h, dp, springy, { t -> describe(row, t); onFocus(t) }, onOpen, onMenu, ranked)
         val title = TextView(activity).apply {
             val kind = if (source.type == "series") "Series" else "Movies"
             // Addons often reuse a name for their movie and series lists; tell them apart.
@@ -106,6 +125,29 @@ class MovieRows(
             setItemViewCacheSize(12)
             setPadding((37 * dp).toInt(), grow, (37 * dp).toInt(), grow)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (h * PosterAdapter.GROW).toInt() + grow * 2)
+            if (ranked) addItemDecoration(RankNumbers(adapter.rankRoom, dp))
+        }
+        // Netflix puts the focused title's details under the row, not over the artwork.
+        val meta = TextView(activity).apply {
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            maxLines = 1
+        }
+        val about = TextView(activity).apply {
+            textSize = 12.5f
+            setTextColor(0xB3FFFFFF.toInt())
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setLineSpacing(0f, 1.15f)
+            setPadding(0, (4 * dp).toInt(), 0, 0)
+        }
+        val details = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((44 * dp).toInt() + if (ranked) adapter.rankRoom - (7 * dp).toInt() else 0, (2 * dp).toInt(), (44 * dp).toInt(), (6 * dp).toInt())
+            visibility = View.GONE
+            addView(meta)
+            addView(about, LinearLayout.LayoutParams((520 * dp).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val view = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -113,8 +155,10 @@ class MovieRows(
             clipToPadding = false
             addView(title)
             addView(list)
+            addView(details)
         }
-        return Row(source, view, list, adapter)
+        row = Row(source, view, list, adapter, details, meta, about)
+        return row
     }
 
     /** Cached titles first (parsed off the main thread), then a refresh if they're older than six hours. */
@@ -127,11 +171,52 @@ class MovieRows(
         }
     }
 
+    /** Fills the focused row's details line: rating, year, runtime, genres, then the synopsis. */
+    private fun describe(row: Row, t: Catalog.Title) {
+        row.meta.text = android.text.SpannableStringBuilder().apply {
+            if (t.type == "series") append("Series    ")
+            Rating.text(t.rating)?.let { append(it).append("    ") }
+            append(listOfNotNull(t.year, runtimeText(t.runtime), t.genres.take(3).joinToString(" · ").ifBlank { null }).joinToString("    "))
+        }
+        row.meta.visibility = if (row.meta.text.isBlank()) View.GONE else View.VISIBLE
+        row.about.text = t.description
+        row.about.visibility = if (t.description.isNullOrBlank()) View.GONE else View.VISIBLE
+        if (detailed !== row) {
+            detailed?.details?.visibility = View.GONE
+            row.details.visibility = View.VISIBLE
+            detailed = row
+        }
+    }
+
+    /** Hides the details line when focus leaves the rows. */
+    fun clearDetails() {
+        detailed?.details?.visibility = View.GONE
+        detailed = null
+    }
+
+    /** Shows only movie or only series rows (the Movies and Shows tabs), or all of them. */
+    fun filter(type: String?) {
+        rows.forEach { r ->
+            val match = type == null || r.source.type == type || r.source === CONTINUE
+            r.view.visibility = if (match && r.adapter.items.isNotEmpty()) View.VISIBLE else View.GONE
+        }
+        typeFilter = type
+    }
+
+    private var typeFilter: String? = null
+
     private fun show(row: Row, titles: List<Catalog.Title>) {
         row.all = titles
+        if (row.source === TOP_TEN) {
+            row.adapter.items = titles.filter { it.poster != null }.take(10)
+            row.view.visibility = if (row.adapter.items.isEmpty()) View.GONE else View.VISIBLE
+            return
+        }
+        if (row.source !== CONTINUE) billboard.offer(titles)
         val hidden = Catalog.hiddenTitles(activity)
         row.adapter.items = titles.filter { it.id !in hidden }
-        row.view.visibility = if (row.adapter.items.isEmpty()) View.GONE else View.VISIBLE
+        val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
+        row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
     }
 
     /** Re-applies the hidden-titles filter without refetching. */
@@ -140,6 +225,9 @@ class MovieRows(
     companion object {
         /** Stand-in source for the Continue watching row, which comes from the Nuvio account rather than an addon. */
         val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
+
+        /** Cinemeta's most popular films right now, shown as Netflix's numbered Top 10 row. */
+        val TOP_TEN = Addons.Row(Addons.CINEMETA, "Cinemeta", "movie", "top", "Top 10 Movies Today")
 
         /** Placeholder card shown in Continue watching while signed out; opening it starts sign-in. */
         val SIGN_IN = Catalog.Title("halo:signin", "movie", "Sign in to Nuvio to see what you were watching",
@@ -253,13 +341,6 @@ class Hero(root: View) {
         main.postDelayed({ if (current?.id == title.id) apply(title) }, RowRecyclerView.DURATION + 60)
     }
 
-    /** "122" or "122 min" becomes "2h 2m", as Netflix writes it. */
-    private fun runtimeText(raw: String?): String? {
-        val m = raw?.filter { it.isDigit() }?.toIntOrNull() ?: return raw
-        if (raw.contains("h")) return raw
-        return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
-    }
-
     private fun apply(title: Catalog.Title) {
         info.animate().cancel()
         info.animate().alpha(0f).setDuration(120).withEndAction {
@@ -319,6 +400,44 @@ class Hero(root: View) {
             next.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(500).start()
             prev.animate().alpha(0f).setStartDelay(300).setDuration(250).withEndAction { prev.setImageDrawable(null) }.start()
             front = 1 - front
+        }
+    }
+}
+
+/** "122" or "122 min" becomes "2h 2m", as Netflix writes it. */
+fun runtimeText(raw: String?): String? {
+    val m = raw?.filter { it.isDigit() }?.toIntOrNull() ?: return raw
+    if (raw.contains("h")) return raw
+    return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+}
+
+/** Draws the Top 10 row's huge outlined rank numbers in the space left of each poster. */
+class RankNumbers(@Suppress("unused") private val room: Int, private val dp: Float) : RecyclerView.ItemDecoration() {
+    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF0A0D13.toInt()
+        typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+        textAlign = android.graphics.Paint.Align.RIGHT
+        letterSpacing = -0.08f
+    }
+    private val edge = android.graphics.Paint(fill).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 2.5f * dp
+        color = 0xB3FFFFFF.toInt()
+    }
+
+    override fun onDraw(c: android.graphics.Canvas, parent: RecyclerView, state: RecyclerView.State) {
+        for (i in 0 until parent.childCount) {
+            val child = parent.getChildAt(i)
+            val pos = parent.getChildAdapterPosition(child)
+            if (pos !in 0..9) continue
+            fill.textSize = child.height * 0.98f
+            edge.textSize = fill.textSize
+            // Right-aligned to the poster's left edge and tucked a little behind it.
+            val x = child.x + 14 * dp
+            val y = child.y + child.height - 2 * dp
+            val text = (pos + 1).toString()
+            c.drawText(text, x, y, fill)
+            c.drawText(text, x, y, edge)
         }
     }
 }

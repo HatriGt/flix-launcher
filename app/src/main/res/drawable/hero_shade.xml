@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- While browsing, the artwork is only a dim wash behind the rows, as on Netflix. -->
+    <item><shape><solid android:color="#8C070A10" /></shape></item>
     <item>
         <shape><gradient android:angle="0" android:startColor="#F2070A10" android:centerColor="#99070A10" android:centerX="0.45" android:endColor="#00070A10" /></shape>
     </item>

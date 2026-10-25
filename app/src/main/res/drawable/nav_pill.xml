@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Top menu tab: the current tab is a white pill; focus adds a soft light behind the label. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android" android:enterFadeDuration="120" android:exitFadeDuration="120">
+    <item android:state_focused="true" android:state_selected="true">
+        <shape><corners android:radius="18dp" /><solid android:color="#FFFFFFFF" /><stroke android:width="2dp" android:color="#FF5AA9FF" /></shape>
+    </item>
+    <item android:state_focused="true">
+        <shape><corners android:radius="18dp" /><solid android:color="#40FFFFFF" /></shape>
+    </item>
+    <item android:state_selected="true">
+        <shape><corners android:radius="18dp" /><solid android:color="#F2FFFFFF" /></shape>
+    </item>
+    <item><shape><solid android:color="#00000000" /></shape></item>
+</selector>

@@ -32,6 +32,20 @@
         <item name="android:textColor">#CCFFFFFF</item>
     </style>
 
+    <style name="Halo.NavTab">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_marginStart">2dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:background">@drawable/nav_pill</item>
+        <item name="android:focusable">true</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/nav_text</item>
+    </style>
+
     <style name="Halo.QuickButton">
         <item name="android:layout_width">40dp</item>
         <item name="android:layout_height">40dp</item>

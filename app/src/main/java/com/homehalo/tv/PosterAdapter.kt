@@ -14,8 +14,10 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 /**
- * Poster cards for one catalogue row. Like Netflix, the focused card widens into a
- * landscape card showing the title's backdrop, logo and rating; the others stay posters.
+ * Poster cards for one catalogue row, laid out like Netflix's 2025 TV home: tall posters,
+ * and the focused one widens (at the same height) into a landscape card with the title's
+ * backdrop, logo and badges. Its details are shown under the row (see [MovieRows]).
+ * In a [ranked] (Top 10) row each card leaves room on its left for a big rank number.
  */
 class PosterAdapter(
     private val widthPx: Int,
@@ -25,6 +27,7 @@ class PosterAdapter(
     private val onFocus: (Catalog.Title) -> Unit,
     private val onClick: (Catalog.Title) -> Unit,
     private val onLongClick: (Catalog.Title) -> Unit,
+    private val ranked: Boolean = false,
 ) : RecyclerView.Adapter<PosterAdapter.Holder>() {
 
     var items: List<Catalog.Title> = emptyList()
@@ -48,6 +51,9 @@ class PosterAdapter(
     private val expandedPx = expandedH * 16 / 9
     private val inset = (expandedH - heightPx) / 2
 
+    /** Space left of each card in a Top 10 row for its rank number. */
+    val rankRoom = (heightPx * 0.42f).toInt()
+
     /** The card in this row that's currently big, if any. */
     private var big: Holder? = null
 
@@ -55,7 +61,7 @@ class PosterAdapter(
         val context = parent.context
         val card = Card(context).apply {
             layoutParams = ViewGroup.MarginLayoutParams(widthPx, heightPx).apply {
-                marginStart = (7 * density).toInt()
+                marginStart = if (ranked) rankRoom else (7 * density).toInt()
                 marginEnd = (7 * density).toInt()
                 topMargin = inset
             }
@@ -128,9 +134,12 @@ class PosterAdapter(
             maxLines = 1
             setPadding(0, (6 * density).toInt(), 0, 0)
         }
-        info.addView(logo, android.widget.LinearLayout.LayoutParams(-2, (46 * density).toInt()))
+        info.addView(logo, android.widget.LinearLayout.LayoutParams(-2, (54 * density).toInt()))
         info.addView(name)
-        info.addView(meta)
+        // Netflix's badges sit bottom-right of the big card: "Recently added", "Top 10".
+        meta.gravity = Gravity.END
+        meta.textSize = 10.5f
+        info.addView(meta, android.widget.LinearLayout.LayoutParams(-1, -2))
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
         val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
@@ -219,10 +228,8 @@ class PosterAdapter(
             if (row != null) row.flip(itemView) { others?.size(false); size(true) } else { others?.size(false); size(true) }
             revealFromPoster()
             name.text = title.name
-            meta.text = android.text.SpannableStringBuilder().apply {
-                Rating.text(title.rating)?.let { append(it); append("    ") }
-                append(listOfNotNull(title.year, title.genres.take(2).joinToString(" · ").ifBlank { null }, title.episodeLabel).joinToString("    "))
-            }
+            meta.text = badges(title, bindingAdapterPosition)
+            meta.visibility = if (meta.text.isEmpty()) View.GONE else View.VISIBLE
             logo.setImageDrawable(null)
             logo.visibility = View.GONE
             name.visibility = View.VISIBLE
@@ -298,6 +305,25 @@ class PosterAdapter(
         }
     }
 
+    private val thisYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString()
+
+    /** Small pill labels for the focused card, each led by a coloured dot like Netflix's. */
+    private fun badges(title: Catalog.Title, position: Int): CharSequence {
+        val labels = buildList {
+            if (ranked && position in 0..9) add("#${position + 1} in Top 10" to 0xFFE50914.toInt())
+            if (title.year == thisYear) add("Recently added" to 0xFF46D369.toInt())
+            if (title.progress != null) title.episodeLabel?.let { add(it to 0xFF5AA9FF.toInt()) }
+        }
+        return android.text.SpannableStringBuilder().apply {
+            labels.forEachIndexed { i, (text, color) ->
+                if (i > 0) append("   ")
+                append("●", android.text.style.ForegroundColorSpan(color), 0)
+                append(" ")
+                append(text, android.text.style.StyleSpan(Typeface.BOLD), 0)
+            }
+        }
+    }
+
     /** A card with rounded corners that can show just part of itself while it grows. */
     private inner class Card(context: android.content.Context) : FrameLayout(context) {
         private var clipW = -1f
@@ -322,7 +348,7 @@ class PosterAdapter(
     }
 
     companion object {
-        /** How much taller the focused card is than a poster. */
-        const val GROW = 1.3f
+        /** How much taller the focused card is than a poster (Netflix keeps them level). */
+        const val GROW = 1f
     }
 }

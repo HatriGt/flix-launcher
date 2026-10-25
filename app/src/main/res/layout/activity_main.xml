@@ -186,15 +186,6 @@
                             android:textColor="#A6FFFFFF"
                             android:textSize="11sp" />
 
-                        <TextView
-                            android:id="@+id/scene_title"
-                            style="@style/Halo.Text.Muted"
-                            android:ellipsize="end"
-                            android:maxWidth="380dp"
-                            android:singleLine="true"
-                            android:layout_marginStart="14dp"
-                            android:alpha="0.7"
-                            android:textSize="11sp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -203,6 +194,46 @@
                     android:layout_width="0dp"
                     android:layout_height="0dp"
                     android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Netflix-style top menu: a row of pill tabs in a translucent capsule. -->
+            <LinearLayout
+                android:id="@+id/nav_tabs"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="20dp"
+                android:background="@drawable/nav_bar"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="4dp">
+
+                <ImageView
+                    android:id="@+id/nav_search"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/nav_pill"
+                    android:contentDescription="Search"
+                    android:focusable="true"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_search"
+                    android:tint="@color/nav_text" />
+
+                <TextView
+                    android:id="@+id/nav_home"
+                    style="@style/Halo.NavTab"
+                    android:text="Home" />
+                <TextView
+                    android:id="@+id/nav_movies"
+                    style="@style/Halo.NavTab"
+                    android:text="Movies" />
+                <TextView
+                    android:id="@+id/nav_shows"
+                    style="@style/Halo.NavTab"
+                    android:text="Shows" />
+                <TextView
+                    android:id="@+id/nav_apps"
+                    style="@style/Halo.NavTab"
+                    android:text="Apps" />
             </LinearLayout>
 
             <LinearLayout
@@ -416,4 +447,16 @@
             </LinearLayout>
         </com.homehalo.tv.RowsScrollView>
     </FrameLayout>
+        <!-- Name of the wallpaper photo, shown in the corner only while the page is idle and the photo is on show. -->
+    <TextView
+        android:id="@+id/scene_title"
+        style="@style/Halo.Text.Muted"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="28dp"
+        android:layout_marginBottom="16dp"
+        android:alpha="0"
+        android:ellipsize="end"
+        android:maxWidth="420dp"
+        android:singleLine="true"
+        android:textSize="11sp" />
 </FrameLayout>

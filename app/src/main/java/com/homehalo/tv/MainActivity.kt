@@ -168,6 +168,10 @@ class MainActivity : Activity() {
         appsList = setUpRow(R.id.apps, appsAdapter)
         playEntrance()
 
+        setUpTabs()
+        // The rows carry each title's details under them now; the big top-left block isn't used.
+        findViewById<View>(R.id.hero_info).visibility = View.GONE
+
         findViewById<View>(R.id.qs_inputs).setOnClickListener { openInputs() }
         findViewById<View>(R.id.qs_wifi).setOnClickListener { open(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<View>(R.id.qs_settings).setOnClickListener { open(Intent(Settings.ACTION_SETTINGS)) }
@@ -261,8 +265,37 @@ class MainActivity : Activity() {
 
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
 
-    /** Where a focused movie row's title sits on screen; the preview fills the space above it. */
-    private fun heroLine() = favoritesBlock.height.coerceAtLeast((200 * resources.displayMetrics.density).toInt())
+    /** Where a focused movie row's title sits on screen: just under the top menu, as on Netflix. */
+    private fun heroLine() = header.height + (4 * resources.displayMetrics.density).toInt()
+
+    // ---- Top menu: Search · Home · Movies · Shows · Apps ----
+
+    private lateinit var tabs: List<View>
+
+    private fun setUpTabs() {
+        val home = findViewById<View>(R.id.nav_home)
+        val movies = findViewById<View>(R.id.nav_movies)
+        val shows = findViewById<View>(R.id.nav_shows)
+        tabs = listOf(home, movies, shows)
+        fun select(tab: View, type: String?) {
+            tabs.forEach { it.isSelected = it === tab }
+            movieRows.filter(type)
+        }
+        select(home, null)
+        home.setOnClickListener { select(home, null) }
+        movies.setOnClickListener { select(movies, "movie") }
+        shows.setOnClickListener { select(shows, "series") }
+        findViewById<View>(R.id.nav_apps).setOnClickListener {
+            open(Intent(this, AllAppsActivity::class.java))
+        }
+        findViewById<View>(R.id.nav_search).setOnClickListener {
+            // Nuvio's own search; just Nuvio if it doesn't take the link.
+            val search = Intent(Intent.ACTION_VIEW, Uri.parse("nuvio://search")).setPackage(NUVIO)
+            if (search.resolveActivity(packageManager) != null) open(search)
+            else packageManager.getLaunchIntentForPackage(NUVIO)?.let(::open)
+                ?: Toast.makeText(this, "Install Nuvio to search", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     /**
      * Apps sit at the top; the clock and weather fill the middle; the first movie row
@@ -294,8 +327,10 @@ class MainActivity : Activity() {
             enterBrowse()
             val index = movieRows.rows.indexOf(row)
             movieRows.rows.forEachIndexed { i, r -> r.view.animate().alpha(if (i < index) 0f else 1f).setDuration(250).start() }
+            movieRows.billboard.view.animate().alpha(0f).setDuration(250).start()
             val container = findViewById<View>(R.id.movie_rows)
-            scrollRowsTo(container.top + row.view.top - heroLine())
+            // After the details line has moved to this row (that re-lays the rows out).
+            rowsScroll.post { scrollRowsTo(container.top + row.view.top - heroLine()) }
         } else if (isInside(now, rowsScroll) || isInside(now, header)) {
             exitBrowse()
             scrollRowsTo(0)
@@ -325,7 +360,9 @@ class MainActivity : Activity() {
         if (browsing) return
         browsing = true
         val dp = resources.displayMetrics.density
-        header.animate().alpha(0f).translationY(-24 * dp).setDuration(300).start()
+        // The top menu stays, as on Netflix; the clock and weather step aside for the rows.
+        findViewById<View>(R.id.clock_group).animate().alpha(0f).setDuration(250).start()
+        findViewById<View>(R.id.weather_card).animate().alpha(0f).setDuration(250).start()
         favoritesBlock.animate().alpha(0f).setDuration(250).start()
         hero.show()
         // Once the artwork covers everything, stop drawing the layers hidden beneath it.
@@ -338,8 +375,11 @@ class MainActivity : Activity() {
     private fun exitBrowse() {
         if (!browsing) return
         browsing = false
-        header.animate().alpha(1f).translationY(0f).setDuration(350).start()
+        findViewById<View>(R.id.clock_group).animate().alpha(1f).setDuration(300).start()
+        if (isOn(HaloSettings.WEATHER)) findViewById<View>(R.id.weather_card).animate().alpha(1f).setDuration(300).start()
         favoritesBlock.animate().alpha(1f).setDuration(300).start()
+        movieRows.billboard.view.animate().alpha(1f).setDuration(300).start()
+        movieRows.clearDetails()
         movieRows.rows.forEach { it.view.animate().alpha(1f).setDuration(250).start() }
         main.removeCallbacks(hideUnderHero)
         scrim.visibility = if (player == null && scenery().none { it.isVideo } || !videoWallpaper()) View.GONE else View.VISIBLE
@@ -518,8 +558,7 @@ class MainActivity : Activity() {
 
     private var immersed = false
     private val immersiveViews by lazy {
-        // The header is already hidden while browsing, so it stays out of this.
-        listOf(rowsScroll, findViewById<View>(R.id.hero_info), findViewById<View>(R.id.hero_shade))
+        listOf(rowsScroll, header, findViewById<View>(R.id.hero_shade))
     }
     private val dimPage = Runnable { if (trailer.isPlaying) { immersed = true; fadePage(0.3f, 600) } }
     private val clearPage = Runnable { if (trailer.isPlaying) fadePage(0f, 700) }
@@ -577,6 +616,10 @@ class MainActivity : Activity() {
      */
     private fun steerMovieRows(event: KeyEvent): Boolean {
         val focused = currentFocus ?: return false
+        // Down from the billboard lands on the first row's first card, not wherever focus search guesses.
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, movieRows.billboard.view)) {
+            movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }
+        }
         val row = movieRows.rowOf(focused) ?: return false
         val pos = row.list.getChildAdapterPosition(focused)
         val last = row.adapter.itemCount - 1
@@ -586,7 +629,12 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_UP -> {
                 val visible = movieRows.rows.filter { it.view.visibility == View.VISIBLE }
                 val i = visible.indexOf(row) + if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) 1 else -1
-                if (i < 0) return false // Up from the first row: back to the apps dock as before
+                if (i < 0) {
+                    // Up from the first row: to the billboard's Play button, else the dock as before.
+                    val bb = movieRows.billboard
+                    if (bb.view.visibility == View.VISIBLE) { bb.play.requestFocus(); return true }
+                    return false
+                }
                 if (i >= visible.size) return true // nothing below: stay
                 if (event.repeatCount > 0 && rowsScrolling()) return true // don't outrun the scroll
                 focusRowStart(visible[i])
@@ -622,6 +670,7 @@ class MainActivity : Activity() {
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
         paintScrim(if (value) 0f else dimLevel())
+        sceneTitle.animate().alpha(if (value) 0.8f else 0f).setDuration(duration).start()
         if (!value) scheduleIdle()
     }
 
@@ -888,7 +937,7 @@ class MainActivity : Activity() {
         sceneTitle.animate().cancel()
         sceneTitle.animate().alpha(0f).setDuration(250).withEndAction {
             sceneTitle.text = sceneTarget
-            sceneTitle.animate().alpha(0.8f).setDuration(600).start()
+            sceneTitle.animate().alpha(if (idle) 0.8f else 0f).setDuration(600).start()
         }.start()
     }
 
