@@ -43,15 +43,16 @@ class AppRepository(private val context: Context) {
                 val icon = if (pkg == SMARTTUBE) YouTubeBanner(iconOnly = true) else hiResIcon(info)
                 val banner = if (pkg == SMARTTUBE) YouTubeBanner()
                 else info.activityInfo.loadBanner(pm) ?: appInfo.loadBanner(pm)
+                val (accent, fullBleed) = look(pkg, appInfo, icon, banner, hasIcon)
                 result += AppEntry(
                     packageName = pkg,
                     label = if (pkg == SMARTTUBE) "YouTube" else info.loadLabel(pm).toString(),
-                    banner = banner,
-                    icon = icon,
+                    banner = banner?.let { compact(it, BANNER_W, BANNER_H) },
+                    icon = compact(icon, ICON_PX, ICON_PX),
                     launchIntent = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     hasIcon = hasIcon,
-                    iconFullBleed = look(pkg, appInfo, icon, banner).second,
-                    accent = look(pkg, appInfo, icon, banner, hasIcon).first,
+                    iconFullBleed = fullBleed,
+                    accent = accent,
                     category = appInfo.category,
                 )
             }
@@ -86,6 +87,30 @@ class AppRepository(private val context: Context) {
         iconFullBleed = false,
         accent = 0xFF8FA6C8.toInt(),
     )
+
+    /**
+     * Redraws an icon or banner once at the largest size a tile shows it, into a GPU-side
+     * bitmap. The app's own artwork (xxxhdpi adaptive layers are 432 px squares, twice over)
+     * is then dropped, which took the launcher's native memory from ~54 MB to a few.
+     * Adaptive icons stay adaptive, with each layer redrawn, so tiles still mask them their way.
+     */
+    private fun compact(d: Drawable, w: Int, h: Int): Drawable = when (d) {
+        is YouTubeBanner -> d
+        is android.graphics.drawable.AdaptiveIconDrawable -> android.graphics.drawable.AdaptiveIconDrawable(
+            d.background?.let { raster(it, w, h) }, d.foreground?.let { raster(it, w, h) })
+        else -> raster(d, w, h)
+    }
+
+    private fun raster(d: Drawable, w: Int, h: Int): Drawable {
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val old = android.graphics.Rect(d.bounds)
+        d.setBounds(0, 0, w, h)
+        d.draw(android.graphics.Canvas(bitmap))
+        d.bounds = old
+        val gpu = bitmap.copy(android.graphics.Bitmap.Config.HARDWARE, false)
+        if (gpu != null) bitmap.recycle()
+        return android.graphics.drawable.BitmapDrawable(context.resources, gpu ?: bitmap)
+    }
 
     /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at HomeHalo's tile sizes. */
     private fun hiResIcon(info: ResolveInfo): Drawable {
@@ -148,6 +173,10 @@ class AppRepository(private val context: Context) {
     }
 
     companion object {
+        // Biggest tile: ~74 dp icons zoomed 1.42x for adaptive layers, 192 dp banners, at density 2.
+        private const val ICON_PX = 224
+        private const val BANNER_W = 384
+        private const val BANNER_H = 216
         private const val KEY_FAVORITES = "favorites"
         const val ALL_APPS_TILE = "halo:all_apps"
         private const val KEY_HIDDEN = "hidden"

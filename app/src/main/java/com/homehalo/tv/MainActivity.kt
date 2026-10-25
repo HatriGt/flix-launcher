@@ -15,6 +15,7 @@ import android.text.format.DateFormat
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
@@ -166,6 +167,7 @@ class MainActivity : Activity() {
         appsAdapter = AppAdapter(tileStyle(favorites = false), ::onAppFocused, ::launch, ::showAppMenu)
         favoritesList = setUpRow(R.id.favorites, favoritesAdapter)
         appsList = setUpRow(R.id.apps, appsAdapter)
+        setUpAppsGrid()
         playEntrance()
 
         setUpTabs()
@@ -276,22 +278,23 @@ class MainActivity : Activity() {
         val home = findViewById<View>(R.id.nav_home)
         val movies = findViewById<View>(R.id.nav_movies)
         val shows = findViewById<View>(R.id.nav_shows)
-        tabs = listOf(home, movies, shows)
+        val apps = findViewById<View>(R.id.nav_apps)
+        tabs = listOf(home, movies, shows, apps)
         fun select(tab: View, type: String?) {
             tabs.forEach { it.isSelected = it === tab }
-            movieRows.filter(type)
+            showAppsGrid(tab === apps)
+            if (tab !== apps) movieRows.filter(type)
         }
         select(home, null)
         // Like Netflix, landing on a tab switches to it; no need to press OK. A short pause
         // first, so sliding across tabs doesn't rebuild the rows for each one passed.
-        listOf(home to null, movies to "movie", shows to "series").forEach { (tab, type) ->
+        listOf(home to null, movies to "movie", shows to "series", apps to null).forEach { (tab, type) ->
             val pick = Runnable { if (tab.isFocused && !tab.isSelected) select(tab, type) }
             tab.setOnClickListener { select(tab, type) }
             tab.setOnFocusChangeListener { _, has -> main.removeCallbacks(pick); if (has) main.postDelayed(pick, 300) }
         }
-        findViewById<View>(R.id.nav_apps).setOnClickListener {
-            open(Intent(this, AllAppsActivity::class.java))
-        }
+        // OK on Apps goes straight into the grid.
+        apps.setOnClickListener { select(apps, null); appsGrid.post { appsGrid.getChildAt(0)?.requestFocus() } }
         findViewById<View>(R.id.nav_search).setOnClickListener {
             // Nuvio has no link into its search, so search here: the library's search box finds
             // apps and every film and series (Cinemeta), and a result opens in Nuvio.
@@ -333,8 +336,21 @@ class MainActivity : Activity() {
             val container = findViewById<View>(R.id.movie_rows)
             // After the details line has moved to this row (that re-lays the rows out).
             rowsScroll.post { scrollRowsTo(container.top + row.view.top - heroLine()) }
+        } else if (isInside(now, appsGrid)) {
+            exitBrowse()
+            // First line: the page as it is. Further down, the focused line rises to just under
+            // the menu and the lines above it fade, as the movie rows do.
+            val first = now.top <= (appsGrid.getChildAt(0)?.top ?: 0)
+            val fade = !first
+            favoritesBlock.animate().alpha(if (fade) 0f else 1f).setDuration(250).start()
+            appsGridLabel.animate().alpha(if (fade) 0f else 1f).setDuration(250).start()
+            for (i in 0 until appsGrid.childCount) appsGrid.getChildAt(i).let { c ->
+                c.animate().alpha(if (c.top < now.top - 4) 0f else 1f).setDuration(250).start()
+            }
+            scrollRowsTo(if (first) 0 else appsGrid.top + now.top - heroLine() - (10 * resources.displayMetrics.density).toInt())
         } else if (isInside(now, rowsScroll) || isInside(now, header)) {
             exitBrowse()
+            if (::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE) showAppsGrid(true)
             scrollRowsTo(0)
         }
         if (row == null) {
@@ -462,6 +478,71 @@ class MainActivity : Activity() {
         else -> 0.12f
     }
 
+    // ---- Apps tab: every app in a grid right on the home screen, no separate page to load ----
+
+    private lateinit var appsGrid: RecyclerView
+    private lateinit var appsGridAdapter: AppAdapter
+    private lateinit var appsGridLabel: android.widget.TextView
+
+    private fun setUpAppsGrid() {
+        val dp = resources.displayMetrics.density
+        appsGridAdapter = AppAdapter(gridStyle(), ::onAppFocused, ::launch, ::showAppMenu)
+        appsGridLabel = android.widget.TextView(this).apply {
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 18f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setPadding((44 * dp).toInt(), (8 * dp).toInt(), 0, (4 * dp).toInt())
+            visibility = View.GONE
+        }
+        appsGrid = RecyclerView(this).apply {
+            layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, GRID_COLUMNS)
+            adapter = appsGridAdapter
+            itemAnimator = null
+            isNestedScrollingEnabled = false
+            clipChildren = false
+            clipToPadding = false
+            setPadding((34 * dp).toInt(), (12 * dp).toInt(), (34 * dp).toInt(), (24 * dp).toInt())
+            visibility = View.GONE
+            // Each app fills its column so the grid lines up, whatever the name's length.
+            addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
+                override fun onChildViewAttachedToWindow(view: View) {
+                    view.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+                    (view.layoutParams as ViewGroup.MarginLayoutParams).apply { topMargin = (6 * dp).toInt(); bottomMargin = (6 * dp).toInt() }
+                }
+                override fun onChildViewDetachedFromWindow(view: View) {}
+            })
+        }
+        val content = findViewById<ViewGroup>(R.id.rows_content)
+        val at = content.indexOfChild(findViewById(R.id.movie_rows)) + 1
+        content.addView(appsGridLabel, at)
+        content.addView(appsGrid, at + 1, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    /** Larger tiles than the dock, always named, since the grid is for finding an app. */
+    private fun gridStyle(): TileStyle {
+        val base = tileStyle(favorites = false)
+        if (base.isBanner) return base.copy(labels = "always")
+        val size = (68 * resources.displayMetrics.density).roundToInt()
+        return base.copy(widthPx = size, heightPx = size, labels = "always")
+    }
+
+    private fun showAppsGrid(show: Boolean) {
+        val v = if (show) View.VISIBLE else View.GONE
+        favoritesBlock.alpha = 1f
+        appsGridLabel.alpha = 1f
+        for (i in 0 until appsGrid.childCount) appsGrid.getChildAt(i).alpha = 1f
+        if (appsGrid.visibility == v) return
+        findViewById<View>(R.id.movie_rows).visibility = if (show) View.GONE else View.VISIBLE
+        if (show) {
+            appsGridAdapter.style = gridStyle()
+            appsGridAdapter.items = allApps
+            appsGridLabel.text = "All apps  ·  ${allApps.size}"
+        }
+        appsGridLabel.visibility = v
+        appsGrid.visibility = v
+        rowsScroll.scrollTo(0, 0)
+    }
+
     private fun setUpRow(id: Int, adapter: AppAdapter): RecyclerView =
         findViewById<RecyclerView>(id).apply {
             layoutManager = LinearLayoutManager(this@MainActivity, RecyclerView.HORIZONTAL, false)
@@ -509,6 +590,9 @@ class MainActivity : Activity() {
         super.onResume()
         resumed = true
         settingsOpen = false
+        // Pages that float over home (search, All apps) don't stop it, so onStart never undid
+        // the launch fade and home stayed at 40%. Undo it whenever home is back in front.
+        if (launchedFromHome || ui.alpha < 1f && !idle) playReturn()
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         if (appliedRevision != HaloSettings.revision(this)) applySettings()
@@ -713,6 +797,7 @@ class MainActivity : Activity() {
         val tile = if (isOn(HaloSettings.ALL_APPS_TILE)) listOf(repo.allAppsTile()) else emptyList()
         favoritesAdapter.items = favorites.mapNotNull { byPackage[it] } + tile
         appsAdapter.items = allApps.filter { it.packageName !in favorites }
+        if (::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE) appsGridAdapter.items = allApps
     }
 
     private fun onAppFocused(app: AppEntry) {
@@ -1025,6 +1110,7 @@ class MainActivity : Activity() {
         const val NUVIO = "com.nuvio.tv"
         /** How long each wallpaper photo stays up. */
         const val ROTATE_MS = 60_000L
+        private const val GRID_COLUMNS = 7
         const val RECEIVER_NOT_EXPORTED_FLAG = 0x4 // Context.RECEIVER_NOT_EXPORTED, named in API 33
         const val KEEP_PLAYER_MS = 90_000L
     }

@@ -169,9 +169,12 @@ class SettingsActivity : Activity() {
         super.onResume()
         // Coming back from the Nuvio or rows screens: their summary cards may have changed.
         if (created) {
-            refresh()
-            val index = focusBeforePause
-            if (index >= 0) content.post { focusables(content).getOrNull(index)?.requestFocus() }
+            // Rebuilt in place, with no rise-in, at the same scroll and focus, so coming back
+            // doesn't flicker; only the account and rows cards can have changed.
+            val y = scroll.scrollY
+            refresh(animate = false)
+            focusables(content).getOrNull(focusBeforePause)?.requestFocus()
+            scroll.post { scroll.scrollTo(0, y) }
         }
         created = true
     }
@@ -183,7 +186,7 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun refresh() = if (searching) showResults(query) else showSection(sectionIndex, stagger = false)
+    private fun refresh(animate: Boolean = true) = if (searching) showResults(query, animate) else showSection(sectionIndex, stagger = false, animate = animate)
 
     // ---- Top bar ----
 
@@ -339,7 +342,9 @@ class SettingsActivity : Activity() {
     // ---- Catalogue ----
 
     /** One searchable setting: where it lives, the words it answers to, and how to draw it. */
-    private class Entry(val section: Int, val group: String?, val words: String, val build: () -> View)
+    private class Entry(val section: Int, val group: String?, val words: String, val rows: (() -> List<View>)? = null, val build: (() -> View)? = null) {
+        fun views() = rows?.invoke() ?: listOf(build!!())
+    }
 
     /** Every setting and action, in the order they appear. Built fresh so account cards stay current. */
     private fun catalogue(): List<Entry> = buildList {
@@ -385,7 +390,11 @@ class SettingsActivity : Activity() {
         opt(2, "Weather", HaloSettings.UNITS, R.drawable.ic_o_thermo, "celsius fahrenheit degrees")
 
         // Wallpaper
-        add(Entry(3, "Choose a background", "background wallpaper photo picture nature city cities video aerial apple fire tv ocean sea space earth art plain scenery") { wallpaperGrid() })
+        for ((group, words) in listOf(
+            "Photos" to "background wallpaper photo picture nature city cities bing scenery",
+            "Aerial video" to "background wallpaper video aerial apple fire tv ocean sea space earth art landscapes cities scenery",
+            "Plain" to "background wallpaper plain dark black none",
+        )) add(Entry(3, group, words, rows = { wallpaperRows(group) }))
         opt(3, "Picture", HaloSettings.DIM, R.drawable.ic_o_contrast, "dark bright brightness")
         opt(3, "Picture", HaloSettings.SHUFFLE, R.drawable.ic_o_shuffle, "random change")
         opt(3, "Picture", HaloSettings.SCENE_NAME, R.drawable.ic_o_pin, "caption place location title")
@@ -405,21 +414,23 @@ class SettingsActivity : Activity() {
         content.addView(text(blurb, 13f, alpha = 0.55f).apply { setPadding(px(10), px(4), 0, px(10)) })
     }
 
-    private fun showSection(index: Int, stagger: Boolean) {
+    private fun showSection(index: Int, stagger: Boolean, animate: Boolean = true) {
         sectionIndex = index
+        checkMarks.clear()
         content.removeAllViews()
         val section = SECTIONS[index]
         header(section.title, section.blurb)
         catalogue().filter { it.section == index }.groupBy { it.group }.forEach { (caption, entries) ->
-            group(caption, entries.map { it.build() })
+            group(caption, entries.flatMap { it.views() })
         }
         repaintRail()
-        rise(stagger)
+        if (animate) rise(stagger)
         scroll.scrollTo(0, 0)
     }
 
     /** Everything whose words contain every word typed, grouped by the section it lives in. */
-    private fun showResults(q: String) {
+    private fun showResults(q: String, animate: Boolean = true) {
+        checkMarks.clear()
         content.removeAllViews()
         val terms = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
         val found = catalogue().filter { e -> val w = e.words.lowercase(); terms.all { it in w } }
@@ -434,9 +445,9 @@ class SettingsActivity : Activity() {
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         } else {
             header("Results", if (found.size == 1) "1 setting matches “$q”" else "${found.size} settings match “$q”")
-            found.groupBy { it.section }.forEach { (s, entries) -> group(SECTIONS[s].title, entries.map { it.build() }) }
+            found.groupBy { it.section }.forEach { (s, entries) -> group(SECTIONS[s].title, entries.flatMap { it.views() }) }
         }
-        rise(stagger = false)
+        if (animate) rise(stagger = false)
         scroll.scrollTo(0, 0)
     }
 
@@ -600,80 +611,67 @@ class SettingsActivity : Activity() {
 
     // ---- Wallpaper picker ----
 
-    /** Each background as a tile in its own colours: what it is, photos or video, and a check on the one in use. */
-    private class Look2(val label: String, val kind: String, val from: Int, val to: Int)
+    /** One background: its name, what it shows, and a real frame from it as a preview. */
+    private class Wall(val title: String, val about: String, val preview: String?, val from: Int, val to: Int)
 
     private val WALLS = mapOf(
-        "nature" to Look2("Nature", "Photos", 0xFF1F5130.toInt(), 0xFF0B1F14.toInt()),
-        "cities" to Look2("Cities", "Photos", 0xFF5A3A1A.toInt(), 0xFF171019.toInt()),
-        "video" to Look2("Everything", "Aerial video", 0xFF8A0B12.toInt(), 0xFF1A0507.toInt()),
-        "v_nature" to Look2("Landscapes", "Aerial video", 0xFF3E5A22.toInt(), 0xFF121A0B.toInt()),
-        "v_sea" to Look2("Oceans", "Aerial video", 0xFF0E4E68.toInt(), 0xFF06141E.toInt()),
-        "v_city" to Look2("Cities", "Aerial video", 0xFF2B3566.toInt(), 0xFF0B0E1F.toInt()),
-        "v_space" to Look2("Earth from space", "Aerial video", 0xFF1A1F4A.toInt(), 0xFF020308.toInt()),
-        "v_art" to Look2("Colour art", "Video", 0xFF6A1B5C.toInt(), 0xFF1E0A2A.toInt()),
-        "gradient" to Look2("Plain dark", "Still", 0xFF26262A.toInt(), 0xFF0A0A0C.toInt()),
+        "nature" to Wall("Nature", "A new Bing photo every minute: forests, peaks and coasts", "https://bing.com/th?id=OHR.NaejangsanNP_EN-US7010419904_400x240.jpg", 0xFF1F5130.toInt(), 0xFF0B1F14.toInt()),
+        "cities" to Wall("Cities", "Skylines and landmarks from the same Bing archive", "https://bing.com/th?id=OHR.TIFF2024_EN-US9586964456_400x240.jpg", 0xFF5A3A1A.toInt(), 0xFF171019.toInt()),
+        "video" to Wall("Everything", "All 270 aerial films, shuffled", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/LW_L001_C006_900x580.png", 0xFF8A0B12.toInt(), 0xFF1A0507.toInt()),
+        "v_nature" to Wall("Landscapes", "Mountains, deserts and islands from above", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/S003_C020_900x580.png", 0xFF3E5A22.toInt(), 0xFF121A0B.toInt()),
+        "v_sea" to Wall("Oceans", "Waves, reefs and dolphins", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/TH_803_A001_900x580.png", 0xFF0E4E68.toInt(), 0xFF06141E.toInt()),
+        "v_city" to Wall("Cities", "Flying over Dubai, Hong Kong and San Francisco", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/HK_H004_C013_900x580.png", 0xFF2B3566.toInt(), 0xFF0B0E1F.toInt()),
+        "v_space" to Wall("Earth from space", "Filmed from the International Space Station", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/GMT026_363A_900x580.png", 0xFF1A1F4A.toInt(), 0xFF020308.toInt()),
+        "v_art" to Wall("Colour art", "Slow abstract colour from Fire TV", null, 0xFF8E2A7A.toInt(), 0xFF1E0A4A.toInt()),
+        "gradient" to Wall("Plain dark", "No picture at all; the lightest on the TV", null, 0xFF2A2A2E.toInt(), 0xFF0A0A0C.toInt()),
     )
 
-    private fun wallpaperGrid(): View {
+    /** The backgrounds as a list in three groups, each row with its preview and a check on the one in use. */
+    private fun wallpaperRows(group: String): List<View> {
         val option = HaloSettings.WALLPAPER
-        val tiles = ArrayList<Pair<String, View>>()
-        val checks = HashMap<String, View>()
-        fun mark() {
-            val now = HaloSettings.get(this, option)
-            checks.forEach { (id, check) -> check.visibility = if (id == now) View.VISIBLE else View.INVISIBLE }
+        val ids = when (group) {
+            "Photos" -> listOf("nature", "cities")
+            "Aerial video" -> listOf("video", "v_nature", "v_sea", "v_city", "v_space", "v_art")
+            else -> listOf("gradient")
         }
-        val grid = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(px(10), px(10), px(10), px(10))
-            clipChildren = false
-            clipToPadding = false
-        }
-        option.choices.map { it.first }.chunked(3).forEach { ids ->
-            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-            ids.forEachIndexed { col, id ->
-                val look = WALLS[id] ?: Look2(option.label(id), "", 0xFF26262A.toInt(), 0xFF0A0A0C.toInt())
-                val bg = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(look.from, look.to)).apply { cornerRadius = 14 * dp }
-                val check = FrameLayout(this).apply {
-                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(RED) }
-                    addView(ImageView(context).apply { setImageResource(R.drawable.ic_check) }, FrameLayout.LayoutParams(px(14), px(14), Gravity.CENTER))
-                }
-                checks[id] = check
-                val tile = FrameLayout(this).apply {
-                    isFocusable = true
-                    background = bg
-                    addView(text(look.kind.uppercase(), 10f, bold = true, alpha = 0.7f).apply { letterSpacing = 0.12f },
-                        FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.START).apply { leftMargin = px(14); topMargin = px(12) })
-                    addView(text(look.label, 16f, bold = true),
-                        FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START).apply { leftMargin = px(14); bottomMargin = px(12) })
-                    addView(check, FrameLayout.LayoutParams(px(22), px(22), Gravity.TOP or Gravity.END).apply { rightMargin = px(10); topMargin = px(10) })
-                    setOnFocusChangeListener { v, has ->
-                        bg.setStroke(if (has) px(3) else 0, Color.WHITE)
-                        v.animate().scaleX(if (has) 1.05f else 1f).scaleY(if (has) 1.05f else 1f).setDuration(160).start()
-                        v.elevation = if (has) 8 * dp else 0f
-                    }
-                    setOnClickListener {
-                        HaloSettings.set(this@SettingsActivity, option, id)
-                        mark()
-                        applyToHome()
-                    }
-                    if (col == 0) setOnKeyListener { _, keyCode, event ->
-                        if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
-                    }
-                }
-                tiles += id to tile
-                line.addView(tile, LinearLayout.LayoutParams(0, px(86), 1f).apply {
-                    if (col > 0) marginStart = px(10)
-                })
+        return ids.map { id ->
+            val wall = WALLS.getValue(id)
+            val row = rowShell().apply { setPadding(px(10), px(8), px(16), px(8)) }
+            val thumb = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(wall.from, wall.to)).apply { cornerRadius = 9 * dp }
+                outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                clipToOutline = true
             }
-            repeat(3 - ids.size) { line.addView(View(this), LinearLayout.LayoutParams(0, px(86), 1f).apply { marginStart = px(10) }) }
-            grid.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (grid.childCount > 0) topMargin = px(10)
-            })
+            wall.preview?.let { url -> Images.get(url, px(112)) { bmp -> if (bmp != null && thumb.isAttachedToWindow) thumb.setImageBitmap(bmp) } }
+            row.addView(thumb, LinearLayout.LayoutParams(px(112), px(63)).apply { marginEnd = px(16) })
+            row.addView(textBlock(wall.title, wall.about), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val check = FrameLayout(this).apply {
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(RED) }
+                addView(ImageView(context).apply { setImageResource(R.drawable.ic_check) }, FrameLayout.LayoutParams(px(14), px(14), Gravity.CENTER))
+            }
+            row.addView(check, LinearLayout.LayoutParams(px(24), px(24)).apply { marginStart = px(12) })
+            fun mark() { check.visibility = if (HaloSettings.get(this, option) == id) View.VISIBLE else View.INVISIBLE }
+            mark()
+            row.tag = Look(row.tag.let { (it as Look).bg }, null)
+            row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
+            row.setOnClickListener {
+                HaloSettings.set(this, option, id)
+                // Every row's check follows the choice.
+                content.post { refreshChecks() }
+                applyToHome()
+            }
+            row.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+            }
+            checkMarks += { mark() }
+            row
         }
-        mark()
-        return grid
     }
+
+    private val checkMarks = ArrayList<() -> Unit>()
+
+    private fun refreshChecks() = checkMarks.forEach { it() }
 
     // ---- Movies & shows cards ----
 
