@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flix line icon: 24dp grid, 1.8 stroke, round ends. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M4.5,6.5 L19.5,6.5 Q21.5,6.5 21.5,8.5 L21.5,15.5 Q21.5,17.5 19.5,17.5 L4.5,17.5 Q2.5,17.5 2.5,15.5 L2.5,8.5 Q2.5,6.5 4.5,6.5 Z M6.5,10 L6.6,10 M10,10 L10.1,10 M13.9,10 L14,10 M17.4,10 L17.5,10 M8,14 L16,14" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+</vector>

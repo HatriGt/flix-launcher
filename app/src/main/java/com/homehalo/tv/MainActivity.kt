@@ -887,27 +887,46 @@ class MainActivity : Activity() {
 
     // ---- Wallpaper ----
 
-    private fun loadWallpapers() {
-        AerialSource.fetch(this) { items ->
-            main.post {
-                if (isDestroyed) return@post
-                media = items
-                startWallpaper()
-            }
-        }
-    }
+    /** The wallpaper choice the current scenery was built for. */
+    private var wallMode = ""
 
-    /** Any scenery at all (nature photos or provider video), rather than the plain gradient. */
-    private fun videoWallpaper() = HaloSettings.get(this, HaloSettings.WALLPAPER) != "gradient"
+    private fun wallChoice() = HaloSettings.get(this, HaloSettings.WALLPAPER)
+
+    private fun isVideoChoice(choice: String) = choice == "video" || choice.startsWith("v_")
 
     /**
-     * What the background shows: nature photos, or the wallpaper provider's scenes
-     * (falling back to nature photos when no provider such as Aerial Views is installed).
+     * Gathers the clips for a video choice: an installed wallpaper provider such as Aerial
+     * Views for "All aerial videos", otherwise the free aerial feed. Photo choices need nothing.
      */
+    private fun loadWallpapers() {
+        val choice = wallChoice()
+        wallMode = choice
+        media = emptyList()
+        if (!isVideoChoice(choice)) return startWallpaper()
+        val got = { items: List<AerialSource.Media> ->
+            if (!isDestroyed && wallMode == choice) { media = items; startWallpaper() }
+        }
+        val feed = { VideoFeed.clips(this, if (choice == "video") "all" else choice.removePrefix("v_"), got) }
+        if (choice == "video") AerialSource.fetch(this) { items -> main.post { if (items.any { it.isVideo }) got(items) else feed() } }
+        else feed()
+    }
+
+    /** Any scenery at all (photos or video), rather than the plain gradient. */
+    private fun videoWallpaper() = wallChoice() != "gradient"
+
+    /** What the background shows: the chosen videos once they're known, otherwise photos. */
     private fun scenery(): List<AerialSource.Media> =
-        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "nature" || media.isEmpty()) NatureWalls.all else media
+        if (isVideoChoice(wallChoice()) && media.isNotEmpty()) media else NatureWalls.all
 
     private fun startWallpaper() {
+        if (wallMode.isEmpty()) return // the first load waits for the first frame (see onCreate)
+        if (wallChoice() != wallMode) {
+            // A different wallpaper was picked: drop the old scenery and gather the new.
+            main.removeCallbacks(nextImage)
+            releasePlayer.run()
+            videoView.visibility = View.GONE
+            return loadWallpapers()
+        }
         if (!videoWallpaper()) {
             main.removeCallbacks(nextImage)
             releasePlayer.run()
@@ -929,6 +948,7 @@ class MainActivity : Activity() {
             if (resumed) it.play()
             return
         }
+        main.removeCallbacks(nextImage) // the photos shown while the clips were found stop here
         veil.alpha = 1f
         videoView.visibility = View.VISIBLE
         player = SceneryPlayer(videoView, videos, isOn(HaloSettings.SHUFFLE),
@@ -958,9 +978,10 @@ class MainActivity : Activity() {
     }
 
     private fun showImage(index: Int) {
-        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "nature") {
+        val choice = wallChoice()
+        if (choice == "nature" || choice == "cities") {
             // A fresh photo from the endless feed; the built-in set only when it can't be reached.
-            WallpaperFeed.next(this, resources.displayMetrics.widthPixels) { bitmap, title ->
+            WallpaperFeed.next(this, resources.displayMetrics.widthPixels, choice) { bitmap, title ->
                 if (bitmap != null) present(bitmap, title) else showBuiltIn(index)
             }
             return

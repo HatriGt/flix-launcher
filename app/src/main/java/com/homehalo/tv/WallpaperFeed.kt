@@ -12,7 +12,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * An endless supply of nature wallpapers from the Bing photo-of-the-day archive
+ * An endless supply of nature (or city) wallpapers from the Bing photo-of-the-day archive
  * (over 6,000 professional photos since 2010, a new one each day), filtered to
  * landscapes. Only a small list of addresses is kept on disk; each photo is downloaded
  * when it's needed, decoded straight to the GPU and dropped once the next one shows,
@@ -30,22 +30,26 @@ object WallpaperFeed {
 
     private class Entry(val url: String, val title: String)
 
-    private var entries: List<Entry> = emptyList()
+    private val entries = HashMap<String, List<Entry>>()
     private var ready: Pair<Bitmap, String>? = null
+    private var readyKind: String? = null
 
-    /** Hands back the next photo and its place name, or null when offline (the caller falls back to the built-in set). */
-    fun next(context: Context, widthPx: Int, onReady: (Bitmap?, String?) -> Unit) {
+    /**
+     * Hands back the next photo of [kind] ("nature" or "cities") and its place name, or null
+     * when offline (the caller falls back to the built-in set).
+     */
+    fun next(context: Context, widthPx: Int, kind: String, onReady: (Bitmap?, String?) -> Unit) {
         val app = context.applicationContext
         worker.execute {
-            val photo = ready?.also { ready = null } ?: fetchOne(app, widthPx)
+            val photo = ready?.takeIf { readyKind == kind }.also { ready = null } ?: fetchOne(app, widthPx, kind)
             main.post { onReady(photo?.first, photo?.second) }
             // Get the one after this ready while it's on screen.
-            if (photo != null) ready = fetchOne(app, widthPx)
+            if (photo != null) { ready = fetchOne(app, widthPx, kind); readyKind = kind }
         }
     }
 
-    private fun fetchOne(context: Context, widthPx: Int): Pair<Bitmap, String>? {
-        val list = catalog(context).ifEmpty { return null }
+    private fun fetchOne(context: Context, widthPx: Int, kind: String): Pair<Bitmap, String>? {
+        val list = catalog(context, kind).ifEmpty { return null }
         repeat(3) {
             val e = list.random()
             val bmp = runCatching { decode(download(e.url), widthPx) }.getOrNull()
@@ -54,14 +58,16 @@ object WallpaperFeed {
         return null
     }
 
-    /** The filtered list of nature photos, refreshed weekly so new days' photos join in. */
-    private fun catalog(context: Context): List<Entry> {
-        val file = File(context.filesDir, "nature_walls.tsv")
-        if (entries.isEmpty() && file.exists()) entries = read(file)
-        if (entries.isEmpty() || System.currentTimeMillis() - file.lastModified() > WEEK) {
-            runCatching { refresh(file) }.onFailure { android.util.Log.w("HomeHalo", "Wallpaper list refresh failed", it) }
+    private fun fileOf(context: Context, kind: String) = File(context.filesDir, "${kind}_walls.tsv")
+
+    /** The filtered list of photos of one kind, refreshed weekly so new days' photos join in. */
+    private fun catalog(context: Context, kind: String): List<Entry> {
+        val file = fileOf(context, kind)
+        if (entries[kind].isNullOrEmpty() && file.exists()) entries[kind] = read(file)
+        if (entries[kind].isNullOrEmpty() || System.currentTimeMillis() - file.lastModified() > WEEK) {
+            runCatching { refresh(context) }.onFailure { android.util.Log.w("Flix", "Wallpaper list refresh failed", it) }
         }
-        return entries
+        return entries[kind].orEmpty()
     }
 
     private fun read(file: File) = file.readLines().mapNotNull { line ->
@@ -69,12 +75,13 @@ object WallpaperFeed {
         if (tab <= 0) null else Entry(line.substring(0, tab), line.substring(tab + 1))
     }
 
-    /** Streams the 5 MB archive rather than loading it whole, keeping only the landscapes. */
-    private fun refresh(file: File) {
+    /** Streams the 5 MB archive rather than loading it whole, sorting landscapes from cities. */
+    private fun refresh(context: Context) {
         val conn = URL(ARCHIVE).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 20000
         val found = ArrayList<Entry>(2500)
+        val cities = ArrayList<Entry>(1500)
         try {
             JsonReader(conn.inputStream.bufferedReader()).use { r ->
                 r.beginArray()
@@ -93,10 +100,11 @@ object WallpaperFeed {
                     }
                     r.endObject()
                     val t = title ?: continue
-                    if (!NATURE.containsMatchIn(t) || BUILT_UP.containsMatchIn(t)) continue
                     // Bing's own 1920 px copy (~300 KB) when it has one; the archive's copy otherwise.
                     val url = bing?.replace("_UHD.jpg", "_1920x1080.jpg") ?: mirror ?: continue
-                    found += Entry(url, t.replace('\t', ' '))
+                    val entry = Entry(url, t.replace('\t', ' '))
+                    if (BUILT_UP.containsMatchIn(t)) cities += entry
+                    else if (NATURE.containsMatchIn(t)) found += entry
                 }
                 r.endArray()
             }
@@ -104,8 +112,10 @@ object WallpaperFeed {
             conn.disconnect()
         }
         if (found.size < 50) return
-        file.writeText(found.joinToString("\n") { "${it.url}\t${it.title}" })
-        entries = found
+        for ((kind, list) in listOf("nature" to found, "cities" to cities)) {
+            fileOf(context, kind).writeText(list.joinToString("\n") { "${it.url}\t${it.title}" })
+            entries[kind] = list
+        }
     }
 
     private fun download(url: String): ByteArray {

@@ -41,7 +41,12 @@ object HaloSettings {
     val UNITS = Option("units", "Temperature", listOf("c" to "Celsius", "f" to "Fahrenheit"), "c")
 
     // Wallpaper
-    val WALLPAPER = Option("wallpaper", "Background", listOf("nature" to "Nature", "video" to "Scenic video", "gradient" to "Plain gradient"), "nature")
+    val WALLPAPER = Option("wallpaper", "Background", listOf(
+        "nature" to "Nature photos", "cities" to "City photos",
+        "video" to "All aerial videos", "v_nature" to "Landscapes video", "v_sea" to "Oceans video",
+        "v_city" to "Cities video", "v_space" to "Earth from space", "v_art" to "Colour art video",
+        "gradient" to "Plain dark"), "nature",
+        summary = "A new Bing photo every minute, or aerial films from Apple TV and Fire TV")
     val SHUFFLE = toggle("shuffle", "Shuffle scenes")
     val DIM = Option("dim", "Background dimming", listOf("low" to "Low", "medium" to "Medium", "high" to "High"), "medium")
     val SCENE_NAME = toggle("scene_name", "Scene name")
