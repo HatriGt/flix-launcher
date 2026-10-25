@@ -441,7 +441,9 @@ class MainActivity : Activity() {
         main.removeCallbacks(pauseForBackdrop)
         player?.pause()
         runCatching {
-            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            // Nuvio keeps one screen alive and ignores a new link while it's open (it would show the
+            // last film again), so start its task afresh to make it read this one.
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
                 android.app.ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle())
         }.onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
     }

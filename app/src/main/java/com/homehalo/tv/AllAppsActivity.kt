@@ -304,7 +304,7 @@ class AllAppsActivity : Activity() {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
         }
-        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
     }
 
     private fun showMenu(app: AppEntry) {
