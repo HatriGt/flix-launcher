@@ -62,8 +62,6 @@ class SettingsActivity : Activity() {
             setPadding(px(40), px(6), px(16), px(28))
         }
         SECTIONS.forEachIndexed { i, s -> rail.addView(railItem(i, s)) }
-        rail.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        rail.addView(text("Changes apply instantly", 11f, alpha = 0.4f).apply { setPadding(px(14), 0, 0, 0) })
 
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -374,6 +372,7 @@ class SettingsActivity : Activity() {
         opt(1, "On the home screen", HaloSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")
         opt(1, "On the home screen", HaloSettings.GENRE, R.drawable.ic_o_filter, "category type")
         opt(1, "Previews", HaloSettings.TRAILERS, R.drawable.ic_o_play, "video preview autoplay")
+        opt(1, "Previews", HaloSettings.TRAILER_DELAY, R.drawable.ic_o_clock, "trailer wait delay time seconds slow fast")
         opt(1, "Previews", HaloSettings.TRAILER_SOUND, R.drawable.ic_o_sound, "audio volume mute loud")
         opt(1, "Previews", HaloSettings.BACKDROP, R.drawable.ic_o_image, "artwork background picture")
         opt(1, "Look", HaloSettings.POSTER_SIZE, R.drawable.ic_o_poster, "big bigger smaller tiles")
@@ -611,17 +610,17 @@ class SettingsActivity : Activity() {
 
     // ---- Wallpaper picker ----
 
-    /** One background: its name, what it shows, and a real frame from it as a preview. */
-    private class Wall(val title: String, val about: String, val preview: String?, val from: Int, val to: Int)
+    /** One background: its name, what it shows, and a real frame from it, shipped in the app. */
+    private class Wall(val title: String, val about: String, val preview: Int?, val from: Int, val to: Int)
 
     private val WALLS = mapOf(
-        "nature" to Wall("Nature", "A new Bing photo every minute: forests, peaks and coasts", "https://bing.com/th?id=OHR.NaejangsanNP_EN-US7010419904_400x240.jpg", 0xFF1F5130.toInt(), 0xFF0B1F14.toInt()),
-        "cities" to Wall("Cities", "Skylines and landmarks from the same Bing archive", "https://bing.com/th?id=OHR.TIFF2024_EN-US9586964456_400x240.jpg", 0xFF5A3A1A.toInt(), 0xFF171019.toInt()),
-        "video" to Wall("Everything", "All 270 aerial films, shuffled", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/LW_L001_C006_900x580.png", 0xFF8A0B12.toInt(), 0xFF1A0507.toInt()),
-        "v_nature" to Wall("Landscapes", "Mountains, deserts and islands from above", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/S003_C020_900x580.png", 0xFF3E5A22.toInt(), 0xFF121A0B.toInt()),
-        "v_sea" to Wall("Oceans", "Waves, reefs and dolphins", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/TH_803_A001_900x580.png", 0xFF0E4E68.toInt(), 0xFF06141E.toInt()),
-        "v_city" to Wall("Cities", "Flying over Dubai, Hong Kong and San Francisco", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/HK_H004_C013_900x580.png", 0xFF2B3566.toInt(), 0xFF0B0E1F.toInt()),
-        "v_space" to Wall("Earth from space", "Filmed from the International Space Station", "http://sylvan.apple.com/itunes-assets/Aerials221/v4/86/53/43/8653438c-a104-77a0-ce9a-8a370d39795f/GMT026_363A_900x580.png", 0xFF1A1F4A.toInt(), 0xFF020308.toInt()),
+        "nature" to Wall("Nature", "A new Bing photo every minute: forests, peaks and coasts", R.drawable.wall_nature, 0xFF1F5130.toInt(), 0xFF0B1F14.toInt()),
+        "cities" to Wall("Cities", "Skylines and landmarks from the same Bing archive", R.drawable.wall_cities, 0xFF5A3A1A.toInt(), 0xFF171019.toInt()),
+        "video" to Wall("Everything", "All 270 aerial films, shuffled", R.drawable.wall_video, 0xFF8A0B12.toInt(), 0xFF1A0507.toInt()),
+        "v_nature" to Wall("Landscapes", "Mountains, deserts and islands from above", R.drawable.wall_v_nature, 0xFF3E5A22.toInt(), 0xFF121A0B.toInt()),
+        "v_sea" to Wall("Oceans", "Waves, reefs and dolphins", R.drawable.wall_v_sea, 0xFF0E4E68.toInt(), 0xFF06141E.toInt()),
+        "v_city" to Wall("Cities", "Flying over Dubai, Hong Kong and San Francisco", R.drawable.wall_v_city, 0xFF2B3566.toInt(), 0xFF0B0E1F.toInt()),
+        "v_space" to Wall("Earth from space", "Filmed from the International Space Station", R.drawable.wall_v_space, 0xFF1A1F4A.toInt(), 0xFF020308.toInt()),
         "v_art" to Wall("Colour art", "Slow abstract colour from Fire TV", null, 0xFF8E2A7A.toInt(), 0xFF1E0A4A.toInt()),
         "gradient" to Wall("Plain dark", "No picture at all; the lightest on the TV", null, 0xFF2A2A2E.toInt(), 0xFF0A0A0C.toInt()),
     )
@@ -643,7 +642,8 @@ class SettingsActivity : Activity() {
                 outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
                 clipToOutline = true
             }
-            wall.preview?.let { url -> Images.get(url, px(112)) { bmp -> if (bmp != null && thumb.isAttachedToWindow) thumb.setImageBitmap(bmp) } }
+            // Bundled, ~5 KB each: they show at once, offline too.
+            wall.preview?.let { thumb.setImageResource(it) }
             row.addView(thumb, LinearLayout.LayoutParams(px(112), px(63)).apply { marginEnd = px(16) })
             row.addView(textBlock(wall.title, wall.about), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val check = FrameLayout(this).apply {

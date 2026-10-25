@@ -260,6 +260,7 @@ class MainActivity : Activity() {
         hero.backdropEnabled = isOn(HaloSettings.BACKDROP)
         trailer.enabled = isOn(HaloSettings.TRAILERS)
         trailer.sound = isOn(HaloSettings.TRAILER_SOUND)
+        trailer.delayMs = HaloSettings.get(this, HaloSettings.TRAILER_DELAY).toLong() * 1000
         movieRows.rebuild()
         startWallpaper()
         if (!idle) scheduleIdle()

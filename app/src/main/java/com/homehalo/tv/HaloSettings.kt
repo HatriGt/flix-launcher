@@ -68,7 +68,10 @@ object HaloSettings {
     val TOP_TEN = Option("top_ten_from", "Top 10 row",
         listOf("mine" to "From my first row", "world" to "Worldwide (mostly English)", "off" to "Off"), "mine",
         summary = "Numbered row of the ten most popular films")
-    val TRAILERS = toggle("trailers", "Play trailers", summary = "After 3 seconds on a poster, like Nuvio")
+    val TRAILERS = toggle("trailers", "Play trailers", summary = "Plays behind the preview when a poster stays selected")
+    val TRAILER_DELAY = Option("trailer_delay", "Trailer starts after",
+        listOf("1" to "1 second", "2" to "2 seconds", "3" to "3 seconds", "5" to "5 seconds", "8" to "8 seconds"), "2",
+        summary = "How long a poster stays selected before its trailer plays")
     val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 
 

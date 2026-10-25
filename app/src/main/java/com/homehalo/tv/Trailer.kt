@@ -35,6 +35,11 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     var enabled = true
     val isPlaying get() = playingId != null
     var sound = false
+    /** How long a poster holds focus before its trailer plays (a setting). */
+    var delayMs = 2000L
+    /** When the trailer should start; the slow parts are got ready before then. */
+    private var playAt = 0L
+    private var focusedAt = 0L
 
     /** Called whenever the playing state changes, so the scenery video can pause. */
     var onPlaying: (Boolean) -> Unit = {}
@@ -46,13 +51,25 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                 val pkg = msg.data.getParcelable<SurfaceControlViewHost.SurfacePackage>("surface")
                 if (pkg != null && playingId != null) surface?.setChildSurfacePackage(pkg)
             }
-            TrailerService.MSG_STATE -> if (msg.arg1 == 1 && playingId != null) {
-                surface?.let { it.visibility = View.VISIBLE; it.alpha = 0f; it.animate().alpha(1f).setDuration(900).start() }
-                onPlaying(true)
+            TrailerService.MSG_STATE -> if (msg.arg1 == 1 && playingId != null && !revealed) {
+                // It has been buffering muted and out of sight; show it once the poster has
+                // held focus for the chosen time.
+                revealed = true
+                val wait = (playAt - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0)
+                main.postDelayed({ reveal() }, wait)
             } else if (msg.arg1 == 0) stop()
         }
         true
     })
+
+    private var revealed = false
+
+    private fun reveal() {
+        if (playingId == null) return
+        surface?.let { it.visibility = View.VISIBLE; it.alpha = 0f; it.animate().alpha(1f).setDuration(700).start() }
+        if (sound) runCatching { service?.send(Message.obtain(null, TrailerService.MSG_SOUND)) }
+        onPlaying(true)
+    }
 
     /** Starts the countdown for [title]; moving focus elsewhere calls this again or [stop]. */
     fun focus(title: Catalog.Title) {
@@ -61,7 +78,13 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
         // Embedding another process's surface needs Android 11+; older TVs keep the still backdrop.
         if (!enabled || android.os.Build.VERSION.SDK_INT < 30) return
         pending = title
-        main.postDelayed({ if (pending?.id == title.id) start(title) }, DELAY_MS)
+        revealed = false
+        focusedAt = android.os.SystemClock.uptimeMillis()
+        playAt = android.os.SystemClock.uptimeMillis() + delayMs
+        // Most of the wait used to come after the delay: looking up the trailer, starting the
+        // player's process and Chromium, loading YouTube's player. Do all that during the
+        // delay instead, once focus has settled on a poster (not for every poster flicked past).
+        main.postDelayed({ if (pending?.id == title.id) start(title) }, minOf(PREPARE_AFTER_MS, delayMs))
     }
 
     fun stop() {
@@ -82,7 +105,8 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
 
     private fun start(title: Catalog.Title) {
         net.execute {
-            val ytId = trailerId(title) ?: return@execute
+            val ytId = trailerId(title)
+            if (ytId == null) return@execute
             main.post {
                 if (pending?.id != title.id) return@post
                 playingId = title.id
@@ -93,6 +117,7 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                 }
                 surface = sv
                 host.addView(sv, android.widget.FrameLayout.LayoutParams(-1, -1))
+                sv.holder.setFixedSize(host.width / 2, host.height / 2)
                 sv.post { bind(ytId, sv) }
             }
         }
@@ -109,12 +134,16 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                 msg.replyTo = replies
                 msg.data = Bundle().apply {
                     putString("ytId", ytId)
-                    putBoolean("sound", sound)
+                    putBoolean("sound", false) // unmuted when shown
                     putBinder("hostToken", sv.hostToken)
                     putInt("displayId", sv.display.displayId)
-                    putInt("w", sv.width.coerceAtLeast(1))
-                    putInt("h", sv.height.coerceAtLeast(1))
+                    // Half size, scaled up by the display: YouTube then picks a ~540p stream,
+                    // which starts much sooner on a small TV chip and still looks fine
+                    // softened behind the page.
+                    putInt("w", (sv.width / 2).coerceAtLeast(1))
+                    putInt("h", (sv.height / 2).coerceAtLeast(1))
                 }
+                // Start buffering straight away, hidden and muted; [reveal] shows it on time.
                 runCatching { m.send(msg) }
             }
             override fun onServiceDisconnected(name: ComponentName) { if (connection === this) stop() }
@@ -147,6 +176,6 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     fun release() = stop()
 
     private companion object {
-        const val DELAY_MS = 3000L
+        const val PREPARE_AFTER_MS = 500L
     }
 }

@@ -32,11 +32,38 @@ class TrailerService : Service() {
         when (msg.what) {
             MSG_PLAY -> play(msg)
             MSG_RESIZE -> host?.relayout(msg.arg1, msg.arg2)
+            MSG_SOUND -> web?.evaluateJavascript("if(window.player){player.unMute();player.setVolume(100)}", null)
         }
         true
     })
 
-    override fun onBind(intent: Intent): IBinder = messenger.binder
+    override fun onBind(intent: Intent): IBinder {
+        // Bound while the home screen still counts down: start Chromium and fetch YouTube's
+        // player script now, so by play time both are warm.
+        main.post { warmUp() }
+        return messenger.binder
+    }
+
+    private fun webView(): WebView = web ?: WebView(this).also { w ->
+        web = w
+        w.setBackgroundColor(Color.TRANSPARENT)
+        w.settings.javaScriptEnabled = true
+        w.settings.mediaPlaybackRequiresUserGesture = false
+        w.settings.domStorageEnabled = true
+        w.webChromeClient = WebChromeClient()
+        w.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun state(playing: Boolean) {
+                runCatching { client?.send(Message.obtain(null, MSG_STATE, if (playing) 1 else 0, 0)) }
+            }
+        }, "HomeHalo")
+    }
+
+    private fun warmUp() {
+        if (web != null) return
+        webView().loadDataWithBaseURL("https://www.youtube-nocookie.com",
+            "<html><body><script src=\"https://www.youtube.com/iframe_api\"></script></body></html>", "text/html", "utf-8", null)
+    }
 
     override fun onUnbind(intent: Intent): Boolean {
         shutDown()
@@ -63,20 +90,7 @@ class TrailerService : Service() {
         client = msg.replyTo
         val ytId = data.getString("ytId") ?: return
         val display = getSystemService(DisplayManager::class.java).getDisplay(data.getInt("displayId"))
-        val view = web ?: WebView(this).also { w ->
-            web = w
-            w.setBackgroundColor(Color.TRANSPARENT)
-            w.settings.javaScriptEnabled = true
-            w.settings.mediaPlaybackRequiresUserGesture = false
-            w.settings.domStorageEnabled = true
-            w.webChromeClient = WebChromeClient()
-            w.addJavascriptInterface(object {
-                @JavascriptInterface
-                fun state(playing: Boolean) {
-                    runCatching { client?.send(Message.obtain(null, MSG_STATE, if (playing) 1 else 0, 0)) }
-                }
-            }, "HomeHalo")
-        }
+        val view = webView()
         if (host == null) {
             host = SurfaceControlViewHost(this, display, data.getBinder("hostToken")).also {
                 it.setView(view, data.getInt("w"), data.getInt("h"))
@@ -93,21 +107,28 @@ class TrailerService : Service() {
         <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
         #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.32)}</style></head>
         <body><div id="p"></div>
-        <script src="https://www.youtube.com/iframe_api"></script>
         <script>
-        function onYouTubeIframeAPIReady(){
-          new YT.Player('p',{videoId:'$ytId',host:'https://www.youtube-nocookie.com',
-            playerVars:{autoplay:1,mute:${if (sound) 0 else 1},controls:0,disablekb:1,fs:0,modestbranding:1,rel:0,iv_load_policy:3,playsinline:1,start:4},
+        // Defined before YouTube's script loads: from cache it can be ready at once, and a
+        // callback defined after that point is never called (the trailer then never played).
+        var made = false;
+        function make(){
+          if (made || !(window.YT && YT.Player)) return; made = true;
+          window.player = new YT.Player('p',{videoId:'$ytId',host:'https://www.youtube-nocookie.com',
+            playerVars:{autoplay:1,mute:${if (sound) 0 else 1},controls:0,disablekb:1,fs:0,modestbranding:1,rel:0,iv_load_policy:3,playsinline:1},
             events:{onReady:function(e){e.target.playVideo()},
               onStateChange:function(e){ if(e.data===1) HomeHalo.state(true); if(e.data===0) HomeHalo.state(false) },
               onError:function(){ HomeHalo.state(false) }}});
         }
+        window.onYouTubeIframeAPIReady = make;
+        </script>
+        <script src="https://www.youtube.com/iframe_api" onload="setTimeout(make, 300)"></script>
         </script></body></html>
     """.trimIndent()
 
     companion object {
         const val MSG_PLAY = 1
         const val MSG_RESIZE = 2
+        const val MSG_SOUND = 3
         const val MSG_SURFACE = 10
         const val MSG_STATE = 11
     }
