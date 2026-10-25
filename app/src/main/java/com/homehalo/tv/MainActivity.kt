@@ -893,26 +893,38 @@ class MainActivity : Activity() {
     }
 
     private fun showImage(index: Int) {
+        if (HaloSettings.get(this, HaloSettings.WALLPAPER) == "nature") {
+            // A fresh photo from the endless feed; the built-in set only when it can't be reached.
+            WallpaperFeed.next(this, resources.displayMetrics.widthPixels) { bitmap, title ->
+                if (bitmap != null) present(bitmap, title) else showBuiltIn(index)
+            }
+            return
+        }
+        showBuiltIn(index)
+    }
+
+    private fun present(bitmap: android.graphics.Bitmap, title: String?) {
+        if (isDestroyed) return
+        // Dip through the dark backdrop so one photo dissolves into the next.
+        val first = imageView.drawable == null
+        veil.animate().cancel()
+        veil.animate().alpha(if (first) 1f else 0.7f).setDuration(if (first) 0 else 600).withEndAction {
+            imageView.setImageBitmap(bitmap) // the previous photo is released here
+            veil.animate().alpha(0f).setDuration(1200).start()
+        }.start()
+        scrim.visibility = View.VISIBLE
+        showSceneTitle(title)
+        main.removeCallbacks(nextImage)
+        main.postDelayed(nextImage, ROTATE_MS)
+    }
+
+    private fun showBuiltIn(index: Int) {
         val images = scenery().filter { !it.isVideo }
         if (images.isEmpty()) return
         imageIndex = (if (isOn(HaloSettings.SHUFFLE) && index != imageIndex) (images.indices).random() else index) % images.size
         val item = images[imageIndex]
         val uri = Uri.parse(item.uri)
-        val ready = { bitmap: android.graphics.Bitmap ->
-            if (!isDestroyed) {
-                // Dip through the dark backdrop so one photo dissolves into the next.
-                val first = imageView.drawable == null
-                veil.animate().cancel()
-                veil.animate().alpha(if (first) 1f else 0.7f).setDuration(if (first) 0 else 600).withEndAction {
-                    imageView.setImageBitmap(bitmap)
-                    veil.animate().alpha(0f).setDuration(1200).start()
-                }.start()
-                scrim.visibility = View.VISIBLE
-                showSceneTitle(item.title)
-                main.removeCallbacks(nextImage)
-                main.postDelayed(nextImage, 2 * 60_000)
-            }
-        }
+        val ready = { bitmap: android.graphics.Bitmap -> present(bitmap, item.title) }
         if (uri.scheme == "http" || uri.scheme == "https") {
             // Downscaled, cached on disk and kept on the GPU, like the posters.
             Images.get(item.uri, resources.displayMetrics.widthPixels) { it?.let(ready) ?: main.postDelayed(nextImage, 10_000) }
@@ -925,6 +937,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val NUVIO = "com.nuvio.tv"
+        /** How long each wallpaper photo stays up. */
+        const val ROTATE_MS = 60_000L
         const val RECEIVER_NOT_EXPORTED_FLAG = 0x4 // Context.RECEIVER_NOT_EXPORTED, named in API 33
         const val KEEP_PLAYER_MS = 90_000L
     }

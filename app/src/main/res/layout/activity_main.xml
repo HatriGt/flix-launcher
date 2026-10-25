@@ -189,6 +189,9 @@
                         <TextView
                             android:id="@+id/scene_title"
                             style="@style/Halo.Text.Muted"
+                            android:ellipsize="end"
+                            android:maxWidth="380dp"
+                            android:singleLine="true"
                             android:layout_marginStart="14dp"
                             android:alpha="0.7"
                             android:textSize="11sp" />
