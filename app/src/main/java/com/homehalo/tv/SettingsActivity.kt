@@ -370,7 +370,6 @@ class SettingsActivity : Activity() {
         opt(1, "On the home screen", HaloSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
         opt(1, "On the home screen", HaloSettings.CONTINUE_WATCHING, R.drawable.ic_o_resume, "resume progress")
         opt(1, "On the home screen", HaloSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")
-        opt(1, "On the home screen", HaloSettings.OPEN_TO, R.drawable.ic_o_play, "ok click open stream streams play details page nuvio")
         opt(1, "On the home screen", HaloSettings.GENRE, R.drawable.ic_o_filter, "category type")
         opt(1, "Previews", HaloSettings.TRAILERS, R.drawable.ic_o_play, "video preview autoplay")
         opt(1, "Previews", HaloSettings.TRAILER_DELAY, R.drawable.ic_o_clock, "trailer wait delay time seconds slow fast")
