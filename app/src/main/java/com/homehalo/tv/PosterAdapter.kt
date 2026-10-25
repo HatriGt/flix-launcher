@@ -140,6 +140,27 @@ class PosterAdapter(
         meta.gravity = Gravity.END
         meta.textSize = 10.5f
         info.addView(meta, android.widget.LinearLayout.LayoutParams(-1, -2))
+        // Continue watching on the big card: how far in, as a bar and a percentage.
+        val watched = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, (8 * density).toInt(), 0, 0)
+        }
+        val watchedTrack = FrameLayout(context).apply {
+            background = GradientDrawable().apply { cornerRadius = 2 * density; setColor(0x4DFFFFFF) }
+            clipToOutline = true
+        }
+        val watchedBar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
+        watchedTrack.addView(watchedBar, FrameLayout.LayoutParams(0, -1))
+        val watchedText = TextView(context).apply {
+            textSize = 10.5f
+            setTextColor(0xE6FFFFFF.toInt())
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding((8 * density).toInt(), 0, 0, 0)
+        }
+        watched.addView(watchedTrack, android.widget.LinearLayout.LayoutParams(WATCHED_W.times(density).toInt(), (4 * density).toInt()))
+        watched.addView(watchedText)
+        info.addView(watched)
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
         val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
@@ -150,7 +171,7 @@ class PosterAdapter(
             topMargin = (5 * density).toInt()
             marginEnd = (5 * density).toInt()
         })
-        val barHeight = (3 * density).toInt()
+        val barHeight = (4 * density).toInt()
         card.addView(shade, FrameLayout.LayoutParams(-1, (h(0.32f)), Gravity.BOTTOM))
         card.addView(episode, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
             marginStart = (7 * density).toInt()
@@ -158,7 +179,7 @@ class PosterAdapter(
         })
         card.addView(track, FrameLayout.LayoutParams(-1, barHeight, Gravity.BOTTOM))
         card.addView(bar, FrameLayout.LayoutParams(0, barHeight, Gravity.BOTTOM))
-        return Holder(card, poster, fallback, badge, shade, episode, track, bar, backdrop, info, logo, name, meta)
+        return Holder(card, poster, fallback, badge, shade, episode, track, bar, backdrop, info, logo, name, meta, watched, watchedBar, watchedText)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
@@ -184,6 +205,9 @@ class PosterAdapter(
         private val logo: ImageView,
         private val name: TextView,
         private val meta: TextView,
+        private val watched: View,
+        private val watchedBar: View,
+        private val watchedText: TextView,
     ) : RecyclerView.ViewHolder(view) {
         private var widthAnim: android.animation.ValueAnimator? = null
         private var current: Catalog.Title? = null
@@ -270,6 +294,11 @@ class PosterAdapter(
             episode.visibility = if (title.episodeLabel != null) View.VISIBLE else View.GONE
             episode.text = title.episodeLabel
             if (progress != null) bar.layoutParams = bar.layoutParams.apply { width = (widthPx * progress.coerceIn(0.03f, 1f)).toInt() }
+            watched.visibility = if (inProgress) View.VISIBLE else View.GONE
+            if (progress != null) {
+                watchedBar.layoutParams = watchedBar.layoutParams.apply { width = (WATCHED_W * density * progress.coerceIn(0.03f, 1f)).toInt() }
+                watchedText.text = "${(progress * 100).toInt().coerceIn(1, 99)}% watched"
+            }
             fallback.text = title.name
             // The name underneath is only for posters that don't exist; drawing it under a real
             // poster costs the GPU a second layer of pixels for every card.
@@ -350,5 +379,8 @@ class PosterAdapter(
     companion object {
         /** How much taller the focused card is than a poster (Netflix keeps them level). */
         const val GROW = 1f
+
+        /** Width in dp of the progress bar on the focused card. */
+        private const val WATCHED_W = 120f
     }
 }

@@ -368,6 +368,7 @@ class SettingsActivity : Activity() {
         add(Entry(1, null, "Nuvio account sign in login profile continue watching") { nuvioCard() })
         add(Entry(1, null, "Addons rows catalogues order choose") { rowsCard() })
         opt(1, "On the home screen", HaloSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
+        opt(1, "On the home screen", HaloSettings.BILLBOARD, R.drawable.ic_o_layers, "carousel billboard banner featured hero slideshow poster")
         opt(1, "On the home screen", HaloSettings.CONTINUE_WATCHING, R.drawable.ic_o_resume, "resume progress")
         opt(1, "On the home screen", HaloSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")
         opt(1, "On the home screen", HaloSettings.GENRE, R.drawable.ic_o_filter, "category type")

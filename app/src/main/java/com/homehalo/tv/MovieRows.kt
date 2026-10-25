@@ -55,7 +55,7 @@ class MovieRows(
             "large" -> 144 to 216
             else -> 128 to 192
         }
-        container.addView(billboard.view)
+        if (HaloSettings.isOn(activity, HaloSettings.BILLBOARD)) container.addView(billboard.view)
         if (!NuvioAccount.isSignedIn(activity) && HaloSettings.isOn(activity, HaloSettings.CONTINUE_WATCHING) &&
             activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
@@ -235,7 +235,7 @@ class MovieRows(
         row.all = titles
         if (row === topRow) return fillTop(row, titles)
         if (row.source === topFrom) topRow?.let { fillTop(it, titles) }
-        if (row.source !== CONTINUE) billboard.offer(titles)
+        if (row.source !== CONTINUE && billboard.view.parent != null) billboard.offer(titles)
         val hidden = Catalog.hiddenTitles(activity)
         row.adapter.items = titles.filter { it.id !in hidden }
         val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
