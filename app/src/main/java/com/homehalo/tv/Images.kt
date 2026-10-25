@@ -74,6 +74,47 @@ object Images {
         }
     }
 
+    private val accents = LruCache<String, Int>(200)
+
+    /**
+     * The image's most vivid colour, for the ambient glow. Decoded separately at a tiny
+     * size into ordinary memory, since the hardware bitmaps used for display can't be read.
+     */
+    fun accent(url: String, onReady: (Int?) -> Unit) {
+        accents.get(url)?.let { return onReady(it) }
+        pool.execute {
+            val color = runCatching {
+                val data = bytes(url)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= 48) sample *= 2
+                val small = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+                    ?: return@runCatching null
+                val bmp = Bitmap.createScaledBitmap(small, 24, 14, true)
+                // Average the pixels weighted by how colourful and bright they are, so a
+                // poster's dominant hue wins over its blacks, whites and greys.
+                var r = 0.0; var g = 0.0; var b = 0.0; var total = 0.0
+                val hsv = FloatArray(3)
+                for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
+                    val c = bmp.getPixel(x, y)
+                    android.graphics.Color.colorToHSV(c, hsv)
+                    val w = (hsv[1] * hsv[1] * hsv[2]).toDouble() + 0.001
+                    r += android.graphics.Color.red(c) * w; g += android.graphics.Color.green(c) * w; b += android.graphics.Color.blue(c) * w
+                    total += w
+                }
+                if (bmp !== small) bmp.recycle()
+                small.recycle()
+                val avg = android.graphics.Color.rgb((r / total).toInt(), (g / total).toInt(), (b / total).toInt())
+                // Keep the hue, settle it at a rich, mid brightness so it glows without glaring.
+                android.graphics.Color.colorToHSV(avg, hsv)
+                android.graphics.Color.HSVToColor(floatArrayOf(hsv[0], hsv[1].coerceIn(0.35f, 0.8f), 0.6f))
+            }.getOrNull()
+            if (color != null) accents.put(url, color)
+            main.post { onReady(color) }
+        }
+    }
+
     private fun bytes(url: String): ByteArray {
         val file = dir?.let { File(it, sha1(url)) }
         if (file != null && file.exists()) return file.readBytes()

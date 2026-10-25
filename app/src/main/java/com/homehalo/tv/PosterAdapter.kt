@@ -41,12 +41,6 @@ class PosterAdapter(
 
     private val radius = 12 * density
 
-    /** Cards without a poster: a dark, softly lit tile rather than a flat grey box. */
-    private val placeholder = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF323A4C.toInt(), 0xFF171B24.toInt())).apply {
-        cornerRadius = radius
-        setStroke(density.toInt().coerceAtLeast(1), 0x26FFFFFF)
-    }
-
     override fun getItemCount() = items.size
 
     /** The focused card grows in both directions, into a 16:9 landscape a third taller than a poster. */
@@ -77,15 +71,16 @@ class PosterAdapter(
             }
         }
         val fallback = TextView(context).apply {
-            gravity = Gravity.CENTER
-            setTextColor(0xF2FFFFFF.toInt())
-            textSize = 13f
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            letterSpacing = 0.02f
-            setLineSpacing(0f, 1.15f)
+            // Sits on the generated cover, bottom-left like a printed title.
+            gravity = Gravity.BOTTOM or Gravity.START
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setLineSpacing(0f, 1.05f)
             maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding((10 * density).toInt(), 0, (10 * density).toInt(), 0)
+            setShadowLayer(8f, 0f, 1f, 0x80000000.toInt())
+            setPadding((11 * density).toInt(), 0, (11 * density).toInt(), (12 * density).toInt())
         }
         val poster = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         val badge = TextView(context).apply {
@@ -273,9 +268,9 @@ class PosterAdapter(
             // poster costs the GPU a second layer of pixels for every card.
             fallback.visibility = if (title.poster == null) View.VISIBLE else View.GONE
             Images.into(poster, title.poster, widthPx)
-            // The grey placeholder only matters until the poster arrives; drawing it under a
-            // full poster doubles the pixels the GPU fills.
-            itemView.background = if (title.poster == null) placeholder else null
+            // Generated cover art only for titles with no poster; drawing it under a real
+            // poster would double the pixels the GPU fills.
+            itemView.background = if (title.poster == null) CoverArt(title.name) else null
             badge.text = Rating.text(title.rating)
             badge.visibility = if (badge.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             itemView.contentDescription = title.name

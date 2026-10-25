@@ -192,6 +192,41 @@ class Hero(root: View) {
             shadeView.background = android.graphics.drawable.BitmapDrawable(root.resources, bmp).apply { isFilterBitmap = true }
         }
     }
+    /**
+     * Ambient light: a soft glow in the focused title's own colour rising from the bottom
+     * of the screen behind the rows, the way a lit room picks up the colour of the film.
+     */
+    private val glowColors = intArrayOf(0, 0)
+    private val glow = android.graphics.drawable.GradientDrawable().apply {
+        gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+        setGradientCenter(0.3f, 1f)
+        gradientRadius = root.resources.displayMetrics.widthPixels * 0.75f
+    }
+    private val glowView = View(root.context).apply { background = glow }.also { v ->
+        val shade = root.findViewById<View>(R.id.hero_shade)
+        val parent = shade.parent as android.view.ViewGroup
+        parent.addView(v, parent.indexOfChild(shade) + 1, android.view.ViewGroup.LayoutParams(-1, -1))
+    }
+    private var glowAnim: android.animation.ValueAnimator? = null
+    private var glowNow = 0
+
+    private fun ambient(target: Int) {
+        val from = glowNow
+        // Translucent: just under half strength at its centre, fading to nothing.
+        val to = (target and 0x00FFFFFF) or 0x73000000
+        if (from == to) return
+        glowAnim?.cancel()
+        glowAnim = android.animation.ValueAnimator.ofArgb(from, to).apply {
+            duration = 700
+            addUpdateListener {
+                glowNow = it.animatedValue as Int
+                glowColors[0] = glowNow
+                glow.colors = glowColors
+            }
+            start()
+        }
+    }
+
     private var front = 0
     private var current: Catalog.Title? = null
     var backdropEnabled = true
@@ -254,6 +289,10 @@ class Hero(root: View) {
             info.translationY = 8f
             info.animate().alpha(1f).translationY(0f).setDuration(260).start()
         }.start()
+
+        val art = title.poster ?: title.backdrop
+        if (art == null) ambient(CoverArt.accentOf(title.name))
+        else Images.accent(art) { c -> if (current?.id == title.id) ambient(c ?: CoverArt.accentOf(title.name)) }
 
         val url = title.backdrop
         if (!backdropEnabled || url == null) {
