@@ -1,2 +1,2 @@
-HSPLcom/homehalo/tv/**;->**(**)**
-Lcom/homehalo/tv/**;
+HSPLcom/flix/tv/**;->**(**)**
+Lcom/flix/tv/**;

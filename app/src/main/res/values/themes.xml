@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Halo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+    <style name="Theme.Flix" parent="@android:style/Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@null</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowNoTitle">true</item>
@@ -9,17 +9,17 @@
         <item name="android:colorAccent">#FFFFFFFF</item>
     </style>
 
-    <style name="Theme.Halo.Settings" parent="Theme.Halo">
+    <style name="Theme.Flix.Settings" parent="Theme.Flix">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
 
-    <style name="Theme.Halo.Dialog" parent="@android:style/Theme.DeviceDefault.Dialog.Alert" />
+    <style name="Theme.Flix.Dialog" parent="@android:style/Theme.DeviceDefault.Dialog.Alert" />
 
-    <style name="Halo" />
+    <style name="Flix" />
 
-    <style name="Halo.Text">
+    <style name="Flix.Text">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">#FFFFFFFF</item>
@@ -28,11 +28,11 @@
         <item name="android:shadowDy">1</item>
     </style>
 
-    <style name="Halo.Text.Muted">
+    <style name="Flix.Text.Muted">
         <item name="android:textColor">#CCFFFFFF</item>
     </style>
 
-    <style name="Halo.NavTab">
+    <style name="Flix.NavTab">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">36dp</item>
         <item name="android:layout_marginStart">2dp</item>
@@ -46,7 +46,7 @@
         <item name="android:textColor">@color/nav_text</item>
     </style>
 
-    <style name="Halo.QuickButton">
+    <style name="Flix.QuickButton">
         <item name="android:layout_width">40dp</item>
         <item name="android:layout_height">40dp</item>
         <item name="android:layout_marginStart">10dp</item>

@@ -101,7 +101,7 @@
 
                 <TextView
                     android:id="@+id/hero_title"
-                    style="@style/Halo.Text"
+                    style="@style/Flix.Text"
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="1"
                     android:ellipsize="end"
@@ -111,14 +111,14 @@
 
                 <TextView
                     android:id="@+id/hero_meta"
-                    style="@style/Halo.Text"
+                    style="@style/Flix.Text"
                     android:layout_marginTop="10dp"
                     android:fontFamily="sans-serif-medium"
                     android:textSize="14sp" />
 
                 <TextView
                     android:id="@+id/hero_description"
-                    style="@style/Halo.Text.Muted"
+                    style="@style/Flix.Text.Muted"
                     android:layout_marginTop="8dp"
                     android:ellipsize="end"
                     android:lineSpacingMultiplier="1.2"
@@ -148,7 +148,7 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <com.homehalo.tv.ClockView
+                <com.flix.launcher.ClockView
                     android:id="@+id/clock"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
@@ -167,7 +167,7 @@
 
                     <TextView
                         android:id="@+id/greeting"
-                        style="@style/Halo.Text"
+                        style="@style/Flix.Text"
                         android:fontFamily="sans-serif-medium"
                         android:letterSpacing="0.01"
                         android:textSize="17sp" />
@@ -180,7 +180,7 @@
 
                         <TextView
                             android:id="@+id/date"
-                            style="@style/Halo.Text.Muted"
+                            style="@style/Flix.Text.Muted"
                             android:letterSpacing="0.14"
                             android:textAllCaps="true"
                             android:textColor="#A6FFFFFF"
@@ -189,7 +189,7 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <com.homehalo.tv.SunArcView
+                <com.flix.launcher.SunArcView
                     android:id="@+id/sun_arc"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
@@ -220,19 +220,19 @@
 
                 <TextView
                     android:id="@+id/nav_home"
-                    style="@style/Halo.NavTab"
+                    style="@style/Flix.NavTab"
                     android:text="Home" />
                 <TextView
                     android:id="@+id/nav_movies"
-                    style="@style/Halo.NavTab"
+                    style="@style/Flix.NavTab"
                     android:text="Movies" />
                 <TextView
                     android:id="@+id/nav_shows"
-                    style="@style/Halo.NavTab"
+                    style="@style/Flix.NavTab"
                     android:text="Shows" />
                 <TextView
                     android:id="@+id/nav_apps"
-                    style="@style/Halo.NavTab"
+                    style="@style/Flix.NavTab"
                     android:text="Apps" />
             </LinearLayout>
 
@@ -251,12 +251,12 @@
 
                 <TextView
                     android:id="@+id/weather_icon"
-                    style="@style/Halo.Text"
+                    style="@style/Flix.Text"
                     android:textSize="18sp" />
 
                 <TextView
                     android:id="@+id/weather_temp"
-                    style="@style/Halo.Text"
+                    style="@style/Flix.Text"
                     android:layout_marginStart="8dp"
                     android:fontFamily="sans-serif-medium"
                     android:textSize="18sp" />
@@ -269,18 +269,18 @@
 
                     <TextView
                         android:id="@+id/weather_condition"
-                        style="@style/Halo.Text"
+                        style="@style/Flix.Text"
                         android:textSize="11sp" />
 
                     <TextView
                         android:id="@+id/weather_place"
-                        style="@style/Halo.Text.Muted"
+                        style="@style/Flix.Text.Muted"
                         android:textSize="10sp" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/weather_details"
-                    style="@style/Halo.Text.Muted"
+                    style="@style/Flix.Text.Muted"
                     android:visibility="gone" />
 
                 <View
@@ -297,7 +297,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <com.homehalo.tv.RowsScrollView
+        <com.flix.launcher.RowsScrollView
             android:id="@+id/rows_scroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -333,7 +333,7 @@
 
                     <TextView
                         android:id="@+id/focused_label"
-                        style="@style/Halo.Text"
+                        style="@style/Flix.Text"
                         android:fontFamily="sans-serif-medium"
                         android:textSize="20sp" />
 
@@ -344,7 +344,7 @@
 
                     <TextView
                         android:id="@+id/hint"
-                        style="@style/Halo.Text.Muted"
+                        style="@style/Flix.Text.Muted"
                         android:layout_marginBottom="3dp"
                         android:alpha="0.7"
                         android:text="Hold OK for options"
@@ -382,25 +382,25 @@
 
                         <ImageButton
                             android:id="@+id/qs_inputs"
-                            style="@style/Halo.QuickButton"
+                            style="@style/Flix.QuickButton"
                             android:contentDescription="Inputs"
                             android:src="@drawable/ic_input" />
 
                         <ImageButton
                             android:id="@+id/qs_wifi"
-                            style="@style/Halo.QuickButton"
+                            style="@style/Flix.QuickButton"
                             android:contentDescription="Network"
                             android:src="@drawable/ic_wifi" />
 
                         <ImageButton
-                            android:id="@+id/qs_halo"
-                            style="@style/Halo.QuickButton"
+                            android:id="@+id/qs_flix"
+                            style="@style/Flix.QuickButton"
                             android:contentDescription="Flix Launcher settings"
                             android:src="@drawable/ic_tune" />
 
                         <ImageButton
                             android:id="@+id/qs_settings"
-                            style="@style/Halo.QuickButton"
+                            style="@style/Flix.QuickButton"
                             android:contentDescription="Settings"
                             android:src="@drawable/ic_settings" />
                     </LinearLayout>
@@ -408,7 +408,7 @@
 
                 <TextView
                     android:id="@+id/all_apps_label"
-                    style="@style/Halo.Text.Muted"
+                    style="@style/Flix.Text.Muted"
                     android:layout_marginStart="44dp"
                     android:layout_marginTop="2dp"
                     android:letterSpacing="0.12"
@@ -445,12 +445,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="0dp" />
             </LinearLayout>
-        </com.homehalo.tv.RowsScrollView>
+        </com.flix.launcher.RowsScrollView>
     </FrameLayout>
         <!-- Name of the wallpaper photo, shown in the corner only while the page is idle and the photo is on show. -->
     <TextView
         android:id="@+id/scene_title"
-        style="@style/Halo.Text.Muted"
+        style="@style/Flix.Text.Muted"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="28dp"
         android:layout_marginBottom="16dp"

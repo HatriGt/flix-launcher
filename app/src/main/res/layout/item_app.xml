@@ -24,7 +24,7 @@
 
         <TextView
             android:id="@+id/fallback_label"
-            style="@style/Halo.Text"
+            style="@style/Flix.Text"
             android:layout_width="match_parent"
             android:layout_gravity="bottom"
             android:ellipsize="end"
@@ -37,7 +37,7 @@
 
     <TextView
         android:id="@+id/label"
-        style="@style/Halo.Text"
+        style="@style/Flix.Text"
         android:layout_marginTop="7dp"
         android:duplicateParentState="true"
         android:ellipsize="end"

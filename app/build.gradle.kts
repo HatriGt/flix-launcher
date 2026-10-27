@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.homehalo.tv"
+    namespace = "com.flix.launcher"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.homehalo.tv"
+        applicationId = "com.flix.launcher"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

@@ -36,7 +36,7 @@
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
         android:label="Flix Launcher"
-        android:theme="@style/Theme.Halo"
+        android:theme="@style/Theme.Flix"
         android:usesCleartextTraffic="true">
 
         <activity
@@ -64,28 +64,28 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Halo.Settings" />
+            android:theme="@style/Theme.Flix.Settings" />
 
         <activity
             android:name=".RowsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Halo.Settings" />
+            android:theme="@style/Theme.Flix.Settings" />
 
         <activity
             android:name=".AllAppsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Halo.Settings" />
+            android:theme="@style/Theme.Flix.Settings" />
 
         <activity
             android:name=".SettingsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Halo.Settings" />
+            android:theme="@style/Theme.Flix.Settings" />
 
         <!-- Trailer player in its own process, so its memory is freed when a trailer stops. -->
         <service
