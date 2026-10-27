@@ -33,6 +33,27 @@ Stock Google TV launchers are full of ads and heavy on cheap TVs. Flix replaces 
 
 It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-in QR code and the profile installer as dependencies) and frugal: about 54 MB of memory on a 2 GB TV, because every icon is redrawn once into a GPU bitmap and artwork only loads for the card you're looking at.
 
+## See it
+
+<p align="center">
+  <img src="docs/home.gif" alt="Flix home screen: apps, featured carousel and film rows over an aerial landscape video" width="100%">
+</p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/settings.gif" alt="Flix settings: sections, wallpaper list and search"></td>
+<td width="50%" valign="middle">
+
+**Home:** your apps on top, a featured carousel, then rows of films and shows. The selected title opens up with its artwork and details.
+
+**Settings:** five clear sections with live previews, and a search box that finds any setting as you type.
+
+<sub>Recorded on a Sony BRAVIA (Android TV 14, 2 GB). Android can't screen-record the hardware video layer, so the aerial background in these clips was added afterwards from the same Apple aerial footage Flix plays.</sub>
+
+</td>
+</tr>
+</table>
+
 ## Features
 
 <table>
