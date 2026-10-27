@@ -32,7 +32,8 @@ class PosterAdapter(
 
     var items: List<Catalog.Title> = emptyList()
         set(value) {
-            field = value
+            // Addons sometimes list a title twice; two cards with one stable id confuse the row.
+            field = value.distinctBy { it.id }
             notifyDataSetChanged()
         }
 
@@ -40,7 +41,18 @@ class PosterAdapter(
         setHasStableIds(true)
     }
 
-    override fun getItemId(position: Int) = items[position].id.hashCode().toLong()
+    /** Each title id gets its own number, so ids can't collide the way hash codes can. */
+    private val ids = HashMap<String, Long>()
+
+    override fun getItemId(position: Int) = ids.getOrPut(items[position].id) { ids.size.toLong() }
+
+    /**
+     * Cards are shared between rows through one pool, but only between rows whose cards are
+     * built the same way (same size, ranked or not); see [typeFor].
+     */
+    val viewType = typeFor(widthPx, heightPx, ranked)
+
+    override fun getItemViewType(position: Int) = viewType
 
     private val radius = 12 * density
 
@@ -182,11 +194,17 @@ class PosterAdapter(
         return Holder(card, poster, fallback, badge, shade, episode, track, bar, backdrop, info, logo, name, meta, watched, watchedBar, watchedText)
     }
 
-    override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        // A card from the shared pool may have been made by another row: it must answer to this one.
+        if (holder.owner !== this) holder.collapse(instant = true)
+        holder.owner = this
+        holder.bind(items[position])
+    }
 
     override fun onViewRecycled(holder: Holder) {
         holder.poster.tag = null
         holder.collapse(instant = true)
+        holder.itemView.scaleX = 1f; holder.itemView.scaleY = 1f
     }
 
     private fun h(fraction: Float) = (heightPx * fraction).toInt()
@@ -209,7 +227,8 @@ class PosterAdapter(
         private val watchedBar: View,
         private val watchedText: TextView,
     ) : RecyclerView.ViewHolder(view) {
-        private var widthAnim: android.animation.ValueAnimator? = null
+        /** The row adapter that last bound this card; its callbacks and big card are the ones used. */
+        var owner: PosterAdapter = this@PosterAdapter
         private var current: Catalog.Title? = null
 
         private fun sizeBar(cardWidth: Int) {
@@ -227,7 +246,7 @@ class PosterAdapter(
             lp.topMargin = if (expanded) 0 else inset
             itemView.forceLayout()
             sizeBar(lp.width)
-            if (expanded) big = this else if (big === this) big = null
+            if (expanded) owner.big = this else if (owner.big === this) owner.big = null
         }
 
         /** Grows the visible part of the card from poster size to its full size, without any re-layout. */
@@ -248,11 +267,11 @@ class PosterAdapter(
         /** Widen into the landscape card and fetch its artwork (only now, to keep memory low). */
         private fun expand(title: Catalog.Title) {
             val row = itemView.parent as? RowRecyclerView
-            val others = big?.takeIf { it !== this }
+            val others = owner.big?.takeIf { it !== this }
             if (row != null) row.flip(itemView) { others?.size(false); size(true) } else { others?.size(false); size(true) }
             revealFromPoster()
             name.text = title.name
-            meta.text = badges(title, bindingAdapterPosition)
+            meta.text = owner.badges(title, bindingAdapterPosition)
             meta.visibility = if (meta.text.isEmpty()) View.GONE else View.VISIBLE
             logo.setImageDrawable(null)
             logo.visibility = View.GONE
@@ -310,22 +329,30 @@ class PosterAdapter(
             badge.text = Rating.text(title.rating)
             badge.visibility = if (badge.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             itemView.contentDescription = title.name
+            // A recycled card may still be pressed in from its last click. (Not cancelling the
+            // animator: that would also freeze the row's slide mid-way, see RowRecyclerView.flip.)
+            itemView.scaleX = 1f; itemView.scaleY = 1f
+            val adapter = owner
             itemView.setOnClickListener {
-                itemView.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).withEndAction { onClick(title) }.start()
+                itemView.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).withEndAction {
+                    // Springs back, so the card isn't left pressed in when the user returns.
+                    itemView.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    adapter.onClick(title)
+                }.start()
             }
-            itemView.setOnLongClickListener { onLongClick(title); true }
+            itemView.setOnLongClickListener { adapter.onLongClick(title); true }
             itemView.setOnFocusChangeListener { _, focused ->
                 if (focused) {
                     expand(title) // also pins the card to the start of the row, as Netflix does
-                    onFocus(title)
+                    adapter.onFocus(title)
                 } else {
                     collapse(instant = false)
                     // Focus moving along the row resizes both cards in one go (see expand);
                     // only when it leaves the row does this card shrink on its own.
                     itemView.post {
-                        val row = itemView.parent as? RowRecyclerView
-                        if (big === this && !itemView.isFocused && row?.hasFocus() != true) {
-                            if (row != null) row.flip(null) { size(false) } else size(false)
+                        val list = itemView.parent as? RowRecyclerView
+                        if (adapter.big === this && !itemView.isFocused && list?.hasFocus() != true) {
+                            if (list != null) list.flip(null) { size(false) } else size(false)
                         }
                     }
                 }
@@ -382,5 +409,11 @@ class PosterAdapter(
 
         /** Width in dp of the progress bar on the focused card. */
         private const val WATCHED_W = 120f
+
+        private val types = HashMap<Triple<Int, Int, Boolean>, Int>()
+
+        /** One view type per card build (size, ranked), so the shared pool never mixes them. */
+        @Synchronized
+        fun typeFor(w: Int, h: Int, ranked: Boolean) = types.getOrPut(Triple(w, h, ranked)) { types.size }
     }
 }

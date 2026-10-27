@@ -245,7 +245,8 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         img.setImageDrawable(null)
         img.alpha = 0f
         img.bringToFront()
-        val width = activity.resources.displayMetrics.widthPixels
+        // Decoded at the billboard's own width (it's narrower than the screen), saving GPU memory.
+        val width = img.width.takeIf { it > 0 } ?: activity.resources.displayMetrics.widthPixels
         Images.get(pick.backdrop!!, width) { bmp ->
             if (featured !== pick || bmp == null) return@get
             img.setImageBitmap(bmp)

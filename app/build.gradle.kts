@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Release signing comes from local.properties (flix.*) or FLIX_* environment variables,
+// never from the repo. Without them, release builds fall back to the debug key so anyone
+// can still build and sideload, but those APKs can't update an officially signed install.
+val signing = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun secret(key: String) = signing.getProperty("flix.$key") ?: System.getenv("FLIX_" + key.uppercase())
 
 android {
     namespace = "com.flix.launcher"
@@ -11,8 +21,17 @@ android {
         applicationId = "com.flix.launcher"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
+    }
+
+    signingConfigs {
+        create("release") {
+            secret("storeFile")?.let { storeFile = rootProject.file(it) }
+            storePassword = secret("storePassword")
+            keyAlias = secret("keyAlias")
+            keyPassword = secret("keyPassword")
+        }
     }
 
     buildTypes {
@@ -20,8 +39,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Signed with the debug key so it can be sideloaded without a keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            val release = signingConfigs.getByName("release")
+            signingConfig = if (release.storeFile?.exists() == true) release else signingConfigs.getByName("debug")
         }
     }
     compileOptions {

@@ -361,7 +361,7 @@ class SettingsActivity : Activity() {
         opt(0, "All apps", FlixSettings.ALL_APPS_TILE, R.drawable.ic_o_tile_plus, "every app button")
         act(0, "All apps", "Hidden apps", "Bring back apps you hid from All apps", R.drawable.ic_o_eye, "unhide restore show") { showHiddenApps() }
         act(0, "All apps", "Reset favourites order", "Nuvio, TiviMate and YouTube first", R.drawable.ic_o_reset, "sort order arrange") {
-            repo.resetOrder(); applyToHome(); toast("Favourites order reset")
+            repo.resetOrder(); applyToHome(appsOnly = true); toast("Favourites order reset")
         }
 
         // Movies & shows
@@ -852,13 +852,14 @@ class SettingsActivity : Activity() {
             .setTitle("Tap an app to show it again")
             .setItems(labels.toTypedArray()) { _, which ->
                 repo.unhide(hidden[which])
-                applyToHome()
+                applyToHome(appsOnly = true)
             }
             .show()
     }
 
-    private fun applyToHome() {
-        sendBroadcast(Intent(ACTION_CHANGED).setPackage(packageName))
+    /** [appsOnly]: only favourites or hidden apps changed, so home needn't rebuild its movie rows. */
+    private fun applyToHome(appsOnly: Boolean = false) {
+        sendBroadcast(Intent(ACTION_CHANGED).setPackage(packageName).putExtra(EXTRA_APPS_ONLY, appsOnly))
     }
 
     private var closing = false
@@ -894,6 +895,8 @@ class SettingsActivity : Activity() {
 
     companion object {
         const val ACTION_CHANGED = "com.flix.launcher.SETTINGS_CHANGED"
+        /** Set on [ACTION_CHANGED] when only the app tiles changed. */
+        const val EXTRA_APPS_ONLY = "apps_only"
         private const val RED = 0xFFE50914.toInt()
         private const val INK = 0xFF141414.toInt()
         private val SECTIONS = listOf(

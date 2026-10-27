@@ -35,6 +35,12 @@ object Addons {
         Row(CINEMETA, "Cinemeta", "movie", "imdbRating", "Featured movies", supportsGenre = true),
     )
 
+    /**
+     * Rows are edited from the TV screen and from the phone page at the same time;
+     * every read-modify-save holds this lock so one edit never overwrites another.
+     */
+    private val lock = Any()
+
     private fun prefs(context: Context) = context.getSharedPreferences("flix", Context.MODE_PRIVATE)
 
     fun rows(context: Context): List<Row> {
@@ -57,7 +63,7 @@ object Addons {
         }.getOrDefault(DEFAULT_ROWS)
     }
 
-    fun save(context: Context, rows: List<Row>) {
+    fun save(context: Context, rows: List<Row>) = synchronized(lock) {
         val array = JSONArray()
         rows.forEach { r ->
             array.put(JSONObject().apply {
@@ -74,7 +80,7 @@ object Addons {
         prefs(context).edit().putString(KEY, array.toString()).apply()
     }
 
-    fun move(context: Context, index: Int, delta: Int) {
+    fun move(context: Context, index: Int, delta: Int) = synchronized(lock) {
         val list = rows(context).toMutableList()
         val to = index + delta
         if (index !in list.indices || to !in list.indices) return
@@ -82,7 +88,7 @@ object Addons {
         save(context, list)
     }
 
-    fun toggle(context: Context, index: Int) {
+    fun toggle(context: Context, index: Int) = synchronized(lock) {
         val list = rows(context).toMutableList()
         if (index !in list.indices) return
         list[index] = list[index].copy(enabled = !list[index].enabled)
@@ -90,7 +96,7 @@ object Addons {
     }
 
     /** Turns a row on or off; a row switched on joins the end of the rows already on the home screen. */
-    fun setEnabled(context: Context, key: String, on: Boolean) {
+    fun setEnabled(context: Context, key: String, on: Boolean) = synchronized(lock) {
         val list = rows(context).toMutableList()
         val index = list.indexOfFirst { it.key == key }
         if (index < 0) return
@@ -104,7 +110,7 @@ object Addons {
     }
 
     /** Moves a row among the rows that are on, by key. */
-    fun moveEnabled(context: Context, key: String, delta: Int) {
+    fun moveEnabled(context: Context, key: String, delta: Int) = synchronized(lock) {
         val list = rows(context)
         val index = list.indexOfFirst { it.key == key }
         val target = index + delta
@@ -112,17 +118,18 @@ object Addons {
         move(context, index, delta)
     }
 
-    fun removeAddon(context: Context, manifest: String) =
+    fun removeAddon(context: Context, manifest: String) = synchronized(lock) {
         save(context, rows(context).filter { it.manifest != manifest })
+    }
 
-    fun remove(context: Context, index: Int) {
+    fun remove(context: Context, index: Int) = synchronized(lock) {
         val list = rows(context).toMutableList()
         if (index !in list.indices) return
         list.removeAt(index)
         save(context, list)
     }
 
-    fun reset(context: Context) = prefs(context).edit().remove(KEY).apply()
+    fun reset(context: Context) = synchronized(lock) { prefs(context).edit().remove(KEY).apply() }
 
     /**
      * Reads an addon's manifest and appends one row per browsable catalogue
@@ -131,12 +138,14 @@ object Addons {
      */
     fun add(context: Context, url: String): Int {
         val manifestUrl = normalise(url)
+        // Plain http would let anyone on the path swap the rows' content; the app only allows cleartext to sylvan.apple.com.
+        if (!manifestUrl.startsWith("https://")) throw IllegalArgumentException("Addon URLs must start with https://")
         val conn = URL(manifestUrl).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 10000
         conn.instanceFollowRedirects = true
         val manifest = try {
-            JSONObject(conn.inputStream.bufferedReader().readText())
+            JSONObject(SafeIo.readText(conn))
         } catch (e: Exception) {
             throw IllegalArgumentException("Couldn't read that addon (${e.javaClass.simpleName})")
         } finally {
@@ -144,8 +153,7 @@ object Addons {
         }
         val name = manifest.optString("name", "Addon")
         val catalogs = manifest.optJSONArray("catalogs") ?: JSONArray()
-        val existing = rows(context)
-        val added = mutableListOf<Row>()
+        val found = mutableListOf<Row>()
         for (i in 0 until catalogs.length()) {
             val c = catalogs.getJSONObject(i)
             val extras = c.optJSONArray("extra") ?: JSONArray()
@@ -170,13 +178,20 @@ object Addons {
                 title = c.optString("name").ifBlank { "$name ${c.optString("type")}" },
                 supportsGenre = genre,
             )
-            if (existing.none { it.key == row.key } && added.none { it.key == row.key }) added += row
+            if (found.none { it.key == row.key }) found += row
         }
-        if (added.isEmpty()) throw IllegalArgumentException("$name has no catalogues Flix Launcher can show")
-        // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
-        val rows = if (added.size > MAX_SHOWN_ON_ADD) added.map { it.copy(enabled = false) } else added
-        save(context, existing + rows)
-        return added.size
+        // The download can take seconds, so the rows are read again under the lock just before saving.
+        val added = synchronized(lock) {
+            val existing = rows(context)
+            val fresh = found.filter { f -> existing.none { it.key == f.key } }
+            if (fresh.isEmpty()) throw IllegalArgumentException(
+                if (found.isEmpty()) "$name has no catalogues Flix Launcher can show" else "$name's rows are already added"
+            )
+            // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
+            save(context, existing + if (fresh.size > MAX_SHOWN_ON_ADD) fresh.map { it.copy(enabled = false) } else fresh)
+            fresh.size
+        }
+        return added
     }
 
     /** Accepts stremio:// links and URLs pasted without /manifest.json. */

@@ -80,7 +80,7 @@ object VideoFeed {
             }
         }
         if (found.size < 20) return
-        file.writeText(found.joinToString("\n") { "${it.kind}\t${it.url}\t${it.title}" })
+        SafeIo.write(file, found.joinToString("\n") { "${it.kind}\t${it.url}\t${it.title}" })
         clips = found
     }
 
@@ -88,6 +88,6 @@ object VideoFeed {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 20000
-        return try { conn.inputStream.bufferedReader().use { it.readText() } } finally { conn.disconnect() }
+        return try { SafeIo.readText(conn) } finally { conn.disconnect() }
     }
 }

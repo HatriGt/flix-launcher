@@ -62,12 +62,13 @@ object Catalog {
         conn.readTimeout = 10000
         conn.instanceFollowRedirects = true
         val body = try {
-            conn.inputStream.bufferedReader().readText()
+            SafeIo.readText(conn)
         } finally {
             conn.disconnect()
         }
         val titles = parse(body, source.base)
-        cacheFile(context, source, genre).writeText(body)
+        SafeIo.write(cacheFile(context, source, genre), body)
+        pruneCache(context)
         titles
     }.getOrNull()
 
@@ -108,14 +109,39 @@ object Catalog {
                 conn.connectTimeout = 5000
                 conn.readTimeout = 8000
                 conn.instanceFollowRedirects = true
-                val body = try { conn.inputStream.bufferedReader().readText() } finally { conn.disconnect() }
+                val body = try { SafeIo.readText(conn) } finally { conn.disconnect() }
                 parse(body, "https://v3-cinemeta.strem.io").take(15)
             }.getOrDefault(emptyList())
         }
     }
 
     private fun cacheFile(context: Context, source: Addons.Row, genre: String?) =
-        File(context.cacheDir, "catalog_${(source.key + "|" + (genre ?: "all")).hashCode().toUInt()}.json")
+        File(context.cacheDir, "catalog_${hashName(source.key + "|" + (genre ?: "all"))}.json")
+
+    /**
+     * A cache file name for [key]. SHA-1 rather than hashCode: 32-bit hashes collide often
+     * enough across hundreds of titles that one title could be shown with another's details.
+     */
+    fun hashName(key: String): String =
+        java.security.MessageDigest.getInstance("SHA-1").digest(key.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    /**
+     * Deletes title, trailer and catalogue cache files untouched for two weeks (and stray
+     * half-written temp files), at most once a day, so the cache doesn't grow forever on a
+     * TV with little storage. Files under old naming schemes simply age out this way.
+     */
+    private fun pruneCache(context: Context) {
+        val p = prefs(context)
+        val now = System.currentTimeMillis()
+        if (now - p.getLong("cache_pruned_at", 0) < 24 * 3600_000L) return
+        p.edit().putLong("cache_pruned_at", now).apply()
+        context.cacheDir.listFiles()?.forEach { f ->
+            val ours = f.name.startsWith("meta_") || f.name.startsWith("trailer_") || f.name.startsWith("catalog_")
+            val old = now - f.lastModified() > 14 * 24 * 3600_000L
+            val staleTmp = f.name.endsWith(".tmp") && now - f.lastModified() > 3600_000L
+            if (f.isFile && ((ours && old) || staleTmp)) f.delete()
+        }
+    }
 
     // ---- Titles the user chose to hide ----
 

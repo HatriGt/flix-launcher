@@ -32,6 +32,8 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     private var surface: SurfaceView? = null
     private var service: Messenger? = null
     private var connection: ServiceConnection? = null
+    /** Bumped for every trailer; replies carry it so a late one from the last trailer is ignored. */
+    private var seq = 0
     var enabled = true
     val isPlaying get() = playingId != null
     var sound = false
@@ -44,7 +46,9 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     /** Called whenever the playing state changes, so the scenery video can pause. */
     var onPlaying: (Boolean) -> Unit = {}
 
-    private val replies = Messenger(Handler(Looper.getMainLooper()) { msg ->
+    private val replyHandler = Handler(Looper.getMainLooper()) { msg ->
+        // A reply from an earlier trailer (still in flight when it stopped) must not touch this one.
+        if (msg.arg2 != seq || playingId == null) return@Handler true
         when (msg.what) {
             TrailerService.MSG_SURFACE -> {
                 @Suppress("DEPRECATION")
@@ -60,7 +64,8 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
             } else if (msg.arg1 == 0) stop()
         }
         true
-    })
+    }
+    private val replies = Messenger(replyHandler)
 
     private var revealed = false
 
@@ -89,9 +94,11 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
 
     fun stop() {
         main.removeCallbacksAndMessages(null)
+        replyHandler.removeCallbacksAndMessages(null)
         pending = null
         if (playingId == null) return
         playingId = null
+        seq++
         connection?.let { runCatching { context.unbindService(it) } }
         connection = null
         service = null
@@ -110,6 +117,7 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
             main.post {
                 if (pending?.id != title.id) return@post
                 playingId = title.id
+                seq++
                 val sv = SurfaceView(context).apply {
                     visibility = View.INVISIBLE
                     // Above the backdrop but under the page, like the old WebView.
@@ -118,19 +126,20 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                 surface = sv
                 host.addView(sv, android.widget.FrameLayout.LayoutParams(-1, -1))
                 sv.holder.setFixedSize(host.width / 2, host.height / 2)
-                sv.post { bind(ytId, sv) }
+                val mySeq = seq
+                sv.post { bind(ytId, sv, mySeq) }
             }
         }
     }
 
-    private fun bind(ytId: String, sv: SurfaceView) {
-        if (surface !== sv) return
+    private fun bind(ytId: String, sv: SurfaceView, mySeq: Int) {
+        if (surface !== sv || seq != mySeq) return
         val conn = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName, binder: IBinder) {
                 if (connection !== this) return
                 val m = Messenger(binder)
                 service = m
-                val msg = Message.obtain(null, TrailerService.MSG_PLAY)
+                val msg = Message.obtain(null, TrailerService.MSG_PLAY, mySeq, 0)
                 msg.replyTo = replies
                 msg.data = Bundle().apply {
                     putString("ytId", ytId)
@@ -147,6 +156,10 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
                 runCatching { m.send(msg) }
             }
             override fun onServiceDisconnected(name: ComponentName) { if (connection === this) stop() }
+            // The player's process died for good or refused us: drop this trailer cleanly;
+            // the next focus binds afresh with a new connection.
+            override fun onBindingDied(name: ComponentName) { if (connection === this) stop() }
+            override fun onNullBinding(name: ComponentName) { if (connection === this) stop() }
         }
         connection = conn
         context.bindService(Intent(context, TrailerService::class.java), conn, Context.BIND_AUTO_CREATE)
@@ -156,20 +169,24 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
     private fun trailerId(title: Catalog.Title): String? = runCatching {
         val file = File(context.cacheDir, "trailer_${title.id.hashCode().toUInt()}.txt")
         if (file.exists() && System.currentTimeMillis() - file.lastModified() < 7 * 24 * 3600_000L) {
-            return file.readText().ifBlank { null }
+            // Checked again on the way out of the cache: the id ends up inside the player's script.
+            return file.readText().takeIf { YT_ID.matches(it) }
         }
         val base = if (title.id.startsWith("tt")) "https://v3-cinemeta.strem.io" else title.addonBase ?: return null
         val conn = URL("$base/meta/${title.type}/${java.net.URLEncoder.encode(title.id, "UTF-8")}.json").openConnection() as HttpURLConnection
         conn.connectTimeout = 6000
         conn.readTimeout = 8000
         val meta = try {
-            JSONObject(conn.inputStream.bufferedReader().readText()).optJSONObject("meta")
+            JSONObject(SafeIo.readText(conn)).optJSONObject("meta")
         } finally {
             conn.disconnect()
         }
-        val id = meta?.optJSONArray("trailerStreams")?.optJSONObject(0)?.optString("ytId")?.ifBlank { null }
+        val raw = meta?.optJSONArray("trailerStreams")?.optJSONObject(0)?.optString("ytId")?.ifBlank { null }
             ?: meta?.optJSONArray("trailers")?.optJSONObject(0)?.optString("source")?.ifBlank { null }
-        file.writeText(id.orEmpty())
+        // Addon metadata is untrusted and is pasted into the player's script, so only a real
+        // YouTube id (11 safe characters) is kept; anything else counts as no trailer.
+        val id = raw?.takeIf { YT_ID.matches(it) }
+        SafeIo.write(file, id.orEmpty())
         id
     }.getOrNull()
 
@@ -177,5 +194,6 @@ class Trailer(private val context: Context, private val host: android.widget.Fra
 
     private companion object {
         const val PREPARE_AFTER_MS = 500L
+        val YT_ID = Regex("^[A-Za-z0-9_-]{11}$")
     }
 }

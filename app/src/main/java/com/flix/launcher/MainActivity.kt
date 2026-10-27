@@ -92,13 +92,18 @@ class MainActivity : Activity() {
 
     private val settingsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            applySettings()
+            // Favourites or hidden apps: only the app rows need refreshing.
+            if (!intent.getBooleanExtra(SettingsActivity.EXTRA_APPS_ONLY, false)) applySettings()
             loadApps() // favourites or hidden apps may have changed too
         }
     }
 
     private val goIdle = Runnable { setIdle(true) }
     private val nextImage = Runnable { showImage(imageIndex + 1) }
+
+    /** Between onStart and onStop. A photo arriving after onStop mustn't schedule the next one,
+     *  or photos would keep downloading every minute behind another app. */
+    private var started = false
 
     /** Kept paused for a while after leaving home so coming back is instant; then freed for the app in use. */
     private val releasePlayer = Runnable {
@@ -261,10 +266,27 @@ class MainActivity : Activity() {
         trailer.enabled = isOn(FlixSettings.TRAILERS)
         trailer.sound = isOn(FlixSettings.TRAILER_SOUND)
         trailer.delayMs = FlixSettings.get(this, FlixSettings.TRAILER_DELAY).toLong() * 1000
-        movieRows.rebuild()
+        // Rebuilding every row refetches and redraws all posters; only do it when something
+        // the rows are made from changed. Otherwise just re-apply hidden titles (cheap).
+        val rowsNow = rowsSnapshot()
+        if (rowsNow != rowsBuiltFrom) {
+            rowsBuiltFrom = rowsNow
+            movieRows.rebuild()
+        } else movieRows.refreshHidden()
         startWallpaper()
         if (!idle) scheduleIdle()
     }
+
+    /** What the movie rows were last built from; see [applySettings]. */
+    private var rowsBuiltFrom: List<Any>? = null
+
+    private fun rowsSnapshot(): List<Any> = listOf(
+        listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.TOP_TEN,
+            FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
+        Addons.rows(this),
+        NuvioAccount.isSignedIn(this),
+        packageManager.getLaunchIntentForPackage(NUVIO) != null,
+    )
 
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
 
@@ -581,6 +603,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        started = true
         if (launchedFromHome) playReturn()
         main.removeCallbacks(tick)
         main.post(tick)
@@ -620,6 +643,7 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        started = false
         Images.trim()
         main.removeCallbacks(tick)
         main.removeCallbacks(nextImage)
@@ -1101,7 +1125,7 @@ class MainActivity : Activity() {
         scrim.visibility = View.VISIBLE
         showSceneTitle(title)
         main.removeCallbacks(nextImage)
-        main.postDelayed(nextImage, ROTATE_MS)
+        if (started) main.postDelayed(nextImage, ROTATE_MS)
     }
 
     private fun showBuiltIn(index: Int) {
@@ -1113,10 +1137,19 @@ class MainActivity : Activity() {
         val ready = { bitmap: android.graphics.Bitmap -> present(bitmap, item.title) }
         if (uri.scheme == "http" || uri.scheme == "https") {
             // Downscaled, cached on disk and kept on the GPU, like the posters.
-            Images.get(item.uri, resources.displayMetrics.widthPixels) { it?.let(ready) ?: main.postDelayed(nextImage, 10_000) }
+            Images.get(item.uri, resources.displayMetrics.widthPixels) { it?.let(ready) ?: run { if (started) main.postDelayed(nextImage, 10_000) } }
         } else net.execute {
-            val bitmap = runCatching { contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }.getOrNull()
-                ?: return@execute
+            // Sized to the screen and kept on the GPU, as for downloaded photos: a full-size
+            // camera photo decoded whole would take tens of MB.
+            val bitmap = runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                val options = BitmapFactory.Options().apply {
+                    with(Images) { exactWidth(bounds.outWidth, resources.displayMetrics.widthPixels) }
+                    inPreferredConfig = android.graphics.Bitmap.Config.HARDWARE
+                }
+                contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            }.getOrNull() ?: return@execute
             main.post { ready(bitmap) }
         }
     }

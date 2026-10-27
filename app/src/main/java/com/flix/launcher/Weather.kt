@@ -29,7 +29,7 @@ object Weather {
         conn.readTimeout = 8000
         conn.setRequestProperty("User-Agent", "curl/8")
         val json = try {
-            JSONObject(conn.inputStream.bufferedReader().readText())
+            JSONObject(SafeIo.readText(conn))
         } finally {
             conn.disconnect()
         }
@@ -49,9 +49,13 @@ object Weather {
                 low = day.getInt("mintempC"),
             )
         }
-        val astronomy = forecast.getJSONObject(0).optJSONArray("astronomy")?.optJSONObject(0)
-        val clock = SimpleDateFormat("hh:mm a", Locale.US)
-        fun sunTime(key: String) = astronomy?.optString(key)?.let { runCatching { clock.parse(it) }.getOrNull() }
+        val today = forecast.getJSONObject(0)
+        val astronomy = today.optJSONArray("astronomy")?.optJSONObject(0)
+        // wttr.in gives bare clock times ("06:42 AM"); parsed alone they'd land on 1 Jan 1970,
+        // so they're joined to the forecast's own date to compare correctly with now.
+        val clock = SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.US)
+        val date = today.optString("date").ifBlank { parse.format(java.util.Date()) }
+        fun sunTime(key: String) = astronomy?.optString(key)?.let { runCatching { clock.parse("$date $it") }.getOrNull() }
         Report(
             icon = icon(now.getInt("weatherCode")),
             temperature = now.getInt("temp_C"),

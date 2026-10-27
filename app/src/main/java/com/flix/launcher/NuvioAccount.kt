@@ -1,12 +1,23 @@
 package com.flix.launcher
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.KeyStore
 import java.security.SecureRandom
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Signs in to the user's Nuvio account the way Nuvio's own TV app does (a code
@@ -24,9 +35,14 @@ object NuvioAccount {
     private const val CONFIG_URL = "https://nuvio.tv/config.js"
     private const val CINEMETA = "https://v3-cinemeta.strem.io"
 
+    /** A reply from Nuvio with an HTTP error status, so callers can tell "rejected" from "offline". */
+    class HttpError(val code: Int, message: String) : IllegalStateException(message)
+
     private fun prefs(context: Context) = context.getSharedPreferences("nuvio_account", Context.MODE_PRIVATE)
 
-    fun isSignedIn(context: Context) = prefs(context).getString("refresh_token", null) != null
+    // Cheap check (no decryption) so the UI thread can call it; a token that later fails
+    // to decrypt signs the user out, after which this turns false.
+    fun isSignedIn(context: Context) = prefs(context).let { it.contains("refresh_token_enc") || it.contains("refresh_token") }
 
     fun profile(context: Context): Profile? = prefs(context).let { p ->
         if (!p.contains("profile_index")) null else Profile(p.getInt("profile_index", 1), p.getString("profile_name", "").orEmpty())
@@ -36,7 +52,9 @@ object NuvioAccount {
         prefs(context).edit().putInt("profile_index", profile.index).putString("profile_name", profile.name).apply()
 
     fun signOut(context: Context) {
-        prefs(context).edit().clear().apply()
+        // Keeps the public anon key: it isn't tied to the account and saves a fetch next sign-in.
+        val anon = prefs(context).getString("anon_key", null)
+        prefs(context).edit().clear().apply { anon?.let { putString("anon_key", it) } }.apply()
         File(context.cacheDir, "continue.json").delete()
     }
 
@@ -58,7 +76,7 @@ object NuvioAccount {
     /** Signs in with the email and password the user typed on the TV; they go straight to Nuvio and aren't kept. */
     fun passwordLogin(context: Context, email: String, password: String) {
         val body = request(context, "$API/auth/v1/token?grant_type=password",
-            JSONObject().put("email", email.trim()).put("password", password).toString(), bearer = anonKey(context))
+            JSONObject().put("email", email.trim()).put("password", password).toString(), anonBearer = true)
         saveSession(context, JSONObject(body))
     }
 
@@ -72,7 +90,7 @@ object NuvioAccount {
     /** Swaps an approved code for a session and keeps only its tokens. */
     fun finishLogin(context: Context, login: Login) {
         val body = request(context, "$API/functions/v1/tv-logins-exchange",
-            JSONObject().put("code", login.code).put("device_nonce", login.nonce).toString(), bearer = anonKey(context))
+            JSONObject().put("code", login.code).put("device_nonce", login.nonce).toString(), anonBearer = true)
         saveSession(context, JSONObject(body).let { it.optJSONObject("session") ?: it })
     }
 
@@ -108,11 +126,17 @@ object NuvioAccount {
             .sortedByDescending { it.optLong("last_watched") }
             .take(20)
             .let { picked ->
-                // Look titles up in parallel; each may hit a different addon.
-                val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
-                val metas = picked.map { r -> pool.submit<Pair<JSONObject, String?>?> { meta(context, r.optString("content_type", "movie"), r.getString("content_id")) } }
-                    .map { runCatching { it.get() }.getOrNull() }
-                pool.shutdown()
+                // Look titles up in parallel; each may hit a different addon. The whole lookup
+                // is capped so one slow addon can't hold the row for minutes: titles not found
+                // in time just show their id and get their artwork on the next refresh.
+                val deadline = System.currentTimeMillis() + META_BUDGET_MS
+                val futures = picked.map { r -> metaPool.submit<Pair<JSONObject, String?>?> { meta(context, r.optString("content_type", "movie"), r.getString("content_id")) } }
+                val metas = futures.map { f ->
+                    val left = deadline - System.currentTimeMillis()
+                    runCatching { f.get(maxOf(left, 1), TimeUnit.MILLISECONDS) }
+                        .onFailure { f.cancel(true) }
+                        .getOrNull()
+                }
                 picked.zip(metas)
             }
             .mapNotNull { (r, found) ->
@@ -140,17 +164,25 @@ object NuvioAccount {
             }
     }
 
+    private const val META_BUDGET_MS = 20_000L
+
+    /** One small shared pool for title lookups; its threads exit when idle so they cost nothing between refreshes. */
+    private val metaPool = ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, LinkedBlockingQueue()).apply { allowCoreThreadTimeOut(true) }
+
     /**
-     * Title details and the addon they came from, cached on disk for a week. IMDb ids
+     * Title details and the addon they came from, cached on disk for a week. Titles no
+     * addon knows are remembered for a day, so they aren't asked about on every refresh. IMDb ids
      * come from Cinemeta; other ids (e.g. IndiaStreamz's) are asked of the user's own
      * addons in turn, and that addon is remembered so Nuvio can open the title.
      */
     private fun meta(context: Context, type: String, id: String): Pair<JSONObject, String?>? {
-        val file = File(context.cacheDir, "meta_${type}_${id.hashCode().toUInt()}.json")
-        if (file.exists() && System.currentTimeMillis() - file.lastModified() < 7 * 24 * 3600_000L) {
+        val file = File(context.cacheDir, "meta_${Catalog.hashName("$type|$id")}.json")
+        val age = System.currentTimeMillis() - file.lastModified()
+        if (file.exists() && age < 7 * 24 * 3600_000L) {
             runCatching {
                 val cached = JSONObject(file.readText())
-                return cached.getJSONObject("meta") to cached.optString("flix_base").ifBlank { null }
+                if (cached.optBoolean("missing")) { if (age < 24 * 3600_000L) return null }
+                else return cached.getJSONObject("meta") to cached.optString("flix_base").ifBlank { null }
             }
         }
         val bases = if (id.startsWith("tt")) listOf(CINEMETA)
@@ -161,8 +193,12 @@ object NuvioAccount {
                 JSONObject(body).optJSONObject("meta")?.takeIf { it.optString("name").isNotBlank() }
             }.getOrNull() ?: continue
             val addon = if (base == CINEMETA) null else base
-            file.writeText(JSONObject().put("meta", found).put("flix_base", addon ?: "").toString())
+            runCatching { SafeIo.write(file, JSONObject().put("meta", found).put("flix_base", addon ?: "").toString()) }
             return found to addon
+        }
+        // Only remember a miss when there was something to ask; a cancelled lookup isn't a miss.
+        if (bases.isNotEmpty() && !Thread.currentThread().isInterrupted) {
+            runCatching { SafeIo.write(file, JSONObject().put("missing", true).toString()) }
         }
         return null
     }
@@ -170,17 +206,32 @@ object NuvioAccount {
     // ---- Plumbing ----
 
     private fun rpc(context: Context, name: String, body: JSONObject, anonymous: Boolean = false): String =
-        request(context, "$API/rest/v1/rpc/$name", body.toString(), bearer = if (anonymous) anonKey(context) else accessToken(context))
+        if (anonymous) request(context, "$API/rest/v1/rpc/$name", body.toString(), anonBearer = true)
+        else request(context, "$API/rest/v1/rpc/$name", body.toString(), bearer = accessToken(context))
 
+    /**
+     * A current access token, refreshing it when it's about to expire. Synchronized because
+     * Nuvio's refresh tokens are single-use: two threads refreshing at once would send the
+     * same one twice and the second would be rejected, signing the user out.
+     */
+    @Synchronized
     private fun accessToken(context: Context): String {
         val p = prefs(context)
-        val token = p.getString("access_token", null)
+        val token = readToken(context, "access_token")
         if (token != null && System.currentTimeMillis() / 1000 < p.getLong("expires_at", 0) - 60) return token
-        val refresh = p.getString("refresh_token", null) ?: throw IllegalStateException("Not signed in to Nuvio")
-        val body = request(context, "$API/auth/v1/token?grant_type=refresh_token",
-            JSONObject().put("refresh_token", refresh).toString(), bearer = anonKey(context))
+        val refresh = readToken(context, "refresh_token") ?: throw IllegalStateException("Not signed in to Nuvio")
+        val body = try {
+            request(context, "$API/auth/v1/token?grant_type=refresh_token",
+                JSONObject().put("refresh_token", refresh).toString(), anonBearer = true)
+        } catch (e: HttpError) {
+            // Nuvio rejected the refresh token (revoked, expired, already used): the session is
+            // gone, so show the user as signed out rather than an empty Continue watching row.
+            // Network errors aren't HttpErrors and leave the session alone.
+            if (e.code == 400 || e.code == 401) signOut(context)
+            throw e
+        }
         saveSession(context, JSONObject(body))
-        return prefs(context).getString("access_token", null)!!
+        return readToken(context, "access_token") ?: throw IllegalStateException("Not signed in to Nuvio")
     }
 
     private fun saveSession(context: Context, session: JSONObject) {
@@ -188,10 +239,58 @@ object NuvioAccount {
         val expiresAt = session.optLong("expires_at").takeIf { it > 0 }
             ?: (System.currentTimeMillis() / 1000 + session.optLong("expires_in", 3600))
         prefs(context).edit()
-            .putString("access_token", access)
-            .putString("refresh_token", session.getString("refresh_token"))
+            .putString("access_token_enc", TokenBox.seal(access))
+            .putString("refresh_token_enc", TokenBox.seal(session.getString("refresh_token")))
+            .remove("access_token")
+            .remove("refresh_token")
             .putLong("expires_at", expiresAt)
-            .apply()
+            .commit()
+    }
+
+    /**
+     * A token from prefs. Older builds kept them in plain text; those are encrypted on first
+     * read. A token that can't be decrypted (key lost after a restore, say) signs the user out.
+     */
+    private fun readToken(context: Context, name: String): String? {
+        val p = prefs(context)
+        p.getString(name, null)?.let { plain ->
+            p.edit().putString("${name}_enc", TokenBox.seal(plain)).remove(name).commit()
+            return plain
+        }
+        val sealed = p.getString("${name}_enc", null) ?: return null
+        return runCatching { TokenBox.open(sealed) }.getOrElse {
+            signOut(context)
+            null
+        }
+    }
+
+    /** Encrypts tokens with an AES key that lives in the Android Keystore and never leaves it. */
+    private object TokenBox {
+        private const val ALIAS = "nuvio_tokens"
+
+        private fun key(): SecretKey {
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+            return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
+                init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .build())
+            }.generateKey()
+        }
+
+        fun seal(text: String): String {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
+            val iv = cipher.iv
+            return Base64.encodeToString(iv + cipher.doFinal(text.toByteArray()), Base64.NO_WRAP)
+        }
+
+        fun open(sealed: String): String {
+            val all = Base64.decode(sealed, Base64.NO_WRAP)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, all, 0, 12))
+            return String(cipher.doFinal(all, 12, all.size - 12))
+        }
     }
 
     /** Nuvio's public client key, read from its website config so it stays current. */
@@ -205,12 +304,30 @@ object NuvioAccount {
         return key
     }
 
-    private fun request(context: Context, url: String, body: String?, bearer: String?, apikey: Boolean = true): String {
+    /**
+     * One HTTP call. [anonBearer] sends the anon key as the bearer. The cached anon key is
+     * kept until Nuvio rejects it: a 401 on an anonymous call, or one blaming the API key,
+     * drops it and retries once with a freshly read key.
+     */
+    private fun request(
+        context: Context, url: String, body: String?, bearer: String? = null,
+        apikey: Boolean = true, anonBearer: Boolean = false, retried: Boolean = false,
+    ): String = try {
+        send(url, body, if (anonBearer) anonKey(context) else bearer, if (apikey) anonKey(context) else null)
+    } catch (e: HttpError) {
+        val staleKey = e.code == 401 && apikey && !retried &&
+            (anonBearer || e.message.orEmpty().contains("api key", ignoreCase = true))
+        if (!staleKey) throw e
+        prefs(context).edit().remove("anon_key").apply()
+        request(context, url, body, bearer, apikey, anonBearer, retried = true)
+    }
+
+    private fun send(url: String, body: String?, bearer: String?, apikey: String?): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 15000
         conn.setRequestProperty("Accept", "application/json")
-        if (apikey) conn.setRequestProperty("apikey", anonKey(context))
+        apikey?.let { conn.setRequestProperty("apikey", it) }
         bearer?.let { conn.setRequestProperty("Authorization", "Bearer $it") }
         if (body != null) {
             conn.requestMethod = "POST"
@@ -220,10 +337,11 @@ object NuvioAccount {
         }
         try {
             val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText().orEmpty()
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.use { String(SafeIo.readBytes(it, SafeIo.MAX_JSON)) }.orEmpty()
             if (code !in 200..299) {
-                val message = runCatching { JSONObject(text).let { it.optString("error").ifBlank { it.optString("message") } } }.getOrNull()
-                throw IllegalStateException(message?.ifBlank { null } ?: "Nuvio returned $code")
+                val message = runCatching { JSONObject(text).let { it.optString("error_description").ifBlank { it.optString("msg") }.ifBlank { it.optString("error") }.ifBlank { it.optString("message") } } }.getOrNull()
+                throw HttpError(code, message?.ifBlank { null } ?: "Nuvio returned $code")
             }
             return text
         } finally {

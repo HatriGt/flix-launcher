@@ -38,12 +38,15 @@ class MovieRows(
     val rows = mutableListOf<Row>()
     private val main = Handler(Looper.getMainLooper())
     private val dp = activity.resources.displayMetrics.density
-    private val sharedPool = RecyclerView.RecycledViewPool().apply { setMaxRecycledViews(0, 16) }
+    /** Spare cards shared by all rows; a new one per rebuild so cards of an old poster size aren't reused. */
+    private var sharedPool = RecyclerView.RecycledViewPool()
 
     /** Rebuilds the rows from the current settings; data comes from the disk cache first. */
     fun rebuild() {
         container.removeAllViews()
         rows.clear()
+        sharedPool.clear()
+        sharedPool = RecyclerView.RecycledViewPool()
         detailed = null
         billboard.reset()
         if (!FlixSettings.isOn(activity, FlixSettings.SUGGESTIONS)) return
@@ -138,6 +141,7 @@ class MovieRows(
             // each keep a dozen detached cards alive.
             setItemViewCacheSize(4)
             setRecycledViewPool(sharedPool)
+            sharedPool.setMaxRecycledViews(adapter.viewType, 16)
             setPadding((37 * dp).toInt(), grow, (37 * dp).toInt(), grow)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (h * PosterAdapter.GROW).toInt() + grow * 2)
             if (ranked) addItemDecoration(RankNumbers(adapter.rankRoom, dp))
@@ -226,7 +230,7 @@ class MovieRows(
 
     private fun fillTop(row: Row, titles: List<Catalog.Title>) {
         val hidden = Catalog.hiddenTitles(activity)
-        row.adapter.items = titles.filter { it.poster != null && it.id !in hidden }.take(10)
+        row.adapter.items = titles.filter { it.poster != null && it.id !in hidden }.distinctBy { it.id }.take(10)
         val match = typeFilter == null || typeFilter == "movie"
         row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
     }

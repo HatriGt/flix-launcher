@@ -27,6 +27,8 @@ class TrailerService : Service() {
     private var host: SurfaceControlViewHost? = null
     private var web: WebView? = null
     private var client: Messenger? = null
+    /** The home screen's number for the current trailer, echoed on every reply (in arg2). */
+    private var seq = 0
 
     private val messenger = Messenger(Handler(Looper.getMainLooper()) { msg ->
         when (msg.what) {
@@ -53,8 +55,10 @@ class TrailerService : Service() {
         w.webChromeClient = WebChromeClient()
         w.addJavascriptInterface(object {
             @JavascriptInterface
-            fun state(playing: Boolean) {
-                runCatching { client?.send(Message.obtain(null, MSG_STATE, if (playing) 1 else 0, 0)) }
+            fun state(pageSeq: Int, playing: Boolean) {
+                // pageSeq is baked into the page that calls this, so a page still winding down
+                // from the last trailer reports under its own number and is ignored.
+                runCatching { client?.send(Message.obtain(null, MSG_STATE, if (playing) 1 else 0, pageSeq)) }
             }
         }, "Flix")
     }
@@ -65,44 +69,59 @@ class TrailerService : Service() {
             "<html><body><script src=\"https://www.youtube.com/iframe_api\"></script></body></html>", "text/html", "utf-8", null)
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        live++
+    }
+
     override fun onUnbind(intent: Intent): Boolean {
-        shutDown()
+        release()
         return false
     }
 
     override fun onDestroy() {
-        shutDown()
+        release()
+        live--
+        // End the process so Chromium's memory goes back to the TV, but only if no new bind
+        // has created a fresh instance meanwhile (a quick refocus); killing then would take
+        // the new trailer down with us.
+        main.post { if (live == 0) android.os.Process.killProcess(android.os.Process.myPid()) }
         super.onDestroy()
     }
 
-    /** Releases everything and ends this process, so Chromium's memory goes back to the TV. */
-    private fun shutDown() {
+    /** Releases the player; the process itself ends in [onDestroy]. */
+    private fun release() {
+        client = null
         web?.destroy()
         web = null
         host?.release()
         host = null
-        main.post { android.os.Process.killProcess(android.os.Process.myPid()) }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun play(msg: Message) {
         val data: Bundle = msg.data
         client = msg.replyTo
-        val ytId = data.getString("ytId") ?: return
+        seq = msg.arg1
+        // The id is pasted into the page's script; refuse anything that isn't a plain YouTube id.
+        val ytId = data.getString("ytId")?.takeIf { YT_ID.matches(it) } ?: run {
+            runCatching { client?.send(Message.obtain(null, MSG_STATE, 0, seq)) }
+            return
+        }
         val display = getSystemService(DisplayManager::class.java).getDisplay(data.getInt("displayId"))
         val view = webView()
         if (host == null) {
             host = SurfaceControlViewHost(this, display, data.getBinder("hostToken")).also {
                 it.setView(view, data.getInt("w"), data.getInt("h"))
-                val reply = Message.obtain(null, MSG_SURFACE)
+                val reply = Message.obtain(null, MSG_SURFACE, 0, seq)
                 reply.data = Bundle().apply { putParcelable("surface", it.surfacePackage) }
                 runCatching { client?.send(reply) }
             }
         }
-        view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId, data.getBoolean("sound")), "text/html", "utf-8", null)
+        view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId, data.getBoolean("sound"), seq), "text/html", "utf-8", null)
     }
 
-    private fun page(ytId: String, sound: Boolean) = """
+    private fun page(ytId: String, sound: Boolean, pageSeq: Int) = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
         #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.32)}</style></head>
@@ -116,13 +135,13 @@ class TrailerService : Service() {
           window.player = new YT.Player('p',{videoId:'$ytId',host:'https://www.youtube-nocookie.com',
             playerVars:{autoplay:1,mute:${if (sound) 0 else 1},controls:0,disablekb:1,fs:0,modestbranding:1,rel:0,iv_load_policy:3,playsinline:1},
             events:{onReady:function(e){e.target.playVideo()},
-              onStateChange:function(e){ if(e.data===1) Flix.state(true); if(e.data===0) Flix.state(false) },
-              onError:function(){ Flix.state(false) }}});
+              onStateChange:function(e){ if(e.data===1) Flix.state($pageSeq,true); if(e.data===0) Flix.state($pageSeq,false) },
+              onError:function(){ Flix.state($pageSeq,false) }}});
         }
         window.onYouTubeIframeAPIReady = make;
         </script>
         <script src="https://www.youtube.com/iframe_api" onload="setTimeout(make, 300)"></script>
-        </script></body></html>
+        </body></html>
     """.trimIndent()
 
     companion object {
@@ -131,5 +150,8 @@ class TrailerService : Service() {
         const val MSG_SOUND = 3
         const val MSG_SURFACE = 10
         const val MSG_STATE = 11
+        private val YT_ID = Regex("^[A-Za-z0-9_-]{11}$")
+        /** Service instances alive in this process (main thread only). */
+        private var live = 0
     }
 }

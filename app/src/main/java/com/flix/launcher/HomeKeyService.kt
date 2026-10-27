@@ -15,8 +15,18 @@ class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         running = true
-        // After a reboot or an update the stock home may already be on screen; replace it right away.
-        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openFlix()
+        HomeGuard.setWanted(this, true)
+    }
+
+    /**
+     * Unbinding while our process lives on means the user (or another app) switched the
+     * service off, so [HomeGuard] must leave it off. Updates and force-stops kill the
+     * process without getting here.
+     */
+    override fun onUnbind(intent: Intent?): Boolean {
+        running = false
+        HomeGuard.setWanted(this, false)
+        return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
@@ -31,16 +41,20 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            event.packageName == STOCK_LAUNCHER &&
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        // Window content access is off, so the front app is tracked from these events instead.
+        foreground = event.packageName?.toString()
+        if (event.packageName == STOCK_LAUNCHER &&
             event.className?.toString() == STOCK_HOME_ACTIVITY
         ) openFlix()
     }
 
+    /** Package of the app that last came to the front, from window-state events. */
+    private var foreground: String? = null
     private var lastOpenedAt = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val recheck = Runnable {
-        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) {
+        if (foreground == STOCK_LAUNCHER) {
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
         }
     }

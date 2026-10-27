@@ -26,6 +26,10 @@ class SceneryPlayer(
     private var prepared = false
     private var failuresInARow = 0
 
+    /** Set once released: a skip posted just before must not build a new, orphaned player. */
+    private var released = false
+    private val skip = Runnable { next(auto = false) }
+
     init {
         view.holder.addCallback(this)
         if (view.holder.surface?.isValid == true) start()
@@ -42,13 +46,20 @@ class SceneryPlayer(
     }
 
     fun release() {
+        released = true
+        view.removeCallbacks(skip)
         view.holder.removeCallback(this)
-        mp?.release()
+        mp?.apply {
+            setOnPreparedListener(null); setOnInfoListener(null)
+            setOnCompletionListener(null); setOnErrorListener(null)
+            release()
+        }
         mp = null
         prepared = false
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
+        if (released) return
         if (mp == null) start() else mp?.setDisplay(holder)
     }
 
@@ -64,7 +75,7 @@ class SceneryPlayer(
     }
 
     private fun next(auto: Boolean) {
-        if (clips.isEmpty() || failuresInARow > clips.size) return
+        if (released || clips.isEmpty() || failuresInARow > clips.size) return
         index = (index + 1) % order.size
         if (index == 0 && shuffle && auto) order = order.shuffled()
         val clip = clips[order[index]]
@@ -76,27 +87,28 @@ class SceneryPlayer(
             player.setDisplay(view.holder)
             player.setVolume(0f, 0f)
             player.setOnPreparedListener {
+                if (released) return@setOnPreparedListener
                 prepared = true
                 failuresInARow = 0
                 fitCrop()
                 if (wantPlay) it.start()
             }
             player.setOnInfoListener { _, what, _ ->
-                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) onFirstFrame()
+                if (!released && what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) onFirstFrame()
                 false
             }
-            player.setOnCompletionListener { next(auto = true) }
+            player.setOnCompletionListener { if (!released) next(auto = true) }
             player.setOnErrorListener { _, _, _ ->
                 // Skip a clip that won't load rather than leaving the background frozen.
                 failuresInARow++
-                view.post { next(auto = false) }
+                if (!released) view.post(skip)
                 true
             }
             player.prepareAsync()
             onClip(clip.title, auto)
         }.onFailure {
             failuresInARow++
-            view.post { next(auto = false) }
+            if (!released) view.post(skip)
         }
     }
 

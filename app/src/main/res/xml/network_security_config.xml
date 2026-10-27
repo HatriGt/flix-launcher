@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everything goes over https except the aerial videos, which are rewritten to http on
+     sylvan.apple.com (Apple signs it with its own root, which Android does not trust). Addons must be https. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">sylvan.apple.com</domain>
+    </domain-config>
+</network-security-config>

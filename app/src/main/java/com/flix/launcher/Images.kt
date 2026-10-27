@@ -23,12 +23,21 @@ object Images {
     private val memory = object : LruCache<String, Bitmap>(20 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
+    /**
+     * Full-screen images (billboard, wallpaper) kept apart: one of them is several MB and
+     * would push dozens of posters out of [memory]. Two fit the billboard's current and next.
+     */
+    private val large = object : LruCache<String, Bitmap>(2) {}
+    private const val LARGE_PX = 1000
+
+    private fun cached(key: String, widthPx: Int): Bitmap? = if (widthPx >= LARGE_PX) large.get(key) else memory.get(key)
+
     private var dir: File? = null
     /** Callbacks waiting on a decode already under way; main thread only. */
     private val inFlight = HashMap<String, MutableList<(Bitmap?) -> Unit>>()
 
     /** Drops decoded images; posters reload quickly from the disk cache. */
-    fun trim() = memory.evictAll()
+    fun trim() { memory.evictAll(); large.evictAll() }
 
     fun init(context: Context) {
         if (dir != null) return
@@ -51,7 +60,7 @@ object Images {
             view.setImageDrawable(null)
             return
         }
-        memory.get(key(url, widthPx))?.let {
+        cached(key(url, widthPx), widthPx)?.let {
             view.alpha = 1f
             view.setImageBitmap(it)
             return
@@ -68,13 +77,15 @@ object Images {
     /** Fetches a bitmap and hands it back on the main thread (null on failure). */
     fun get(url: String, widthPx: Int, onReady: (Bitmap?) -> Unit) {
         val key = key(url, widthPx)
-        memory.get(key)?.let { return onReady(it) }
+        cached(key, widthPx)?.let { return onReady(it) }
         // A poster scrolled past and back (or asked for by two views) shares one decode.
         inFlight[key]?.let { it += onReady; return }
         inFlight[key] = mutableListOf(onReady)
         pool.execute {
             val bitmap = runCatching { decode(bytes(url), widthPx) }.getOrNull()
-            if (bitmap != null) memory.put(key, bitmap)
+            // A cached file that won't decode is broken (or not an image): fetch it afresh next time.
+            if (bitmap == null) cacheFile(url)?.delete()
+            if (bitmap != null) { if (widthPx >= LARGE_PX) large.put(key, bitmap) else memory.put(key, bitmap) }
             main.post { inFlight.remove(key)?.forEach { it(bitmap) } }
         }
     }
@@ -121,20 +132,23 @@ object Images {
     }
 
     private fun bytes(url: String): ByteArray {
-        val file = dir?.let { File(it, sha1(url)) }
+        val file = cacheFile(url)
         if (file != null && file.exists()) return file.readBytes()
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 6000
         conn.readTimeout = 10000
         conn.instanceFollowRedirects = true
         val data = try {
-            conn.inputStream.use { it.readBytes() }
+            conn.inputStream.use { SafeIo.readBytes(it, SafeIo.MAX_IMAGE) }
         } finally {
             conn.disconnect()
         }
-        file?.writeBytes(data)
+        // Whole or not at all; a failed save only costs a re-download.
+        file?.let { runCatching { SafeIo.write(it, data) } }
         return data
     }
+
+    private fun cacheFile(url: String) = dir?.let { File(it, sha1(url)) }
 
     private fun decode(data: ByteArray, widthPx: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

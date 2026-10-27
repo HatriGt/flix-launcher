@@ -326,8 +326,9 @@ class AllAppsActivity : Activity() {
         ))
     }
 
-    /** Tells the home screen behind us to refresh its rows. */
-    private fun changed() = sendBroadcast(Intent(SettingsActivity.ACTION_CHANGED).setPackage(packageName))
+    /** Tells the home screen behind us to refresh its app rows (only those: the movie rows didn't change). */
+    private fun changed() = sendBroadcast(Intent(SettingsActivity.ACTION_CHANGED).setPackage(packageName)
+        .putExtra(SettingsActivity.EXTRA_APPS_ONLY, true))
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode != KeyEvent.KEYCODE_MENU) return super.onKeyUp(keyCode, event)

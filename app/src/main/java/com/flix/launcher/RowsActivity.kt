@@ -51,7 +51,8 @@ class RowsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        remote = PhoneRemote(this) { changed(); render() }
+        // A phone edit can land just as the screen closes; only redraw a live screen.
+        remote = PhoneRemote(this) { if (!isFinishing && !isDestroyed) { changed(); render() } }
         // The phone page only runs while this screen is open, so keep the screensaver away.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         blurBehind()

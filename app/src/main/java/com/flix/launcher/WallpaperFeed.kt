@@ -113,7 +113,7 @@ object WallpaperFeed {
         }
         if (found.size < 50) return
         for ((kind, list) in listOf("nature" to found, "cities" to cities)) {
-            fileOf(context, kind).writeText(list.joinToString("\n") { "${it.url}\t${it.title}" })
+            SafeIo.write(fileOf(context, kind), list.joinToString("\n") { "${it.url}\t${it.title}" })
             entries[kind] = list
         }
     }
@@ -123,7 +123,8 @@ object WallpaperFeed {
         conn.connectTimeout = 8000
         conn.readTimeout = 20000
         conn.instanceFollowRedirects = true
-        return try { conn.inputStream.use { it.readBytes() } } finally { conn.disconnect() }
+        // Capped: a broken mirror sending an endless reply would otherwise exhaust memory.
+        return try { conn.inputStream.use { SafeIo.readBytes(it, SafeIo.MAX_IMAGE) } } finally { conn.disconnect() }
     }
 
     private fun decode(data: ByteArray, widthPx: Int): Bitmap? {
