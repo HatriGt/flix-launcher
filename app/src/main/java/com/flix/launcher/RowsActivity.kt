@@ -121,6 +121,7 @@ class RowsActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        syncNuvio()
         remote.start()
         val address = remote.address
         if (address != null) {
@@ -457,6 +458,15 @@ class RowsActivity : Activity() {
             if (animate) knob.animate().translationX(x).setDuration(200).setInterpolator(OvershootInterpolator(1.4f)).start()
             else knob.translationX = x
         }
+    }
+
+    /** Lists every catalogue from the Nuvio profile's addons, so any of them can be switched on here. */
+    private fun syncNuvio() {
+        if (!NuvioAccount.isSignedIn(this)) return
+        Thread {
+            val added = runCatching { Addons.syncFromNuvio(this) }.getOrDefault(0)
+            if (added > 0) runOnUiThread { if (!isFinishing && !isDestroyed) { render(); changed() } }
+        }.start()
     }
 
     private fun changed() = sendBroadcast(Intent(SettingsActivity.ACTION_CHANGED).setPackage(packageName))

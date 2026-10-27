@@ -176,7 +176,9 @@ class PosterAdapter(
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
         val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
-        card.addView(poster, FrameLayout.LayoutParams(-1, -1))
+        // Poster width even when the card widens: stretched to 16:9 it showed a zoomed crop that
+        // looked like another title's art until the backdrop faded in over it.
+        card.addView(poster, FrameLayout.LayoutParams(widthPx, -1))
         card.addView(backdrop, FrameLayout.LayoutParams(-1, -1))
         card.addView(info, FrameLayout.LayoutParams(-1, -1))
         card.addView(badge, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
@@ -253,6 +255,8 @@ class PosterAdapter(
         private fun revealFromPoster() {
             val card = itemView as Card
             reveal?.cancel()
+            // Clip before the first frame, or the card is drawn at full width for a frame or two.
+            card.clip(widthPx.toFloat(), heightPx.toFloat())
             reveal = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = RowRecyclerView.DURATION
                 interpolator = RowRecyclerView.EASE
@@ -270,6 +274,7 @@ class PosterAdapter(
             val others = owner.big?.takeIf { it !== this }
             if (row != null) row.flip(itemView) { others?.size(false); size(true) } else { others?.size(false); size(true) }
             revealFromPoster()
+            if (title.poster != null) itemView.setBackgroundColor(EXPANDED_FILL)
             name.text = title.name
             meta.text = owner.badges(title, bindingAdapterPosition)
             meta.visibility = if (meta.text.isEmpty()) View.GONE else View.VISIBLE
@@ -295,6 +300,7 @@ class PosterAdapter(
 
         fun collapse(instant: Boolean) {
             reveal?.cancel()
+            if (current?.poster != null) itemView.background = null
             (itemView as Card).clip(-1f, -1f)
             if (instant) size(false)
             info.animate().cancel(); backdrop.animate().cancel()
@@ -406,6 +412,9 @@ class PosterAdapter(
     companion object {
         /** How much taller the focused card is than a poster (Netflix keeps them level). */
         const val GROW = 1f
+
+        /** Behind the wide card's right side until its backdrop arrives. */
+        private const val EXPANDED_FILL = 0xFF16181C.toInt()
 
         /** Width in dp of the progress bar on the focused card. */
         private const val WATCHED_W = 120f

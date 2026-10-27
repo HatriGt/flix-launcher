@@ -137,7 +137,42 @@ object Addons {
      * Returns the number of rows added, or throws with a readable message.
      */
     fun add(context: Context, url: String): Int {
-        val manifestUrl = normalise(url)
+        val (name, found) = catalogues(normalise(url))
+        // The download can take seconds, so the rows are read again under the lock just before saving.
+        val added = synchronized(lock) {
+            val existing = rows(context)
+            val fresh = found.filter { f -> existing.none { it.key == f.key } }
+            if (fresh.isEmpty()) throw IllegalArgumentException(
+                if (found.isEmpty()) "$name has no catalogues Flix Launcher can show" else "$name's rows are already added"
+            )
+            // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
+            save(context, existing + if (fresh.size > MAX_SHOWN_ON_ADD) fresh.map { it.copy(enabled = false) } else fresh)
+            fresh.size
+        }
+        return added
+    }
+
+    /**
+     * Adds every catalogue of the addons in the user's Nuvio profile, switched off, so the
+     * Addons & rows screen lists them all and the user picks which appear at home. Rows
+     * already here keep their place and state. Addons that can't be read are skipped.
+     * Runs on a background thread; returns how many rows were added.
+     */
+    fun syncFromNuvio(context: Context): Int {
+        val found = NuvioAccount.addonUrls(context).flatMap { url ->
+            runCatching { catalogues(normalise(url.replaceFirst("http://", "https://"))).second }.getOrDefault(emptyList())
+        }
+        if (found.isEmpty()) return 0
+        return synchronized(lock) {
+            val existing = rows(context)
+            val fresh = found.filter { f -> existing.none { it.key == f.key } }.distinctBy { it.key }
+            if (fresh.isNotEmpty()) save(context, existing + fresh.map { it.copy(enabled = false) })
+            fresh.size
+        }
+    }
+
+    /** An addon's name and one row per browsable catalogue (ones that need a search term are skipped). */
+    private fun catalogues(manifestUrl: String): Pair<String, List<Row>> {
         // Plain http would let anyone on the path swap the rows' content; the app only allows cleartext to sylvan.apple.com.
         if (!manifestUrl.startsWith("https://")) throw IllegalArgumentException("Addon URLs must start with https://")
         val conn = URL(manifestUrl).openConnection() as HttpURLConnection
@@ -180,18 +215,7 @@ object Addons {
             )
             if (found.none { it.key == row.key }) found += row
         }
-        // The download can take seconds, so the rows are read again under the lock just before saving.
-        val added = synchronized(lock) {
-            val existing = rows(context)
-            val fresh = found.filter { f -> existing.none { it.key == f.key } }
-            if (fresh.isEmpty()) throw IllegalArgumentException(
-                if (found.isEmpty()) "$name has no catalogues Flix Launcher can show" else "$name's rows are already added"
-            )
-            // A big addon would flood the home screen; add its rows hidden so the user picks the few they want.
-            save(context, existing + if (fresh.size > MAX_SHOWN_ON_ADD) fresh.map { it.copy(enabled = false) } else fresh)
-            fresh.size
-        }
-        return added
+        return name to found
     }
 
     /** Accepts stremio:// links and URLs pasted without /manifest.json. */

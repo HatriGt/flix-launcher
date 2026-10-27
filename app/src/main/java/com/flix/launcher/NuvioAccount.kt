@@ -104,6 +104,32 @@ object NuvioAccount {
             .sortedBy { it.index }
     }
 
+    // ---- Addons ----
+
+    /**
+     * Manifest URLs of the addons installed in Nuvio for the chosen profile, in Nuvio's
+     * order, switched-off ones left out. Nuvio keeps them in its "addons" table.
+     */
+    fun addonUrls(context: Context): List<String> {
+        val profile = profile(context) ?: return emptyList()
+        val token = accessToken(context)
+        val user = userId(token)?.let { "&user_id=eq.$it" }.orEmpty()
+        val body = request(context, "$API/rest/v1/addons?select=url,enabled,sort_order&profile_id=eq.${profile.index}$user&order=sort_order.asc",
+            null, bearer = token)
+        val rows = JSONArray(body)
+        return (0 until rows.length()).map { rows.getJSONObject(it) }
+            .filter { it.optBoolean("enabled", true) }
+            .mapNotNull { it.optString("url").ifBlank { null } }
+            .distinct()
+    }
+
+    /** The account id inside the access token (a JWT's "sub"). */
+    private fun userId(token: String): String? = runCatching {
+        val payload = token.split('.')[1]
+        JSONObject(String(android.util.Base64.decode(payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)))
+            .optString("sub").ifBlank { null }
+    }.getOrNull()
+
     // ---- Continue watching ----
 
     /** Unfinished titles for the chosen profile, newest first, with artwork from Cinemeta. */

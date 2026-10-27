@@ -301,6 +301,8 @@ class NuvioLoginActivity : Activity() {
     private fun choose(p: NuvioAccount.Profile) {
         NuvioAccount.setProfile(this, p)
         changed()
+        // Bring in the catalogues of this profile's Nuvio addons (switched off) to pick from in Addons & rows.
+        Thread { if (runCatching { Addons.syncFromNuvio(applicationContext) }.getOrDefault(0) > 0) runOnUiThread { changed() } }.start()
         success(p.name)
     }
 
