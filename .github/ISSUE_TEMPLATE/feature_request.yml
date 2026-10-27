@@ -1,0 +1,11 @@
+name: Feature request
+description: An idea to make Flix better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Describe the problem it solves and how you'd like it to work.
+    validations:
+      required: true

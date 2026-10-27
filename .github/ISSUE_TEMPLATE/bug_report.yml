@@ -1,0 +1,29 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: tv
+    attributes:
+      label: TV model and Android version
+      placeholder: Sony BRAVIA, Android TV 14
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Flix Launcher version
+      placeholder: 1.0.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Output of `adb logcat -d | grep -i flix`, if you can get it.
+      render: shell
