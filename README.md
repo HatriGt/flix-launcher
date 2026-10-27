@@ -39,6 +39,10 @@ It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-i
   <img src="docs/home.webp" alt="Flix home screen: apps, featured carousel and film rows over an aerial mountain video" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/settings.webp" alt="Flix settings: sections, wallpaper list and searching for trailer settings" width="100%">
+</p>
+
 <p align="center"><sub>Recorded on a Sony BRAVIA (Android TV 14, 2 GB) with the Landscapes aerial video background.</sub></p>
 
 ## Features

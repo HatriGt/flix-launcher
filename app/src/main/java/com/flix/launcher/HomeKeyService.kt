@@ -16,6 +16,9 @@ class HomeKeyService : AccessibilityService() {
         super.onServiceConnected()
         running = true
         HomeGuard.setWanted(this, true)
+        // After an update or a reboot the stock home is already in front, so no window change
+        // follows and Home presses go to it unseen: bring Flix back straight away.
+        if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openFlix()
     }
 
     /**
@@ -42,7 +45,6 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        // Window content access is off, so the front app is tracked from these events instead.
         foreground = event.packageName?.toString()
         if (event.packageName == STOCK_LAUNCHER &&
             event.className?.toString() == STOCK_HOME_ACTIVITY
