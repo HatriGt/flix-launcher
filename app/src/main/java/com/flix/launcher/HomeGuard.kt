@@ -15,8 +15,8 @@ import android.provider.Settings
  *
  * It only does so when the service was on and got dropped, never against the user:
  * [HomeKeyService] records "wanted" when it connects and clears it when it is unbound
- * while Flix keeps running (the user switched it off in Settings). An update or
- * force-stop kills the process instead, so no unbind is seen and "wanted" stays set.
+ * and no longer in the system's list of enabled services (the user switched it off in
+ * Settings). An update unbinds it but keeps it listed, so "wanted" stays set.
  */
 object HomeGuard {
     private const val KEY = Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -37,6 +37,13 @@ object HomeGuard {
             Settings.Secure.putString(resolver, KEY, (others + me).joinToString(":"))
             Settings.Secure.putInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
         }
+    }
+
+    /** Whether the system still lists our service as enabled. */
+    fun isListed(context: Context): Boolean {
+        val component = ComponentName(context, HomeKeyService::class.java)
+        return Settings.Secure.getString(context.contentResolver, KEY).orEmpty()
+            .split(':').any { ComponentName.unflattenFromString(it) == component }
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences("flix", Context.MODE_PRIVATE)

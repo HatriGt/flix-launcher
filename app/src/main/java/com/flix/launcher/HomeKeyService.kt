@@ -22,13 +22,13 @@ class HomeKeyService : AccessibilityService() {
     }
 
     /**
-     * Unbinding while our process lives on means the user (or another app) switched the
-     * service off, so [HomeGuard] must leave it off. Updates and force-stops kill the
-     * process without getting here.
+     * Switched off by the user means [HomeGuard] must leave it off. An update unbinds the
+     * service too, but leaves it in the system's list of enabled services, so only a
+     * service that is no longer listed counts as switched off.
      */
     override fun onUnbind(intent: Intent?): Boolean {
         running = false
-        HomeGuard.setWanted(this, false)
+        if (!HomeGuard.isListed(this)) HomeGuard.setWanted(this, false)
         return super.onUnbind(intent)
     }
 

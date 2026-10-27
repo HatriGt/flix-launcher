@@ -290,11 +290,26 @@ class PosterAdapter(
             info.animate().alpha(1f).setStartDelay(90).setDuration(200).start()
             fallback.animate().alpha(0f).setDuration(120).start() // the info line names it now
             badge.animate().alpha(0f).setDuration(120).start()
-            val url = title.backdrop ?: return
+            prefetchNeighbours(bindingAdapterPosition)
+            // No wide artwork (short films, small addons): the poster, cropped to fill, beats a half-empty card.
+            val url = title.backdrop ?: title.poster ?: return
+            var waited = false
             Images.get(url, expandedPx) { bmp ->
                 if (bmp == null || current?.id != title.id || !itemView.isFocused) return@get
                 backdrop.setImageBitmap(bmp)
-                backdrop.animate().alpha(1f).setDuration(220).start()
+                // Already loaded (the usual case, see prefetchNeighbours): show it at once, so the
+                // card never sits half-filled with the narrow poster.
+                if (waited) backdrop.animate().alpha(1f).setDuration(180).start()
+                else { backdrop.animate().cancel(); backdrop.alpha = 1f }
+            }
+            waited = true
+        }
+
+        /** Loads the backdrops of the cards either side, so moving along the row finds them ready. */
+        private fun prefetchNeighbours(position: Int) {
+            if (position == RecyclerView.NO_POSITION) return
+            for (i in intArrayOf(position + 1, position - 1, position + 2)) {
+                owner.items.getOrNull(i)?.let { it.backdrop ?: it.poster }?.let { Images.get(it, expandedPx) {} }
             }
         }
 
