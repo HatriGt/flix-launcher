@@ -400,6 +400,10 @@ class SettingsActivity : Activity() {
         opt(3, "Picture", FlixSettings.SCENE_NAME, R.drawable.ic_o_pin, "caption place location title")
         opt(3, "When the TV is idle", FlixSettings.IDLE, R.drawable.ic_o_moon, "screensaver sleep inactive timeout")
 
+        // Backup & restore
+        act(4, "Backup & restore", "Back up settings", backupSummary(), R.drawable.ic_o_layers, "backup save export copy keep") { backUp() }
+        act(4, "Backup & restore", "Restore settings", "Bring back settings from a backup", R.drawable.ic_o_reset, "restore import load recover backup") { pickBackup() }
+
         // About
         add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
@@ -841,6 +845,50 @@ class SettingsActivity : Activity() {
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
+    // ---- Backup & restore ----
+
+    private val stamp = java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault())
+
+    private fun backupSummary() = Backup.list(this).firstOrNull()?.let { "Last backup ${stamp.format(it.created)}" }
+        ?: "Everything except your Nuvio sign-in"
+
+    private fun backUp() = Thread {
+        val result = runCatching { Backup.save(this) }
+        runOnUiThread {
+            if (isDestroyed) return@runOnUiThread
+            result.onSuccess { toast("Backed up. A copy is also in Download/FlixLauncher"); refresh(animate = false) }
+                .onFailure { toast(it.message ?: "Couldn't back up") }
+        }
+    }.start()
+
+    /** Lists backups newest first; picking one asks before replacing the current settings. */
+    private fun pickBackup() {
+        val backups = Backup.list(this)
+        if (backups.isEmpty()) return toast("No backups yet. Copy one into Android/data/$packageName/files/backups")
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Restore which backup?")
+            .setItems(backups.map { stamp.format(it.created) }.toTypedArray()) { _, which -> confirmRestore(backups[which]) }
+            .show()
+    }
+
+    private fun confirmRestore(backup: Backup.Saved) {
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Restore settings from ${stamp.format(backup.created)}?")
+            .setMessage("Your current settings, favourites and rows are replaced. Your Nuvio sign-in stays as it is.")
+            .setPositiveButton("Restore") { _, _ ->
+                Thread {
+                    val result = runCatching { Backup.restore(this, backup) }
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        result.onSuccess { applyToHome(); recreate(); toast("Settings restored") }
+                            .onFailure { toast(it.message ?: "Couldn't restore that backup") }
+                    }
+                }.start()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     /** Lists hidden apps; picking one brings it back to the All apps row. */
     private fun showHiddenApps() {
         val hidden = repo.hidden.toList()
@@ -904,7 +952,7 @@ class SettingsActivity : Activity() {
             Section("Movies & shows", "Your Nuvio rows, the Top 10 and trailers", R.drawable.ic_s_film),
             Section("Clock & weather", "What the top of the screen shows", R.drawable.ic_o_clock),
             Section("Wallpaper", "The picture behind everything, and the screensaver", R.drawable.ic_o_image),
-            Section("About", "Flix Launcher and this TV", R.drawable.ic_s_info),
+            Section("About", "Backup, Flix Launcher and this TV", R.drawable.ic_s_info),
         )
     }
 }

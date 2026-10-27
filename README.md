@@ -117,6 +117,7 @@ Open them from the settings button at the end of the top bar.
 | **Movies & shows** | Nuvio account, addon rows and order, featured carousel, Continue watching, Top 10, genre, trailers (on/off, delay, sound), backdrop preview, poster size, hidden titles |
 | **Clock & weather** | Clock style and format, greeting, date, sun arc, weather, forecast, units |
 | **Wallpaper** | Photos, aerial video by category, or plain; shuffle, dimming, scene names, idle timer |
+| **About** | Back up and restore every setting, favourite and addon row |
 
 ## Build from source
 
@@ -164,6 +165,12 @@ Nuvio's links from other apps always open a title's details page. When Nuvio sup
 <summary><b>How much space do video backgrounds take?</b></summary>
 
 None. They stream when shown and are never saved; only a small list of addresses is kept, refreshed weekly.
+</details>
+
+<details>
+<summary><b>How do I move my settings to another TV or a fresh install?</b></summary>
+
+**Settings → About → Back up settings** saves everything except your Nuvio sign-in to `Android/data/com.flix.launcher/files/backups`, with a copy in `Download/FlixLauncher`. On the other TV, copy the file into that same backups folder (for example `adb push flix-backup-*.json /sdcard/Android/data/com.flix.launcher/files/backups/`) and choose **Restore settings**.
 </details>
 
 <details>
