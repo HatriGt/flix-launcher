@@ -31,7 +31,36 @@ object Catalog {
         /** For Continue watching: how far through it the user is (0–1), and which episode. */
         val progress: Float? = null,
         val episodeLabel: String? = null,
+        val season: Int? = null,
+        val episode: Int? = null,
     ) {
+        /**
+         * Opens Nuvio straight on the title's list of streams, the way Nuvio's own Google TV
+         * Continue watching row does (launchMode "stream"). A film or a known episode goes to
+         * its streams; a series with no episode chosen gets its page, to pick one. Older Nuvio
+         * versions without that screen are opened with [nuvioUri] instead.
+         */
+        fun nuvioStreamIntent(): android.content.Intent {
+            val videoId = when {
+                type == "movie" -> id
+                season != null && episode != null -> "$id:$season:$episode"
+                else -> null
+            }
+            return android.content.Intent(android.content.Intent.ACTION_VIEW)
+                .setClassName(MainActivity.NUVIO, "${MainActivity.NUVIO}.MainActivity")
+                .putExtra("launchMode", "stream")
+                .putExtra("contentId", id)
+                .putExtra("contentType", type)
+                .putExtra("name", name)
+                .apply {
+                    videoId?.let { putExtra("videoId", it) }
+                    poster?.let { putExtra("poster", it) }
+                    backdrop?.let { putExtra("backdrop", it) }
+                    logo?.let { putExtra("logo", it) }
+                    if (videoId != null && type != "movie") { putExtra("season", season!!); putExtra("episode", episode!!) }
+                }
+        }
+
         /** Opens the title's page in Nuvio, ready to pick a stream and play. */
         val nuvioUri: String
             get() {

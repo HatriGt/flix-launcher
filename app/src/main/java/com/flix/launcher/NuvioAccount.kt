@@ -185,6 +185,8 @@ object NuvioAccount {
                     description = meta.optString("description").takeIf { it.isNotBlank() && it != "null" },
                     progress = r.optLong("position").toFloat() / r.optLong("duration"),
                     episodeLabel = if (type == "series" && season > 0) "S$season E$episode" else null,
+                    season = season.takeIf { type == "series" && it > 0 },
+                    episode = episode.takeIf { type == "series" && season > 0 },
                     addonBase = base,
                 )
             }
