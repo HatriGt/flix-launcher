@@ -45,11 +45,11 @@ object NuvioAccount {
     fun isSignedIn(context: Context) = prefs(context).let { it.contains("refresh_token_enc") || it.contains("refresh_token") }
 
     fun profile(context: Context): Profile? = prefs(context).let { p ->
-        if (!p.contains("profile_index")) null else Profile(p.getInt("profile_index", 1), p.getString("profile_name", "").orEmpty())
+        if (!p.contains("profile_index")) null else Profile(p.getInt("profile_index", 1), p.getString("profile_name", "").orEmpty(), p.getInt("profile_color", 0xFF4F7CFF.toInt()))
     }
 
     fun setProfile(context: Context, profile: Profile) =
-        prefs(context).edit().putInt("profile_index", profile.index).putString("profile_name", profile.name).apply()
+        prefs(context).edit().putInt("profile_index", profile.index).putString("profile_name", profile.name).putInt("profile_color", profile.color).apply()
 
     fun signOut(context: Context) {
         // Keeps the public anon key: it isn't tied to the account and saves a fetch next sign-in.
@@ -146,8 +146,12 @@ object NuvioAccount {
         }
         return latest.values
             .filter { r ->
+                // Unfinished titles, plus series whose latest episode was finished recently
+                // (they come back as "Up next" with the following episode).
                 val duration = r.optLong("duration")
-                duration > 0 && r.optLong("position").toFloat() / duration < 0.92f
+                val done = duration > 0 && r.optLong("position").toFloat() / duration >= FINISHED
+                duration > 0 && (!done || (r.optString("content_type") == "series" &&
+                    System.currentTimeMillis() - lastWatchedMs(r) < UP_NEXT_DAYS * 24 * 3600_000L))
             }
             .sortedByDescending { it.optLong("last_watched") }
             .take(20)
@@ -169,8 +173,18 @@ object NuvioAccount {
                 val id = r.getString("content_id")
                 val type = r.optString("content_type", "movie")
                 val (meta, base) = found ?: (JSONObject() to null)
-                val season = r.optInt("season", 0)
-                val episode = r.optInt("episode", 0)
+                val duration = r.optLong("duration")
+                val position = r.optLong("position")
+                var progress = position.toFloat() / duration
+                var season = r.optInt("season", 0)
+                var episode = r.optInt("episode", 0)
+                if (progress >= FINISHED) {
+                    // Finished this episode: offer the next released one, or drop the show.
+                    val (s, e) = nextEpisode(meta, season, episode) ?: return@mapNotNull null
+                    season = s; episode = e; progress = 0f
+                }
+                // Nuvio stores milliseconds; very small durations would be seconds.
+                val unit = if (duration > 200_000) 60_000L else 60L
                 Catalog.Title(
                     id = id,
                     type = type,
@@ -183,7 +197,8 @@ object NuvioAccount {
                     runtime = meta.optString("runtime").takeIf { it.isNotBlank() && it != "null" },
                     genres = meta.optJSONArray("genres")?.let { g -> (0 until g.length()).map { g.getString(it) } }.orEmpty(),
                     description = meta.optString("description").takeIf { it.isNotBlank() && it != "null" },
-                    progress = r.optLong("position").toFloat() / r.optLong("duration"),
+                    progress = progress,
+                    minutesLeft = if (progress > 0f) ((duration - position) / unit).toInt() else null,
                     episodeLabel = if (type == "series" && season > 0) "S$season E$episode" else null,
                     season = season.takeIf { type == "series" && it > 0 },
                     episode = episode.takeIf { type == "series" && season > 0 },
@@ -193,6 +208,26 @@ object NuvioAccount {
     }
 
     private const val META_BUDGET_MS = 20_000L
+    private const val FINISHED = 0.92f
+    private const val UP_NEXT_DAYS = 30
+
+    private fun lastWatchedMs(r: JSONObject): Long = r.optLong("last_watched").let { if (it in 1 until 100_000_000_000L) it * 1000 else it }
+
+    /** The episode after [season]x[episode] in the title's episode list that has already aired. */
+    private fun nextEpisode(meta: JSONObject, season: Int, episode: Int): Pair<Int, Int>? {
+        val videos = meta.optJSONArray("videos") ?: return null
+        val now = System.currentTimeMillis()
+        return (0 until videos.length()).mapNotNull { videos.optJSONObject(it) }
+            .mapNotNull { v ->
+                val s = v.optInt("season", -1)
+                val e = v.optInt("episode", v.optInt("number", -1))
+                if (s <= 0 || e <= 0) return@mapNotNull null
+                val aired = v.optString("released").ifBlank { null }?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                if (aired != null && aired > now) null else s to e
+            }
+            .filter { (s, e) -> s > season || (s == season && e > episode) }
+            .minWithOrNull(compareBy({ it.first }, { it.second }))
+    }
 
     /** One small shared pool for title lookups; its threads exit when idle so they cost nothing between refreshes. */
     private val metaPool = ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, LinkedBlockingQueue()).apply { allowCoreThreadTimeOut(true) }

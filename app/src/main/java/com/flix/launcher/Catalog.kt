@@ -33,6 +33,8 @@ object Catalog {
         val episodeLabel: String? = null,
         val season: Int? = null,
         val episode: Int? = null,
+        /** For Continue watching: minutes left to watch, when Nuvio knows the length. */
+        val minutesLeft: Int? = null,
     ) {
         /**
          * Opens Nuvio straight on the title's list of streams, the way Nuvio's own Google TV

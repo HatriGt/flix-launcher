@@ -134,6 +134,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        HomeGuard.healAfterCrash(this)
+        if (savedInstanceState == null && SetupActivity.needed(this)) startActivity(Intent(this, SetupActivity::class.java))
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
         repo = AppRepository(this)
 
@@ -230,8 +232,17 @@ class MainActivity : Activity() {
     }
 
     /** Re-reads every option and updates the screen in place. */
+    private var appliedTheme: String? = null
+
     private fun applySettings() {
         appliedRevision = FlixSettings.revision(this)
+        // A new theme reaches colours baked into many views: rebuild the screen once.
+        val theme = FlixSettings.get(this, FlixSettings.THEME)
+        if (appliedTheme != null && appliedTheme != theme) { appliedTheme = theme; recreate(); return }
+        appliedTheme = theme
+        findViewById<View>(R.id.top_bar).background = Look.panel(this)
+        findViewById<View>(R.id.nav_tabs).background = Look.panel(this, Look.of(this).radiusDp * 0.8f)
+        findViewById<View>(R.id.weather_card).background = Look.panel(this, Look.of(this).radiusDp * 0.8f)
         val dp = resources.displayMetrics.density
         for ((list, adapter, favorites) in listOf(Triple(favoritesList, favoritesAdapter, true), Triple(appsList, appsAdapter, false))) {
             val style = tileStyle(favorites)
@@ -318,11 +329,92 @@ class MainActivity : Activity() {
         }
         // OK on Apps goes straight into the grid.
         apps.setOnClickListener { select(apps, null); appsGrid.post { appsGrid.getChildAt(0)?.requestFocus() } }
+        findViewById<View>(R.id.nav_profile).setOnClickListener { switchProfile() }
         findViewById<View>(R.id.nav_search).setOnClickListener {
             // Nuvio has no link into its search, so search here: the library's search box finds
             // apps and every film and series (Cinemeta), and a result opens in Nuvio.
             open(Intent(this, AllAppsActivity::class.java).putExtra(AllAppsActivity.EXTRA_SEARCH, true))
         }
+    }
+
+    // ---- Home button health ----
+
+    private var homeBanner: TextView? = null
+
+    /**
+     * If the Home button service still isn't running a few seconds after Flix came up (it
+     * crashed, or the user never switched it on), say so on screen with the one-step fix,
+     * instead of Home silently going to the stock launcher.
+     */
+    private val checkHomeButton: Runnable = Runnable {
+        if (HomeKeyService.running || isFinishing) { homeBanner?.visibility = View.GONE; return@Runnable }
+        val canFix = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val banner = homeBanner ?: TextView(this).apply {
+            val dp = resources.displayMetrics.density
+            textSize = 14f
+            setTextColor(android.graphics.Color.WHITE)
+            isFocusable = true
+            setPadding((20 * dp).toInt(), (12 * dp).toInt(), (20 * dp).toInt(), (12 * dp).toInt())
+            background = android.graphics.drawable.StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 24 * dp; setColor(0xF2B3261E.toInt()); setStroke((3 * dp).toInt(), android.graphics.Color.WHITE)
+                })
+                addState(intArrayOf(), android.graphics.drawable.GradientDrawable().apply { cornerRadius = 24 * dp; setColor(0xE6B3261E.toInt()) })
+            }
+            addContentView(this, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL).apply { bottomMargin = (28 * dp).toInt() })
+            homeBanner = this
+        }
+        banner.text = if (canFix) "⚠  The Home button isn't going to Flix.  Press OK to fix it"
+        else "⚠  The Home button isn't going to Flix.  Press OK, then turn on Flix Launcher"
+        banner.setOnClickListener {
+            if (canFix) {
+                HomeGuard.setWanted(this, true)
+                HomeGuard.ensure(this)
+                main.postDelayed(checkHomeButton, 2500)
+            } else runCatching {
+                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
+        banner.visibility = View.VISIBLE
+    }
+
+    /** The avatar at the end of the top menu: the Nuvio profile whose Continue watching is shown. */
+    private fun drawProfile() {
+        val view = findViewById<TextView>(R.id.nav_profile)
+        val profile = NuvioAccount.profile(this)?.takeIf { NuvioAccount.isSignedIn(this) }
+        if (profile == null) { view.visibility = View.GONE; return }
+        view.visibility = View.VISIBLE
+        view.text = profile.name.trim().take(1).uppercase().ifBlank { "${profile.index}" }
+        val dp = resources.displayMetrics.density
+        view.background = android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(profile.color); setStroke((3 * dp).toInt(), android.graphics.Color.WHITE)
+            })
+            addState(intArrayOf(), android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(profile.color)
+            })
+        }
+    }
+
+    private fun switchProfile() {
+        val current = NuvioAccount.profile(this)
+        Thread {
+            val profiles = runCatching { NuvioAccount.profiles(this) }.getOrNull()
+            main.post {
+                if (isFinishing) return@post
+                if (profiles.isNullOrEmpty()) { Toast.makeText(this, "Couldn't reach Nuvio", Toast.LENGTH_SHORT).show(); return@post }
+                OptionsMenu.show(this, "Who's watching?", profiles.map { p ->
+                    (if (p.index == current?.index) "✓  ${p.name}" else "     ${p.name}") to {
+                        if (p.index != current?.index) {
+                            NuvioAccount.setProfile(this, p)
+                            drawProfile()
+                            movieRows.refreshContinue(force = true)
+                        }
+                    }
+                })
+            }
+        }.start()
     }
 
     /**
@@ -617,14 +709,18 @@ class MainActivity : Activity() {
         super.onResume()
         resumed = true
         settingsOpen = false
+        drawProfile()
         // Pages that float over home (search, All apps) don't stop it, so onStart never undid
         // the launch fade and home stayed at 40%. Undo it whenever home is back in front.
         if (launchedFromHome || ui.alpha < 1f && !idle) playReturn()
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
+        main.removeCallbacks(checkHomeButton)
+        main.postDelayed(checkHomeButton, 7000)
         if (appliedRevision != FlixSettings.revision(this)) applySettings()
         if (browsing) main.postDelayed(pauseForBackdrop, 1500)
         movieRows.refreshContinue()
+        Thread { runCatching { Updater.check(applicationContext) } }.start()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
     }
@@ -811,6 +907,10 @@ class MainActivity : Activity() {
         if (value && trailer.isPlaying) return scheduleIdle() // let the trailer play out
         if (value && browsing) returnToStart() // fade to the scenery, not to a paused backdrop
         idle = value
+        // Nobody's using the TV: a good moment to install a downloaded update. Only where
+        // Android installs it silently, so no confirmation pops up over the scenery.
+        if (value && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            Updater.ready(this) != null && Updater.canInstall(this)) Updater.install(this)
         val duration = if (value) 1200L else 350L
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()

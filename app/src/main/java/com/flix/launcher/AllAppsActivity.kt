@@ -350,8 +350,40 @@ class AllAppsActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != VOICE_REQUEST) return
+        val heard = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (heard.isNullOrBlank()) return
+        // Show what was heard in the box; the box's text watcher runs the search.
+        search.setText(heard)
+        search.setSelection(heard.length)
+        search.requestFocus()
+    }
+
+    /** Asks the TV's speech recogniser (Google's, on Google TV) for what to search. */
+    private fun listen(): Boolean {
+        val ask = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say a film, show or app")
+        if (ask.resolveActivity(packageManager) == null) return false
+        @Suppress("DEPRECATION")
+        return runCatching { startActivityForResult(ask, VOICE_REQUEST) }.isSuccess
+    }
+
     override fun onResume() {
         super.onResume()
+        if (intent.getBooleanExtra(EXTRA_VOICE, false)) {
+            intent.removeExtra(EXTRA_VOICE)
+            // Without a recogniser, fall back to typing.
+            if (!listen()) intent.putExtra(EXTRA_SEARCH, true)
+        }
         if (intent.getBooleanExtra(EXTRA_SEARCH, false)) {
             // Opened from the home screen's Search tab: straight into the search box with the keyboard up.
             intent.removeExtra(EXTRA_SEARCH)
@@ -393,6 +425,9 @@ class AllAppsActivity : Activity() {
     companion object {
         /** Open with the search box focused, for the home screen's Search tab. */
         const val EXTRA_SEARCH = "search"
+        /** Open listening for a spoken search (the remote's mic key on the home screen). */
+        const val EXTRA_VOICE = "voice"
+        private const val VOICE_REQUEST = 7
 
         val WATCH_HINTS = listOf("hotstar", "sonyliv", "graymatrix", "nuvio", "stremio", "smarttube", "youtube", "vlc", "tvplayer",
             "amazonvideo", "netflix", "appletv", "videos", "tivimate", "mxtech", "arvio", "maertsno", "sonypictures", "tvx", "onstream")

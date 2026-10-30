@@ -240,6 +240,7 @@ class MovieRows(
         if (row === topRow) return fillTop(row, titles)
         if (row.source === topFrom) topRow?.let { fillTop(it, titles) }
         if (row.source !== CONTINUE && billboard.view.parent != null) billboard.offer(titles)
+        if (row.source === CONTINUE && billboard.view.parent != null) billboard.resumeWith(titles.firstOrNull { it.id != SIGN_IN.id })
         val hidden = Catalog.hiddenTitles(activity)
         row.adapter.items = titles.filter { it.id !in hidden }
         val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
@@ -283,7 +284,7 @@ class Hero(root: View) {
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         val d = root.resources.displayMetrics.density
         setCompoundDrawablesRelativeWithIntrinsicBounds(android.graphics.drawable.GradientDrawable().apply {
-            setColor(0xFFE50914.toInt()); setSize((4 * d).toInt(), (16 * d).toInt())
+            setColor(Look.accent(root.context)); setSize((4 * d).toInt(), (16 * d).toInt())
         }, null, null, null)
         compoundDrawablePadding = (10 * d).toInt()
         setPadding(0, 0, 0, (8 * d).toInt())

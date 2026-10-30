@@ -21,6 +21,11 @@ object FlixSettings {
     private fun toggle(key: String, title: String, default: Boolean = true, summary: String? = null) =
         Option(key, title, listOf("on" to "On", "off" to "Off"), if (default) "on" else "off", summary)
 
+    // Look
+    val THEME = Option("theme", "Theme",
+        listOf("cinema" to "Cinema", "glass" to "Glass", "midnight" to "Midnight", "minimal" to "Minimal"), "cinema",
+        summary = "Colours and shapes of the home screen")
+
     // Icons
     val ICON_SHAPE = Option("icon_shape", "Icon shape",
         listOf("circle" to "Circle", "squircle" to "Squircle", "rounded" to "Rounded square", "banner" to "Wide banner"), "circle",

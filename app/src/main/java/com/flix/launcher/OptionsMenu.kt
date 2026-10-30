@@ -31,6 +31,9 @@ object OptionsMenu {
         }
     }
 
+    /** Plain menu with a heading and no artwork. */
+    fun show(context: Context, label: String, actions: List<Pair<String, () -> Unit>>) = show(context, label, actions, artHeightDp = 0) { }
+
     private fun show(context: Context, label: String, actions: List<Pair<String, () -> Unit>>, artHeightDp: Int, bindArt: (ImageView) -> Unit) {
         val dp = context.resources.displayMetrics.density
         val dialog = Dialog(context)
@@ -42,7 +45,7 @@ object OptionsMenu {
             layoutParams = ViewGroup.LayoutParams((240 * dp).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        panel.addView(ImageView(context).apply {
+        if (artHeightDp > 0) panel.addView(ImageView(context).apply {
             bindArt(this)
             setBackgroundResource(R.drawable.card_background)
             clipToOutline = true

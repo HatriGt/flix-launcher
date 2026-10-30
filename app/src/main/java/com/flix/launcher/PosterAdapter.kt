@@ -162,7 +162,7 @@ class PosterAdapter(
             background = GradientDrawable().apply { cornerRadius = 2 * density; setColor(0x4DFFFFFF) }
             clipToOutline = true
         }
-        val watchedBar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
+        val watchedBar = View(context).apply { setBackgroundColor(Look.accent(context)) }
         watchedTrack.addView(watchedBar, FrameLayout.LayoutParams(0, -1))
         val watchedText = TextView(context).apply {
             textSize = 10.5f
@@ -174,7 +174,7 @@ class PosterAdapter(
         watched.addView(watchedText)
         info.addView(watched)
         val track = View(context).apply { setBackgroundColor(0x59FFFFFF) }
-        val bar = View(context).apply { setBackgroundColor(0xFFE50914.toInt()) }
+        val bar = View(context).apply { setBackgroundColor(Look.accent(context)) }
         card.addView(fallback, FrameLayout.LayoutParams(-1, -1))
         // Poster width even when the card widens: stretched to 16:9 it showed a zoomed crop that
         // looked like another title's art until the backdrop faded in over it.
@@ -276,7 +276,7 @@ class PosterAdapter(
             revealFromPoster()
             if (title.poster != null) itemView.setBackgroundColor(EXPANDED_FILL)
             name.text = title.name
-            meta.text = owner.badges(title, bindingAdapterPosition)
+            meta.text = owner.badges(title, bindingAdapterPosition, Look.accent(itemView.context))
             meta.visibility = if (meta.text.isEmpty()) View.GONE else View.VISIBLE
             logo.setImageDrawable(null)
             logo.visibility = View.GONE
@@ -385,9 +385,9 @@ class PosterAdapter(
     private val thisYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString()
 
     /** Small pill labels for the focused card, each led by a coloured dot like Netflix's. */
-    private fun badges(title: Catalog.Title, position: Int): CharSequence {
+    private fun badges(title: Catalog.Title, position: Int, accent: Int): CharSequence {
         val labels = buildList {
-            if (ranked && position in 0..9) add("#${position + 1} in Top 10" to 0xFFE50914.toInt())
+            if (ranked && position in 0..9) add("#${position + 1} in Top 10" to accent)
             if (title.year == thisYear) add("Recently added" to 0xFF46D369.toInt())
             if (title.progress != null) title.episodeLabel?.let { add(it to 0xFF5AA9FF.toInt()) }
         }

@@ -15,6 +15,7 @@ class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         running = true
+        HomeGuard.healAfterCrash(this)
         HomeGuard.setWanted(this, true)
         // After an update or a reboot the stock home is already in front, so no window change
         // follows and Home presses go to it unseen: bring Flix back straight away.
@@ -38,6 +39,7 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode in VOICE_KEYS) return voiceKey(event)
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
         if (event.action == KeyEvent.ACTION_UP) openFlix()
         return true
@@ -49,6 +51,20 @@ class HomeKeyService : AccessibilityService() {
         if (event.packageName == STOCK_LAUNCHER &&
             event.className?.toString() == STOCK_HOME_ACTIVITY
         ) openFlix()
+    }
+
+    /**
+     * The remote's mic or search key on Flix's own screens opens Flix's search, listening.
+     * Everywhere else it's left to Google Assistant as usual.
+     */
+    private fun voiceKey(event: KeyEvent): Boolean {
+        if (foreground != packageName) return false
+        if (event.action == KeyEvent.ACTION_UP) {
+            startActivity(Intent(this, AllAppsActivity::class.java)
+                .putExtra(AllAppsActivity.EXTRA_VOICE, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        return true
     }
 
     /** Package of the app that last came to the front, from window-state events. */
@@ -81,6 +97,7 @@ class HomeKeyService : AccessibilityService() {
         @Volatile
         var running = false
 
+        private val VOICE_KEYS = setOf(KeyEvent.KEYCODE_SEARCH, KeyEvent.KEYCODE_VOICE_ASSIST, KeyEvent.KEYCODE_ASSIST)
         private const val DEBOUNCE_MS = 700L
         private const val RECHECK_MS = 900L
         private const val STOCK_LAUNCHER = "com.google.android.apps.tv.launcherx"

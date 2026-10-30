@@ -352,6 +352,7 @@ class SettingsActivity : Activity() {
             add(Entry(s, group, "$title $sub $extra ${SECTIONS[s].title}") { actionRow(title, sub, icon, onClick) })
 
         // Home screen
+        opt(0, "Look", FlixSettings.THEME, R.drawable.ic_o_contrast, "theme colour color style glass cinema midnight minimal dark apple netflix")
         opt(0, "App tiles", FlixSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
         opt(0, "App tiles", FlixSettings.ICON_SIZE, R.drawable.ic_o_size, "icons big bigger smaller")
         opt(0, "App tiles", FlixSettings.LABELS, R.drawable.ic_o_text, "names titles text")
@@ -406,6 +407,10 @@ class SettingsActivity : Activity() {
 
         // About
         add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
+        val update = Updater.ready(this@SettingsActivity)
+        act(4, "Updates", if (update != null) "Update to ${update.version}" else "Check for updates",
+            if (update != null) "Downloaded. Installs now; Flix reopens by itself" else "Flix updates itself when the TV is idle",
+            R.drawable.ic_o_reset, "update upgrade new version download install release") { updateNow() }
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
     }
 
@@ -844,6 +849,28 @@ class SettingsActivity : Activity() {
     }
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+    // ---- Updates ----
+
+    private fun updateNow() {
+        if (!Updater.canInstall(this)) {
+            toast("Allow Flix Launcher to install apps, then come back")
+            Updater.askPermission(this)
+            return
+        }
+        Updater.ready(this)?.let { if (Updater.install(this)) toast("Updating to ${it.version}…"); return }
+        toast("Checking for updates…")
+        Thread {
+            val found = runCatching { Updater.check(this, force = true) }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                found.onSuccess { r ->
+                    if (r == null) toast("Flix is up to date (${version()})")
+                    else { toast("Updating to ${r.version}…"); Updater.install(this) }
+                }.onFailure { toast("Couldn't check for updates") }
+            }
+        }.start()
+    }
 
     // ---- Backup & restore ----
 

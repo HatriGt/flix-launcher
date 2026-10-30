@@ -39,6 +39,32 @@ object HomeGuard {
         }
     }
 
+    /**
+     * A crash takes the Home service down with Flix, and Android waits up to 30 minutes
+     * before restarting it, so Home goes to the stock launcher meanwhile. Before the
+     * process dies, ask for [Receiver] to run a couple of seconds later and bind it again.
+     */
+    fun healAfterCrash(context: Context) {
+        val app = context.applicationContext
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        if (previous is CrashHeal) return
+        Thread.setDefaultUncaughtExceptionHandler(CrashHeal(previous) {
+            runCatching {
+                val pending = android.app.PendingIntent.getBroadcast(app, 0, Intent(app, Receiver::class.java),
+                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+                (app.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager)
+                    .set(android.app.AlarmManager.ELAPSED_REALTIME, android.os.SystemClock.elapsedRealtime() + 2000, pending)
+            }
+        })
+    }
+
+    private class CrashHeal(val previous: Thread.UncaughtExceptionHandler?, val heal: () -> Unit) : Thread.UncaughtExceptionHandler {
+        override fun uncaughtException(t: Thread, e: Throwable) {
+            heal()
+            previous?.uncaughtException(t, e)
+        }
+    }
+
     /** Whether the system still lists our service as enabled. */
     fun isListed(context: Context): Boolean {
         val component = ComponentName(context, HomeKeyService::class.java)

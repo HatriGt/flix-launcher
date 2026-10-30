@@ -43,7 +43,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         setTextColor(Color.WHITE)
         typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         setCompoundDrawablesRelativeWithIntrinsicBounds(GradientDrawable().apply {
-            setColor(0xFFE50914.toInt()); setSize(px(4), px(14))
+            setColor(Look.accent(activity)); setSize(px(4), px(14))
         }, null, null, null)
         compoundDrawablePadding = px(8)
     }
@@ -72,7 +72,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     val view: View = FrameLayout(activity).apply {
         clipToOutline = true
         outlineProvider = object : android.view.ViewOutlineProvider() {
-            override fun getOutline(v: View, o: android.graphics.Outline) = o.setRoundRect(0, 0, v.width, v.height, 16 * dp)
+            override fun getOutline(v: View, o: android.graphics.Outline) = o.setRoundRect(0, 0, v.width, v.height, Look.of(activity).billboardRadiusDp * dp)
         }
         setBackgroundColor(0xFF10141C.toInt())
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(250)).apply {
@@ -118,6 +118,9 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     private val featured get() = items.getOrNull(index)
     private var paused = false
 
+    /** The title the user was last watching; leads the carousel with a Resume button. */
+    private var resume: Catalog.Title? = null
+
     private val handler = Handler(Looper.getMainLooper())
     private val tick = Runnable {
         // The user drives the carousel while the card has focus; otherwise it rolls on.
@@ -151,7 +154,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
             addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
                 cornerRadius = 8 * dp
                 setColor(if (primary) Color.WHITE else 0x66FFFFFF)
-                setStroke(px(3), 0xFF5AA9FF.toInt())
+                setStroke(px(3), Look.focus(activity))
             })
             addState(intArrayOf(), GradientDrawable().apply {
                 cornerRadius = 8 * dp
@@ -166,6 +169,17 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         val usable = titles.take(20).filter { it.backdrop != null && !isPromo(it.name) }
         if (usable.isEmpty()) return
         rows += usable
+        rebuild()
+    }
+
+    /**
+     * Pins [title] (the newest Continue watching entry) as the carousel's first card, with
+     * a Resume button that goes straight to its streams. Null removes it.
+     */
+    fun resumeWith(title: Catalog.Title?) {
+        val usable = title?.takeIf { (it.backdrop ?: it.poster) != null }
+        if (usable?.id == resume?.id && usable?.episode == resume?.episode) return
+        resume = usable
         rebuild()
     }
 
@@ -217,10 +231,11 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
             val t = row.getOrNull(rank) ?: continue
             if (picked.size < MAX && picked.none { it.id == t.id }) picked += t
         }
+        resume?.takeIf { type == null || it.type == type }?.let { r -> picked.removeAll { it.id == r.id }; picked.add(0, r) }
         val current = featured
         items = picked
         if (picked.isEmpty()) { view.visibility = View.GONE; handler.removeCallbacks(tick); return }
-        val keep = current?.let { c -> picked.indexOfFirst { it.id == c.id } } ?: -1
+        val keep = current?.takeIf { it !== picked.firstOrNull() || it === resume }?.let { c -> picked.indexOfFirst { it.id == c.id } } ?: -1
         if (keep >= 0) { index = keep; drawDots() } else { index = 0; show(animate = false) }
         view.visibility = View.VISIBLE
         schedule()
@@ -247,7 +262,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         img.bringToFront()
         // Decoded at the billboard's own width (it's narrower than the screen), saving GPU memory.
         val width = img.width.takeIf { it > 0 } ?: activity.resources.displayMetrics.widthPixels
-        Images.get(pick.backdrop!!, width) { bmp ->
+        Images.get((pick.backdrop ?: pick.poster)!!, width) { bmp ->
             if (featured !== pick || bmp == null) return@get
             img.setImageBitmap(bmp)
             img.animate().alpha(1f).setDuration(if (animate) FADE_MS * 2 else 0)
@@ -260,7 +275,14 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     private fun bind(pick: Catalog.Title) {
         logo.setImageDrawable(null)
         logo.visibility = View.GONE
-        kind.text = if (pick.type == "series") "SERIES" else "FILM"
+        val resuming = pick === resume
+        kind.text = when {
+            resuming && pick.progress == 0f -> "UP NEXT"
+            resuming -> "CONTINUE WATCHING"
+            pick.type == "series" -> "SERIES"
+            else -> "FILM"
+        }
+        play.text = if (resuming) resumeLabel(pick) else "▶   Play"
         name.text = pick.name
         name.visibility = View.VISIBLE
         meta.text = android.text.SpannableStringBuilder().apply {
@@ -274,6 +296,12 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
                 logo.setImageBitmap(bmp); logo.visibility = View.VISIBLE; name.visibility = View.GONE
             }
         }
+    }
+
+    private fun resumeLabel(t: Catalog.Title): String {
+        val verb = if ((t.progress ?: 0f) > 0f) "Resume" else "Play"
+        val left = t.minutesLeft?.takeIf { it > 0 && (t.progress ?: 0f) > 0f }?.let { if (it >= 60) "${it / 60} h ${it % 60} min left" else "$it min left" }
+        return "▶   " + listOfNotNull(verb + (t.episodeLabel?.let { " $it" } ?: ""), left).joinToString("  ·  ")
     }
 
     private fun drawDots() {
