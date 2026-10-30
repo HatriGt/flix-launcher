@@ -101,7 +101,7 @@ It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-i
 
    ```bash
    adb connect <tv-ip>:5555
-   adb install flix-launcher-1.0.0.apk
+   adb install flix-launcher-1.0.2.apk
    ```
 
 **Needs:** Android TV / Google TV 9 (API 28) or newer. [Nuvio](https://nuvio.tv) is optional and only needed for opening titles and Continue watching.
@@ -168,9 +168,9 @@ No. There are no analytics or ads. It talks only to the services it shows: your 
 </details>
 
 <details>
-<summary><b>Why does OK open the details page in Nuvio instead of the streams?</b></summary>
+<summary><b>What does OK on a title open?</b></summary>
 
-Nuvio's links from other apps always open a title's details page. When Nuvio supports opening the stream list directly, Flix will use it.
+Since 1.0.2, OK on a film opens Nuvio's stream list directly. A series opens its page so you can pick an episode; a Continue watching episode goes straight to its streams.
 </details>
 
 <details>

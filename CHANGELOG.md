@@ -4,6 +4,21 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-10-30
+
+### Important
+- Releases are now signed with a proper release key. 1.0.0 was signed with a debug key, so **uninstall 1.0.0 once** before installing 1.0.2. Later updates install over it normally.
+
+### Added
+- OK on a film (or a Continue watching episode) opens Nuvio's stream list directly
+
+### Fixed
+- Works with the Play Store version of Nuvio (com.nuvio.app), which showed "Install Nuvio"
+- Crash when opening a title in Nuvio
+- Left/Right at the end of the apps row, top menu or carousel buttons no longer jumps to another row
+- Tiles no longer keep the poster shape for a few seconds while moving along a row
+- Release builds can no longer be signed with the debug key by accident
+
 ## [1.0.1] - 2026-10-27
 
 ### Added
