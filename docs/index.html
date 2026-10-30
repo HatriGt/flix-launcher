@@ -7,7 +7,7 @@
 <meta name="description" content="Flix Launcher is a free, open-source, ad-free home screen for Android TV and Google TV. Apps, films and shows on one screen, Nuvio resume, aerial video backgrounds, about 700 KB. Works on Sony BRAVIA, TCL, Hisense, Chromecast and more.">
 <meta name="keywords" content="Flix Launcher, Android TV launcher, Google TV launcher, ad-free launcher, custom TV launcher, Nuvio, Stremio, Sony BRAVIA launcher, Chromecast launcher">
 <link rel="canonical" href="https://hatrigt.github.io/flix-launcher/">
-<meta name="theme-color" content="#08090c">
+<meta name="theme-color" content="#060608">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Flix Launcher">
 <meta property="og:title" content="Flix Launcher: free, ad-free launcher for Android TV and Google TV">
@@ -20,7 +20,11 @@
 <meta name="twitter:title" content="Flix Launcher for Android TV and Google TV">
 <meta name="twitter:description" content="A free, ad-free home screen for Android TV and Google TV.">
 <meta name="twitter:image" content="https://hatrigt.github.io/flix-launcher/social.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2308090c'/%3E%3Ctext x='32' y='47' font-family='Arial Black,Arial' font-weight='900' font-size='44' text-anchor='middle' fill='%23E50914'%3EF%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060608'/%3E%3Cpath d='M20 14h26v9H30v7h14v9H30v11H20z' fill='%23E50914'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="home.jpg">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -57,121 +61,378 @@
 }
 </script>
 <style>
-:root{--bg:#08090c;--panel:#111318;--line:#23262e;--text:#f2f3f5;--dim:#a3a7b0;--red:#e50914;--red2:#b20710}
+:root{
+  --ink:#060608;--ink-2:#0d0e12;--line:#24262d;--text:#f4f3f1;--dim:#a9a7a3;--faint:#8b898f;
+  --red:#e50914;--red-btn:#c40711;--red-btn-hover:#d60a15;--red-text:#ff3d46;
+  --glow-a:rgba(229,9,20,.35);--glow-b:rgba(70,110,160,.35);--glow-c:rgba(229,9,20,.25);
+  --display:"Big Shoulders Display","Arial Narrow",sans-serif;
+  --sans:"Schibsted Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:inherit}
-.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
-.logo{font-weight:900;letter-spacing:-.02em;font-size:22px;text-decoration:none}
-.logo b{color:var(--red)}
-nav .links{display:flex;gap:22px;font-size:15px;color:var(--dim)}
-nav .links a{text-decoration:none}nav .links a:hover{color:var(--text)}
-.hero{position:relative;padding:56px 0 40px;text-align:center}
-.hero::before{content:"";position:absolute;inset:-40% -20% auto;height:620px;background:radial-gradient(closest-side,rgba(229,9,20,.28),transparent);z-index:-1}
-h1{font-size:clamp(40px,7vw,76px);line-height:1.02;letter-spacing:-.035em;margin:0 0 18px;font-weight:850}
-h1 span{color:var(--red)}
-.lede{font-size:clamp(18px,2.2vw,21px);color:var(--dim);max-width:640px;margin:0 auto 32px}
-.cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;font-weight:700;text-decoration:none;transition:transform .15s,background .15s}
-.btn:hover{transform:translateY(-1px)}
-.primary{background:linear-gradient(90deg,var(--red),var(--red2));box-shadow:0 10px 30px -10px rgba(229,9,20,.7)}
-.ghost{border:1px solid var(--line);background:var(--panel)}
-.meta{margin-top:18px;font-size:14px;color:var(--dim)}
-.shot{margin:48px auto 0;border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:0 40px 120px -40px rgba(229,9,20,.45)}
-.shot img{display:block;width:100%;height:auto}
-section{padding:72px 0 0}
-h2{font-size:clamp(28px,4vw,40px);letter-spacing:-.02em;margin:0 0 10px}
-.sub{color:var(--dim);margin:0 0 32px;max-width:640px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
-.card h3{margin:0 0 6px;font-size:18px}
-.card p{margin:0;color:var(--dim);font-size:15.5px}
-.card .ic{font-size:24px;margin-bottom:10px;display:block}
-ol.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
-ol.steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px 18px 66px;position:relative}
-ol.steps li::before{content:counter(s);position:absolute;left:20px;top:17px;width:30px;height:30px;border-radius:50%;background:var(--red);display:grid;place-items:center;font-weight:800;font-size:15px}
-code{background:#1a1d24;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:14px}
-details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px}
-summary{cursor:pointer;font-weight:700}
-details p{color:var(--dim);margin:10px 0 0}
-.devices{display:flex;flex-wrap:wrap;gap:10px}
-.devices span{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--dim)}
-footer{margin:80px 0 0;padding:30px 0 48px;border-top:1px solid var(--line);color:var(--dim);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
-@media (max-width:640px){nav .links{display:none}.hero{padding-top:28px}}
+html{background:var(--ink);scroll-behavior:smooth;scrollbar-color:#2c2e35 var(--ink)}
+body{margin:0;background:var(--ink);color:var(--text);font:400 17px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--red);color:#fff}
+::-webkit-scrollbar{width:10px}::-webkit-scrollbar-track{background:var(--ink)}::-webkit-scrollbar-thumb{background:#2c2e35;border-radius:10px;border:2px solid var(--ink)}
+a{color:inherit;text-underline-offset:.22em;text-decoration-thickness:1px}
+:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:6px}
+img,video{display:block;max-width:100%}
+.wrap{width:min(1180px,100% - 40px);margin-inline:auto}
+.display{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.01em;line-height:.88}
+
+/* ---- Top bar ---- */
+.bar{position:fixed;inset:0 0 auto;z-index:20;transition:background .4s var(--ease),border-color .4s;border-bottom:1px solid transparent}
+.bar.solid{background:rgba(6,6,8,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:var(--line)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+.mark{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:.01em}
+.mark svg{width:26px;height:26px}
+.bar nav{display:flex;align-items:center;gap:28px;font-size:15px;color:var(--dim)}
+.bar nav a{text-decoration:none;transition:color .2s}.bar nav a:hover{color:var(--text)}
+.get{display:inline-flex;align-items:center;gap:8px;background:var(--red-btn);color:#fff!important;padding:9px 18px;border-radius:999px;font-weight:600}
+.get:hover{background:var(--red-btn-hover)}
+
+/* ---- Hero ---- */
+.hero{position:relative;padding:118px 0 90px;isolation:isolate;overflow-x:clip}
+.hero h1{font-size:clamp(64px,9.4vw,142px);margin:0;text-align:center}
+.hero h1 .red{color:var(--red)}
+.hero .lede{max-width:620px;margin:22px auto 0;text-align:center;color:var(--dim);font-size:clamp(17px,1.6vw,20px)}
+.cta{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:28px}
+.btn{display:inline-flex;align-items:center;gap:10px;height:54px;padding:0 28px;border-radius:999px;font-weight:600;font-size:16px;text-decoration:none;transition:transform .25s var(--ease),background .2s,box-shadow .25s}
+.btn svg{width:18px;height:18px}
+.btn.primary{background:var(--red-btn);color:#fff;box-shadow:0 14px 30px -14px rgba(0,0,0,.9)}
+.btn.primary:hover{background:var(--red-btn-hover);transform:translateY(-2px);box-shadow:0 20px 36px -14px rgba(0,0,0,.95)}
+.btn.quiet{color:var(--text);background:#16171c}
+.btn.quiet:hover{background:#1f2027;transform:translateY(-2px)}
+.fine{text-align:center;color:var(--faint);font-size:14px;margin-top:16px}
+
+/* The TV and the light it throws on the wall */
+.room{position:relative;margin:56px auto 0;width:min(1100px,100%)}
+.ambient{position:absolute;inset:-14% -18% -22%;z-index:-1;filter:blur(70px);opacity:0;transition:opacity 1.6s var(--ease);
+  background:radial-gradient(40% 55% at 18% 50%,var(--glow-a),transparent 70%),radial-gradient(45% 60% at 50% 30%,var(--glow-b),transparent 70%),radial-gradient(40% 55% at 82% 50%,var(--glow-c),transparent 70%)}
+.on .ambient{opacity:1}
+.tv{position:relative;border-radius:14px;padding:10px;background:linear-gradient(#1b1c21,#0b0b0e);box-shadow:0 2px 0 #2a2b31 inset,0 50px 90px -30px rgba(0,0,0,.9)}
+.screen{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#000}
+.screen video,.screen img{width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);filter:brightness(1.6) saturate(.3);transition:opacity 1.1s var(--ease),transform 1.6s var(--ease),filter 1.6s var(--ease)}
+.on .screen video,.on .screen img{opacity:1;transform:none;filter:none}
+.screen::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.06),transparent 40%);pointer-events:none}
+.stand{width:22%;height:14px;margin:0 auto;background:linear-gradient(#18191d,#0c0c0f);border-radius:0 0 8px 8px}
+.caption{display:flex;justify-content:center;gap:8px;align-items:center;margin-top:22px;color:var(--faint);font-size:13.5px}
+.caption i{width:7px;height:7px;border-radius:50%;background:var(--red)}
+
+/* ---- Section frame ---- */
+section{padding:clamp(90px,12vw,150px) 0 0}
+h2{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:clamp(44px,6.4vw,88px);line-height:.92;letter-spacing:-.005em;margin:0 0 20px;text-wrap:balance}
+.intro{color:var(--dim);max-width:58ch;font-size:18px;margin:0}
+
+/* ---- Before / after ---- */
+.compare{position:relative;margin-top:48px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;user-select:none;touch-action:pan-y;background:#000}
+.compare img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.compare .after{clip-path:inset(0 0 0 var(--cut,50%))}
+.compare .handle{position:absolute;top:0;bottom:0;left:var(--cut,50%);width:2px;background:#fff;transform:translateX(-1px)}
+.compare .knob{position:absolute;top:50%;left:50%;width:46px;height:46px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.compare .knob svg{width:22px;height:22px;color:#111}
+.compare .tag{position:absolute;top:16px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(0,0,0,.66)}
+.compare .tag.l{left:16px}.compare .tag.r{right:16px;background:var(--red-btn)}
+.compare input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+
+/* ---- Screen tour ---- */
+.tour{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:clamp(28px,4vw,56px);align-items:start;margin-top:52px}
+.shot{position:relative;border-radius:12px;overflow:hidden;box-shadow:0 30px 70px -30px rgba(0,0,0,.8)}
+.shot img{width:100%;height:auto}
+.zone{position:absolute;border:2px solid #fff;border-radius:12px;opacity:0;transform:scale(1.03);transition:opacity .35s var(--ease),transform .35s var(--ease);box-shadow:0 0 0 999px rgba(0,0,0,.45);pointer-events:none}
+.zone.show{opacity:1;transform:none}
+.tour ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.tour li{border-bottom:1px solid var(--line)}
+.tour button{all:unset;box-sizing:border-box;display:block;width:100%;padding:20px 4px;cursor:pointer}
+.tour button:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.tour b{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:19px;transition:color .2s}
+.tour b::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .25s}
+.tour span{display:block;color:var(--dim);font-size:15.5px;margin-top:4px;max-width:46ch}
+.tour li.active b{color:#fff}.tour li.active b::after{background:var(--red)}
+.tour li:not(.active) span{color:var(--faint)}
+
+/* ---- Features: editorial lines ---- */
+.lines{margin-top:52px;border-top:1px solid var(--line)}
+.line{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px 56px;padding:34px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.line h3{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:clamp(30px,3.4vw,46px);line-height:.95;margin:0;letter-spacing:0}
+.line p{margin:0;color:var(--dim);font-size:17px;max-width:56ch}
+.line:hover h3{color:var(--red-text)}
+.line h3{transition:color .25s}
+
+/* ---- Credits ---- */
+.credits{text-align:center}
+.credits h2{margin-bottom:56px}
+.roll{display:grid;gap:18px;max-width:720px;margin:0 auto}
+.roll div{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:baseline}
+.roll dt{text-align:right;color:var(--faint);font-size:13px;letter-spacing:.16em;text-transform:uppercase}
+.roll dd{text-align:left;margin:0;font-family:var(--display);font-weight:700;font-size:clamp(24px,2.6vw,32px);text-transform:uppercase;letter-spacing:.01em}
+.devices{margin:64px auto 0;max-width:820px;color:var(--dim);font-size:16px;line-height:2}
+.devices strong{color:var(--text);font-weight:500}
+
+/* ---- Install ---- */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:52px;border-top:1px solid var(--line)}
+.step{padding:30px 28px 0 0}
+.step + .step{padding-left:28px;border-left:1px solid var(--line)}
+.step em{display:block;font-style:normal;font-family:var(--display);font-weight:900;font-size:64px;line-height:1;color:var(--red);margin-bottom:14px}
+.step h3{margin:0 0 8px;font-size:19px;font-weight:600}
+.step p{margin:0;color:var(--dim);font-size:15.5px}
+code{font:500 13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#15161b;border-radius:6px;padding:2px 7px;white-space:nowrap}
+
+/* ---- FAQ ---- */
+.faq{max-width:860px}
+.faq details{border-bottom:1px solid var(--line)}
+.faq details:first-of-type{border-top:1px solid var(--line);margin-top:44px}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:20px;align-items:center;padding:24px 0;font-size:19px;font-weight:500}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary svg{flex:none;width:20px;height:20px;transition:transform .3s var(--ease);color:var(--faint)}
+.faq details[open] summary svg{transform:rotate(45deg);color:var(--red)}
+.faq details p{margin:-6px 0 26px;color:var(--dim);max-width:62ch}
+
+/* ---- Finale ---- */
+.finale{text-align:center;padding-bottom:40px}
+.finale h2{font-size:clamp(56px,10vw,150px);font-weight:900;margin-bottom:28px}
+footer{margin-top:110px;border-top:1px solid var(--line);padding:28px 0 44px;color:var(--faint);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+/* ---- Reveal ---- */
+.reveal{opacity:1}
+.js .reveal{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
+
+@media (max-width:860px){
+  .bar nav a:not(.get){display:none}
+  .hero{padding-top:118px}
+  .tour{grid-template-columns:1fr}
+  .line{grid-template-columns:1fr;gap:10px;padding:26px 0}
+  .steps{grid-template-columns:1fr}
+  .step,.step + .step{padding:26px 0;border-left:0;border-bottom:1px solid var(--line)}
+  .roll div{grid-template-columns:1fr;gap:2px;text-align:center}
+  .roll dt,.roll dd{text-align:center}
+  code{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+  .js .reveal{opacity:1;transform:none}
+}
 </style>
+<script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
-<div class="wrap">
-  <nav>
-    <a class="logo" href="#"><b>FLIX</b> Launcher</a>
-    <div class="links">
-      <a href="#features">Features</a><a href="#install">Install</a><a href="#faq">FAQ</a>
+
+<header class="bar" id="bar">
+  <div class="wrap">
+    <a class="mark" href="#top" aria-label="Flix Launcher home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14151a"/><path d="M20 14h26v9H30v7h14v9H30v11H20z" fill="#E50914"/></svg>
+      Flix Launcher
+    </a>
+    <nav aria-label="Sections">
+      <a href="#tour">Tour</a><a href="#install">Install</a><a href="#faq">FAQ</a>
       <a href="https://github.com/HatriGt/flix-launcher">GitHub</a>
-    </div>
-  </nav>
+      <a class="get" href="https://github.com/HatriGt/flix-launcher/releases/latest">Download</a>
+    </nav>
+  </div>
+</header>
 
-  <header class="hero">
-    <h1>Flix Launcher.<br>Your TV, <span>without the ads.</span></h1>
-    <p class="lede">A free, open-source home screen for Android TV and Google TV. Your apps, films and shows on one cinematic screen, about 700 KB, light even on 2 GB TVs.</p>
-    <div class="cta">
-      <a class="btn primary" href="https://github.com/HatriGt/flix-launcher/releases/latest">Download the APK</a>
-      <a class="btn ghost" href="https://github.com/HatriGt/flix-launcher">View on GitHub</a>
-    </div>
-    <p class="meta">Android TV 9+ · MIT licence · Updates itself</p>
-    <div class="shot"><img src="home.jpg" width="1280" height="720" alt="Flix Launcher home screen on Android TV: favourite apps, a featured film carousel and movie rows over an aerial mountain background"></div>
-  </header>
+<main id="top">
+  <div class="hero">
+    <div class="wrap">
+      <h1 class="display">Your TV,<br><span class="red">minus the ads.</span></h1>
+      <p class="lede"><strong>Flix Launcher</strong> is a free, open-source home screen for Android TV and Google TV. Your apps, films and shows on one cinematic screen. About 700&nbsp;KB, and light even on 2&nbsp;GB TVs.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/HatriGt/flix-launcher/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Download the APK
+        </a>
+        <a class="btn quiet" href="https://github.com/HatriGt/flix-launcher">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+          Source on GitHub
+        </a>
+      </div>
+      <p class="fine">Android TV 9 or later · MIT licence · Updates itself</p>
 
-  <section id="features">
-    <h2>Everything on one screen</h2>
-    <p class="sub">Replace the stock Google TV launcher with a calm, fast home screen that puts what you watch first.</p>
-    <div class="grid">
-      <div class="card"><span class="ic">🚫</span><h3>No ads, no tracking</h3><p>No sponsored rows, no analytics. Just your apps and what you watch.</p></div>
-      <div class="card"><span class="ic">▶️</span><h3>Resume in one press</h3><p>Continue watching and Up next from your Nuvio account, right on the home screen.</p></div>
-      <div class="card"><span class="ic">🎬</span><h3>Films and shows</h3><p>Rows from your Stremio addons, a Top 10, trailers on focus and a featured carousel.</p></div>
-      <div class="card"><span class="ic">🔍</span><h3>Netflix-style search</h3><p>An on-screen keyboard for the remote, voice search, and results from your own addons.</p></div>
-      <div class="card"><span class="ic">🌄</span><h3>Aerial backgrounds</h3><p>Apple TV and Fire TV aerial videos or daily Bing photos, streamed, never stored.</p></div>
-      <div class="card"><span class="ic">⚡</span><h3>Tiny and fast</h3><p>About 700 KB and around 54 MB of memory on a 2 GB TV. Themes, weather and a clock included.</p></div>
+      <div class="room" id="room">
+        <div class="ambient" aria-hidden="true"></div>
+        <div class="tv">
+          <div class="screen">
+            <video id="tv" src="home.mp4" poster="home.jpg" muted playsinline loop preload="metadata" aria-label="Flix Launcher running on a Sony BRAVIA: moving through apps, the featured carousel and film rows over an aerial video background"></video>
+          </div>
+        </div>
+        <div class="stand" aria-hidden="true"></div>
+        <p class="caption"><i aria-hidden="true"></i>Recorded on a Sony BRAVIA with 2&nbsp;GB of memory</p>
+      </div>
+    </div>
+  </div>
+
+  <section id="before-after" hidden>
+    <div class="wrap">
+      <h2 class="reveal">Same TV.<br>Different evening.</h2>
+      <p class="intro reveal">Drag across. On the left, the stock Google TV home screen. On the right, Flix on the same TV.</p>
+      <div class="compare reveal" id="compare">
+        <img src="stock.jpg" alt="The stock Google TV home screen with sponsored rows" id="stock">
+        <img class="after" src="home.jpg" alt="The same TV with Flix Launcher: apps, a featured film and movie rows">
+        <span class="tag l">Google TV</span><span class="tag r">Flix</span>
+        <div class="handle" aria-hidden="true"><div class="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></div></div>
+        <input type="range" min="0" max="100" value="50" aria-label="Compare Google TV and Flix Launcher">
+      </div>
     </div>
   </section>
 
-  <section id="devices">
-    <h2>Works on your TV</h2>
-    <p class="sub">Any Android TV or Google TV device running Android 9 or later.</p>
-    <div class="devices">
-      <span>Sony BRAVIA</span><span>TCL</span><span>Hisense</span><span>Philips</span><span>Xiaomi Mi Box &amp; Mi TV Stick</span>
-      <span>Chromecast with Google TV</span><span>NVIDIA Shield</span><span>Onn 4K</span>
+  <section id="tour">
+    <div class="wrap">
+      <h2 class="reveal">One screen.<br>Everything you watch.</h2>
+      <p class="intro reveal">Apps, films, search and the weather all sit on the home screen. Choose a part of it to see what it does.</p>
+      <div class="tour reveal">
+        <figure class="shot" style="margin:0">
+          <img src="home.jpg" width="1280" height="720" loading="lazy" alt="The Flix Launcher home screen with clock, favourite apps, a featured film and a Top 10 row">
+          <div class="zone" data-zone="0" style="left:3%;top:13%;width:54%;height:20%"></div>
+          <div class="zone" data-zone="1" style="left:4.5%;top:33.5%;width:91%;height:47%"></div>
+          <div class="zone" data-zone="2" style="left:3%;top:82%;width:94%;height:17%"></div>
+          <div class="zone" data-zone="3" style="left:42.5%;top:3.5%;width:34.5%;height:9%"></div>
+          <div class="zone" data-zone="4" style="left:4%;top:3%;width:32%;height:10.5%"></div>
+        </figure>
+        <ol>
+          <li><button data-zone="0"><b>Your apps, your order</b><span>Favourites on top, in the order you choose, each glowing in its own colour when selected.</span></button></li>
+          <li><button data-zone="1"><b>Resume in one press</b><span>The carousel leads with what you were watching, like "Resume S2 E5 · 23 min left", and opens straight in Nuvio.</span></button></li>
+          <li><button data-zone="2"><b>Rows from your addons</b><span>Continue watching, a Top 10 and rows from your Stremio-protocol addons, with trailers when a poster stays selected.</span></button></li>
+          <li><button data-zone="3"><b>Search like Netflix</b><span>An on-screen keyboard made for the remote, voice search, and results from your own addons first.</span></button></li>
+          <li><button data-zone="4"><b>Time and weather at a glance</b><span>Clock, greeting and weather for your city, over Apple TV and Fire TV aerial films or daily photos.</span></button></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2 class="reveal">Made for the<br>living room.</h2>
+      <div class="lines">
+        <div class="line reveal"><h3>No ads. No tracking.</h3><p>No sponsored rows and no analytics. Flix only talks to the services it shows: your addons, Nuvio if you sign in, the weather and the background videos.</p></div>
+        <div class="line reveal"><h3>Home means home</h3><p>Google TV keeps the Home button for itself. Flix takes it back with a tiny accessibility service that only listens for that key, and can switch it back on by itself after updates.</p></div>
+        <div class="line reveal"><h3>Light on cheap TVs</h3><p>About 54&nbsp;MB of memory on a 2&nbsp;GB TV. Icons are drawn once, and artwork loads only for the card you're looking at.</p></div>
+        <div class="line reveal"><h3>Yours to shape</h3><p>Four themes, icon shapes and sizes, rows you pick and order, poster sizes and backgrounds. Every setting is searchable.</p></div>
+        <div class="line reveal"><h3>Updates itself</h3><p>New versions download in the background. An "Update ready" pill appears on the home screen; press OK, or let it install while the TV is idle.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="credits" id="credits">
+    <div class="wrap">
+      <h2 class="reveal">The credits</h2>
+      <dl class="roll reveal">
+        <div><dt>Download size</dt><dd>About 700 KB</dd></div>
+        <div><dt>Memory</dt><dd>About 54 MB on 2 GB</dd></div>
+        <div><dt>Runs on</dt><dd>Android TV 9 or later</dd></div>
+        <div><dt>Works with</dt><dd>Nuvio &amp; Stremio addons</dd></div>
+        <div><dt>Advertising</dt><dd>None</dd></div>
+        <div><dt>Licence</dt><dd>MIT, open source</dd></div>
+        <div><dt>Price</dt><dd>Free</dd></div>
+      </dl>
+      <p class="devices reveal">Tested on <strong>Sony BRAVIA</strong>, and built for any Android TV or Google TV device: <strong>TCL</strong>, <strong>Hisense</strong>, <strong>Philips</strong>, <strong>Xiaomi Mi Box</strong>, <strong>Chromecast with Google TV</strong>, <strong>NVIDIA Shield</strong>, <strong>Onn</strong>.</p>
     </div>
   </section>
 
   <section id="install">
-    <h2>Install in a minute</h2>
-    <p class="sub">Flix isn't on the Play Store, so you sideload it once. After that it updates itself.</p>
-    <ol class="steps">
-      <li>On the TV, install <b>Downloader</b> (or any file manager) and allow it to install unknown apps.</li>
-      <li>Open the <a href="https://github.com/HatriGt/flix-launcher/releases/latest">latest release</a> and install <code>flix-launcher-*.apk</code>. Or from a computer: <code>adb install flix-launcher-*.apk</code></li>
-      <li>Open Flix and follow the setup: connect Nuvio, choose your rows, then switch on <b>Flix Launcher</b> in <b>Settings → Accessibility</b> so the Home button opens Flix.</li>
-    </ol>
-  </section>
-
-  <section>
-    <div class="shot" style="margin-top:0"><img src="settings.jpg" width="1280" height="720" loading="lazy" alt="Flix Launcher settings on Android TV with sections, search and wallpaper options"></div>
+    <div class="wrap">
+      <h2 class="reveal">On your TV<br>in three steps.</h2>
+      <p class="intro reveal">Flix isn't on the Play Store, so you install it once by hand. After that it updates itself.</p>
+      <div class="steps">
+        <div class="step reveal"><em>1</em><h3>Get the APK</h3><p>Download <code>flix-launcher-&lt;version&gt;.apk</code> from the <a href="https://github.com/HatriGt/flix-launcher/releases/latest">latest release</a>.</p></div>
+        <div class="step reveal"><em>2</em><h3>Install it on the TV</h3><p>Use a sideloading app like Downloader or Send Files to TV, or from a computer: <code>adb install flix-launcher-*.apk</code></p></div>
+        <div class="step reveal"><em>3</em><h3>Make it home</h3><p>Open Flix and follow the setup. In <b>Settings → Accessibility</b>, switch on <b>Flix Launcher</b>, and the Home button opens Flix.</p></div>
+      </div>
+    </div>
   </section>
 
   <section id="faq">
-    <h2>Questions</h2>
-    <details open><summary>How do I remove ads from the Google TV home screen?</summary><p>Install Flix Launcher and switch it on in Settings → Accessibility. The Home button then opens Flix, which has no ads or sponsored rows. The stock launcher stays installed, unused.</p></details>
-    <details><summary>Does it work with Nuvio and Stremio addons?</summary><p>Yes. Sign in with Nuvio for Continue watching and your addons' rows. Titles open in Nuvio, including the Play Store version and the NuvioPlusIPTV fork.</p></details>
-    <details><summary>Is it free?</summary><p>Yes, free and open source under the MIT licence.</p></details>
-    <details><summary>How does it update?</summary><p>New versions download in the background from GitHub. An "Update ready" pill appears on the home screen; it installs when the TV is idle or when you press OK.</p></details>
-    <details><summary>How do I go back to the stock launcher?</summary><p>Switch off Flix Launcher in Settings → Accessibility, or uninstall it.</p></details>
+    <div class="wrap faq">
+      <h2 class="reveal">Questions</h2>
+      <details open><summary>How do I remove ads from the Google TV home screen?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Install Flix Launcher and switch it on in Settings → Accessibility. The Home button then opens Flix, which has no ads or sponsored rows. The stock launcher stays installed, unused.</p></details>
+      <details><summary>Which TVs does it run on?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Any Android TV or Google TV device on Android 9 or later, including Sony BRAVIA, TCL, Hisense, Philips, Xiaomi Mi Box, Chromecast with Google TV and NVIDIA Shield.</p></details>
+      <details><summary>Does it work with Nuvio and Stremio addons?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Yes. Sign in with Nuvio for Continue watching and your addons' rows. Titles open in Nuvio, including the Play Store version and the NuvioPlusIPTV fork.</p></details>
+      <details><summary>Is it free?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Yes, free and open source under the MIT licence, with no ads and no analytics.</p></details>
+      <details><summary>How does it update?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>New versions download in the background from GitHub. An "Update ready" pill appears on the home screen; it installs when the TV is idle or when you press OK.</p></details>
+      <details><summary>How do I go back to the stock launcher?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Switch off Flix Launcher in Settings → Accessibility, or uninstall it.</p></details>
+    </div>
   </section>
 
-  <footer>
+  <section class="finale">
+    <div class="wrap">
+      <h2 class="reveal">Tonight's<br><span style="color:var(--red)">feature.</span></h2>
+      <div class="cta reveal">
+        <a class="btn primary" href="https://github.com/HatriGt/flix-launcher/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Download Flix Launcher
+        </a>
+      </div>
+      <p class="fine">Free · About 700 KB · Android TV and Google TV</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
     <span>Flix Launcher · MIT © HatriGt · Not affiliated with Netflix, Google, Stremio or Nuvio.</span>
     <a href="https://github.com/HatriGt/flix-launcher">github.com/HatriGt/flix-launcher</a>
-  </footer>
-</div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const bar = document.getElementById('bar');
+  const onScroll = () => bar.classList.toggle('solid', scrollY > 40);
+  addEventListener('scroll', onScroll, {passive: true}); onScroll();
+
+  // Power on: the screen fades up and its light spills onto the wall.
+  const room = document.getElementById('room'), tv = document.getElementById('tv');
+  const powerOn = () => room.classList.add('on');
+  if (reduce) { tv.removeAttribute('loop'); powerOn(); }
+  else {
+    tv.preload = 'auto';
+    tv.play().then(() => setTimeout(powerOn, 250)).catch(powerOn);
+    setTimeout(powerOn, 1800);
+    // Ambilight: sample the left, centre and right of the picture a few times a second.
+    const c = document.createElement('canvas'); c.width = 3; c.height = 1;
+    const g = c.getContext('2d', {willReadFrequently: true});
+    const sample = () => {
+      if (!tv.paused && tv.readyState >= 2) {
+        try {
+          g.drawImage(tv, 0, 0, 3, 1);
+          const d = g.getImageData(0, 0, 3, 1).data;
+          ['a', 'b', 'c'].forEach((k, i) => room.style.setProperty('--glow-' + k,
+            `rgba(${d[i*4]},${d[i*4+1]},${d[i*4+2]},.55)`));
+        } catch (e) { return; }
+      }
+      setTimeout(sample, 280);
+    };
+    tv.addEventListener('playing', sample, {once: true});
+    // Pause the film while it's off screen.
+    new IntersectionObserver(([e]) => e.isIntersecting ? tv.play().catch(() => {}) : tv.pause()).observe(tv);
+  }
+
+  // Reveal on scroll.
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), {rootMargin: '0px 0px -10% 0px'});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Screen tour: picking a part highlights it on the screen.
+  const zones = document.querySelectorAll('.zone'), items = document.querySelectorAll('.tour li');
+  const pick = n => {
+    zones.forEach(z => z.classList.toggle('show', z.dataset.zone == n));
+    items.forEach((li, i) => li.classList.toggle('active', i == n));
+  };
+  document.querySelectorAll('.tour button').forEach(b => {
+    b.addEventListener('mouseenter', () => pick(b.dataset.zone));
+    b.addEventListener('focus', () => pick(b.dataset.zone));
+    b.addEventListener('click', () => pick(b.dataset.zone));
+  });
+  pick(0);
+
+  // Before / after appears once a stock screenshot is in the folder.
+  const stock = document.getElementById('stock');
+  const showCompare = () => document.getElementById('before-after').hidden = false;
+  if (stock.complete && stock.naturalWidth) showCompare(); else stock.addEventListener('load', showCompare);
+  const cmp = document.getElementById('compare'), range = cmp.querySelector('input');
+  range.addEventListener('input', () => cmp.style.setProperty('--cut', range.value + '%'));
+})();
+</script>
 </body>
 </html>
