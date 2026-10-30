@@ -101,6 +101,12 @@ class MovieRows(
 
     private var lastContinueAt = 0L
 
+    /** Empties Continue watching at once (a new profile was picked) until its titles arrive. */
+    fun clearContinue() {
+        rows.firstOrNull { it.source === CONTINUE }?.let { show(it, emptyList()) }
+        billboard.resumeWith(null)
+    }
+
     /** Re-reads Nuvio watch progress, at most every couple of minutes. */
     fun refreshContinue(force: Boolean = false) {
         val row = rows.firstOrNull { it.source === CONTINUE } ?: return

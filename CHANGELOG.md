@@ -9,8 +9,8 @@ All notable changes to Flix Launcher are listed here. The format follows
 ### Added
 - Resume from the carousel: your latest Continue watching title leads it, with "Resume S2 E5 · 23 min left"
 - Up next: a finished episode is replaced in Continue watching by the next one that has aired
-- Voice search: the remote's mic key on the home screen searches films, shows and apps
-- Switch Nuvio profile from the avatar at the end of the top menu
+- Voice search: the mic button in search, or hold OK on the Search button, finds films, shows and apps by voice
+- Switch Nuvio profile from the avatar at the start of the top menu
 - Updates itself from GitHub releases: downloaded in the background, installed when the TV is idle, or from Settings → About
 - First-run setup: connect Nuvio, choose rows, make Home open Flix
 - Themes: Cinema, Glass, Midnight and Minimal (Settings → Home screen)

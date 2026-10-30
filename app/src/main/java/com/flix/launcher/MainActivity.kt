@@ -307,6 +307,7 @@ class MainActivity : Activity() {
     // ---- Top menu: Search · Home · Movies · Shows · Apps ----
 
     private lateinit var tabs: List<View>
+    private var selectHomeTab: () -> Unit = {}
 
     private fun setUpTabs() {
         val home = findViewById<View>(R.id.nav_home)
@@ -320,6 +321,7 @@ class MainActivity : Activity() {
             if (tab !== apps) movieRows.filter(type)
         }
         select(home, null)
+        selectHomeTab = { if (!home.isSelected) select(home, null) }
         // Like Netflix, landing on a tab switches to it; no need to press OK. A short pause
         // first, so sliding across tabs doesn't rebuild the rows for each one passed.
         listOf(home to null, movies to "movie", shows to "series", apps to null).forEach { (tab, type) ->
@@ -330,6 +332,10 @@ class MainActivity : Activity() {
         // OK on Apps goes straight into the grid.
         apps.setOnClickListener { select(apps, null); appsGrid.post { appsGrid.getChildAt(0)?.requestFocus() } }
         findViewById<View>(R.id.nav_profile).setOnClickListener { switchProfile() }
+        // Holding OK on Search asks by voice instead of the keyboard.
+        findViewById<View>(R.id.nav_search).setOnLongClickListener {
+            open(Intent(this, AllAppsActivity::class.java).putExtra(AllAppsActivity.EXTRA_VOICE, true)); true
+        }
         findViewById<View>(R.id.nav_search).setOnClickListener {
             // Nuvio has no link into its search, so search here: the library's search box finds
             // apps and every film and series (Cinemeta), and a result opens in Nuvio.
@@ -404,11 +410,12 @@ class MainActivity : Activity() {
             main.post {
                 if (isFinishing) return@post
                 if (profiles.isNullOrEmpty()) { Toast.makeText(this, "Couldn't reach Nuvio", Toast.LENGTH_SHORT).show(); return@post }
-                OptionsMenu.show(this, "Who's watching?", profiles.map { p ->
+                OptionsMenu.show(this, "Who's watching?", profiles.sortedByDescending { it.index == current?.index }.map { p ->
                     (if (p.index == current?.index) "✓  ${p.name}" else "     ${p.name}") to {
                         if (p.index != current?.index) {
                             NuvioAccount.setProfile(this, p)
                             drawProfile()
+                            movieRows.clearContinue()
                             movieRows.refreshContinue(force = true)
                         }
                     }
@@ -764,7 +771,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         // Home always lands at the start of the dock, whether pressed on the home
         // screen or from inside another app.
-        main.post { returnToStart() }
+        main.post { selectHomeTab(); returnToStart() }
     }
 
     @Deprecated("Home screen has nowhere to go back to")
@@ -861,6 +868,8 @@ class MainActivity : Activity() {
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, movieRows.billboard.view)) {
             movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }
         }
+        // The carousel's buttons step through its titles with Left/Right themselves.
+        if (isInside(focused, movieRows.billboard.view)) return false
         val row = movieRows.rowOf(focused) ?: return sideStepLeavesRow(focused, event.keyCode)
         val pos = row.list.getChildAdapterPosition(focused)
         val last = row.adapter.itemCount - 1

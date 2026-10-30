@@ -22,7 +22,7 @@ object Look {
         // Netflix red on smoked glass: Flix's own look.
         "cinema" to Theme(0xFFE50914.toInt(), 0xFF5AA9FF.toInt(), 0x40080C12, 0x24FFFFFF, 30f, 16f),
         // Apple TV: bright frosted panels, white focus, softer and rounder.
-        "glass" to Theme(0xFFF5F5F7.toInt(), 0xFFFFFFFF.toInt(), 0x33FFFFFF, 0x4DFFFFFF, 36f, 28f),
+        "glass" to Theme(0xFFF5F5F7.toInt(), 0xFF8EC5FF.toInt(), 0x33FFFFFF, 0x4DFFFFFF, 36f, 28f),
         // Deep violet for late-night watching.
         "midnight" to Theme(0xFF8B5CF6.toInt(), 0xFFA78BFA.toInt(), 0x5A140B2E, 0x338B5CF6, 30f, 20f),
         // Quiet: grey accents, no tint, squarer corners, so the artwork does the talking.

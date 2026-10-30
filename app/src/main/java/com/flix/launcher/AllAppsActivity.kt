@@ -130,6 +130,24 @@ class AllAppsActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 addView(searchBox, LinearLayout.LayoutParams(px(360), px(46)))
+                // Speak instead of typing: Google TV's own speech recogniser fills the box.
+                addView(ImageView(context).apply {
+                    setImageResource(R.drawable.ic_mic)
+                    contentDescription = "Search by voice"
+                    isFocusable = true
+                    setPadding(px(11), px(11), px(11), px(11))
+                    background = android.graphics.drawable.StateListDrawable().apply {
+                        addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(android.graphics.Color.WHITE)
+                        })
+                        addState(intArrayOf(), android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(0x26FFFFFF)
+                        })
+                    }
+                    setOnFocusChangeListener { v, has -> (v as ImageView).setColorFilter(if (has) android.graphics.Color.BLACK else android.graphics.Color.WHITE) }
+                    setColorFilter(android.graphics.Color.WHITE)
+                    setOnClickListener { if (!listen()) Toast.makeText(context, "Voice search isn't available on this TV", Toast.LENGTH_SHORT).show() }
+                }, LinearLayout.LayoutParams(px(46), px(46)).apply { marginStart = px(10) })
                 addView(chips, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(18) })
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(18) })
             addView(titlesBlock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(16) })
@@ -373,6 +391,8 @@ class AllAppsActivity : Activity() {
             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say a film, show or app")
         if (ask.resolveActivity(packageManager) == null) return false
+        // Google TV has two recognisers; use Google's own so no "Complete action using" chooser appears.
+        ask.setPackage(GOOGLE_VOICE).takeIf { it.resolveActivity(packageManager) == null }?.setPackage(null)
         @Suppress("DEPRECATION")
         return runCatching { startActivityForResult(ask, VOICE_REQUEST) }.isSuccess
     }
@@ -425,9 +445,10 @@ class AllAppsActivity : Activity() {
     companion object {
         /** Open with the search box focused, for the home screen's Search tab. */
         const val EXTRA_SEARCH = "search"
-        /** Open listening for a spoken search (the remote's mic key on the home screen). */
+        /** Open listening for a spoken search (holding OK on the home screen's search button). */
         const val EXTRA_VOICE = "voice"
         private const val VOICE_REQUEST = 7
+        private const val GOOGLE_VOICE = "com.google.android.katniss"
 
         val WATCH_HINTS = listOf("hotstar", "sonyliv", "graymatrix", "nuvio", "stremio", "smarttube", "youtube", "vlc", "tvplayer",
             "amazonvideo", "netflix", "appletv", "videos", "tivimate", "mxtech", "arvio", "maertsno", "sonypictures", "tvx", "onstream")
