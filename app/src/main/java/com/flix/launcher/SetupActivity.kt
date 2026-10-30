@@ -73,9 +73,9 @@ class SetupActivity : Activity() {
         when (step) {
             0 -> {
                 val signedIn = NuvioAccount.isSignedIn(this)
-                title.text = "Connect your Nuvio account"
-                body.text = "See what you were watching, resume with one press, and get your addons' rows on the home screen. " +
-                    "You'll scan a code with your phone; no typing on the TV."
+                title.text = "Pick up where you left off"
+                body.text = "Connect your Nuvio account and Home opens on what you were watching, one press from playing. " +
+                    "Your addons' films and shows fill the rows below. You'll scan a code with your phone; no typing on the TV."
                 status(if (signedIn) "✓  Signed in as ${NuvioAccount.profile(this)?.name.orEmpty()}" else null)
                 primary(if (signedIn) "Next" else "Connect Nuvio") {
                     if (signedIn) next() else startActivity(Intent(this, NuvioLoginActivity::class.java))
@@ -84,19 +84,19 @@ class SetupActivity : Activity() {
             }
             1 -> {
                 val rows = Addons.rows(this).count { it.enabled }
-                title.text = "Choose your rows"
-                body.text = "Pick which films and series rows sit under your apps, and their order. " +
-                    "Your Nuvio addons' catalogues are listed for you."
+                title.text = "Choose what's on"
+                body.text = "Pick the film and series rows you actually want to browse, and their order. " +
+                    "Your Nuvio addons' catalogues are listed for you; everything else stays off the screen."
                 status(if (rows > 0) "✓  $rows rows on the home screen" else null)
                 primary("Choose rows") { startActivity(Intent(this, RowsActivity::class.java)) }
                 secondary("Next") { next() }
             }
             else -> {
                 val on = HomeKeyService.running
-                title.text = "Make Home open Flix"
-                body.text = "Google TV sends the Home button to its own screen. Switch on \"Flix Launcher\" in Accessibility " +
-                    "and Home opens Flix instead. It only listens for the Home and mic keys."
-                status(if (on) "✓  Home opens Flix" else null)
+                title.text = "One press to your show"
+                body.text = "Google TV sends the Home button to its own screen, full of things to buy. Switch on \"Flix Launcher\" in " +
+                    "Accessibility and Home brings you back to what you watch instead. It only listens for the Home key."
+                status(if (on) "✓  Home opens Flix: you're ready to watch" else null)
                 primary(if (on) "Finish" else "Open Accessibility") {
                     if (on) finishSetup()
                     else runCatching { startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }

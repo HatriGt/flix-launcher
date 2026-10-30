@@ -900,7 +900,19 @@ class MainActivity : Activity() {
         exitBrowse()
         rowsScroll.scrollTo(0, 0)
         appsList.smoothScrollToPosition(0)
-        focusFavorite(0)
+        focusStart()
+    }
+
+    /**
+     * Where Home puts you: on Resume for what you were watching (TV is for watching), or on
+     * the first app when there's nothing to resume or the user prefers apps first.
+     */
+    private fun focusStart() {
+        val bb = movieRows.billboard
+        if (FlixSettings.get(this, FlixSettings.HOME_FOCUS) == "watching" && bb.hasResume) {
+            bb.showResume()
+            bb.play.requestFocus()
+        } else focusFavorite(0)
     }
 
     // ---- Idle mode: after a quiet minute the UI fades away and leaves just the scenery ----

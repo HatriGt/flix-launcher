@@ -352,6 +352,7 @@ class SettingsActivity : Activity() {
             add(Entry(s, group, "$title $sub $extra ${SECTIONS[s].title}") { actionRow(title, sub, icon, onClick) })
 
         // Home screen
+        opt(0, "When you press Home", FlixSettings.HOME_FOCUS, R.drawable.ic_o_resume, "home button start focus resume continue watching apps first")
         opt(0, "Look", FlixSettings.THEME, R.drawable.ic_o_contrast, "theme colour color style glass cinema midnight minimal dark apple netflix")
         opt(0, "App tiles", FlixSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
         opt(0, "App tiles", FlixSettings.ICON_SIZE, R.drawable.ic_o_size, "icons big bigger smaller")
@@ -409,7 +410,7 @@ class SettingsActivity : Activity() {
         act(4, "Backup & restore", "Restore settings", "Bring back settings from a backup", R.drawable.ic_o_reset, "restore import load recover backup") { pickBackup() }
 
         // About
-        add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
+        add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher ${version()}", "A home screen made for watching. Free, open source, no ads", R.drawable.ic_s_info) })
         val update = Updater.ready(this@SettingsActivity)
         act(4, "Updates", if (update != null) "Update to ${update.version}" else "Check for updates",
             if (update != null) "Downloaded. Installs now; Flix reopens by itself" else "Flix updates itself when the TV is idle",
@@ -1040,8 +1041,8 @@ class SettingsActivity : Activity() {
         private const val RED = 0xFFE50914.toInt()
         private const val INK = 0xFF141414.toInt()
         private val SECTIONS = listOf(
-            Section("Home screen", "App tiles, names and the All apps list", R.drawable.ic_s_home),
-            Section("Movies & shows", "Your Nuvio rows, the Top 10 and trailers", R.drawable.ic_s_film),
+            Section("Home screen", "Where Home takes you, and how your apps look", R.drawable.ic_s_home),
+            Section("Movies & shows", "What's waiting for you to watch: rows, the Top 10 and trailers", R.drawable.ic_s_film),
             Section("Clock & weather", "What the top of the screen shows", R.drawable.ic_o_clock),
             Section("Wallpaper", "The picture behind everything, and the screensaver", R.drawable.ic_o_image),
             Section("About", "Backup, Flix Launcher and this TV", R.drawable.ic_s_info),

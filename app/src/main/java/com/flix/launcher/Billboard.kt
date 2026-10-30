@@ -183,6 +183,16 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         rebuild()
     }
 
+    /** Whether the carousel is showing with a Continue watching title pinned first. */
+    val hasResume get() = resume != null && view.visibility == View.VISIBLE && items.firstOrNull() === resume
+
+    /** Turns the carousel back to the pinned Continue watching title. */
+    fun showResume() {
+        if (!hasResume) return
+        if (index != 0) { index = 0; show(animate = true) }
+        schedule()
+    }
+
     /** Limits the carousel to [type] ("movie", "series" or null for any), as the Movies and Shows tabs ask. */
     fun feature(type: String?) {
         if (type == this.type && items.isNotEmpty()) return

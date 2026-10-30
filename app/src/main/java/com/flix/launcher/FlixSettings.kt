@@ -26,6 +26,11 @@ object FlixSettings {
         listOf("cinema" to "Cinema", "glass" to "Glass", "midnight" to "Midnight", "minimal" to "Minimal"), "cinema",
         summary = "Colours and shapes of the home screen")
 
+    // What the Home button lands on
+    val HOME_FOCUS = Option("home_focus", "Home opens on",
+        listOf("watching" to "What you were watching", "apps" to "Your apps"), "watching",
+        summary = "Resume your last show in one press, or start on your apps")
+
     // Icons
     val ICON_SHAPE = Option("icon_shape", "Icon shape",
         listOf("circle" to "Circle", "squircle" to "Squircle", "rounded" to "Rounded square", "banner" to "Wide banner"), "circle",
