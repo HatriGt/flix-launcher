@@ -57,7 +57,9 @@ object Catalog {
                     poster?.let { putExtra("poster", it) }
                     backdrop?.let { putExtra("backdrop", it) }
                     logo?.let { putExtra("logo", it) }
-                    if (videoId != null && type != "movie") { putExtra("season", season!!); putExtra("episode", episode!!) }
+                    val s = season
+                    val e = episode
+                    if (type != "movie" && s != null && e != null) { putExtra("season", s); putExtra("episode", e) }
                 }
         }
 

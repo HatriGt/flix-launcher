@@ -451,7 +451,7 @@ class MainActivity : Activity() {
             overridePendingTransition(0, 0)
             return
         }
-        val intent = title.nuvioStreamIntent().takeIf { it.resolveActivity(packageManager) != null }
+        val intent = runCatching { title.nuvioStreamIntent() }.getOrNull()?.takeIf { it.resolveActivity(packageManager) != null }
             ?: Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(MainActivity.NUVIO)
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
