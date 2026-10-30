@@ -54,7 +54,7 @@ object Images {
     }
 
     /** Loads [url] into [view] at about [widthPx] wide, fading it in; a recycled view never shows a stale image. */
-    fun into(view: ImageView, url: String?, widthPx: Int) {
+    fun into(view: ImageView, url: String?, widthPx: Int, onFail: (() -> Unit)? = null) {
         view.tag = url
         if (url == null) {
             view.setImageDrawable(null)
@@ -67,7 +67,8 @@ object Images {
         }
         view.setImageDrawable(null)
         get(url, widthPx) { bitmap ->
-            if (view.tag != url || bitmap == null) return@get
+            if (view.tag != url) return@get
+            if (bitmap == null) return@get onFail?.invoke() ?: Unit
             view.setImageBitmap(bitmap)
             view.alpha = 0f
             view.animate().alpha(1f).setDuration(220).start()

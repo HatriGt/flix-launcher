@@ -334,12 +334,12 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.nav_profile).setOnClickListener { switchProfile() }
         // Holding OK on Search asks by voice instead of the keyboard.
         findViewById<View>(R.id.nav_search).setOnLongClickListener {
-            open(Intent(this, AllAppsActivity::class.java).putExtra(AllAppsActivity.EXTRA_VOICE, true)); true
+            open(Intent(this, SearchActivity::class.java).putExtra(SearchActivity.EXTRA_VOICE, true)); true
         }
         findViewById<View>(R.id.nav_search).setOnClickListener {
-            // Nuvio has no link into its search, so search here: the library's search box finds
-            // apps and every film and series (Cinemeta), and a result opens in Nuvio.
-            open(Intent(this, AllAppsActivity::class.java).putExtra(AllAppsActivity.EXTRA_SEARCH, true))
+            // Nuvio has no link into its search, so search here: films and series from the user's
+            // addons and Cinemeta, and a result opens in Nuvio.
+            open(Intent(this, SearchActivity::class.java))
         }
     }
 

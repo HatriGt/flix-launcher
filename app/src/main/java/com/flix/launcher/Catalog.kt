@@ -139,11 +139,11 @@ object Catalog {
      * (so Tamil, Telugu… addons find their own titles), then Cinemeta's worldwide list.
      * Every source is asked at once and the whole search is capped at a few seconds.
      */
-    fun search(context: Context, query: String): List<Title> {
+    fun search(context: Context, query: String, onPartial: ((List<Title>) -> Unit)? = null): List<Title> {
         val q = URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
         val cinemeta = "https://v3-cinemeta.strem.io"
         val sources = searchCatalogues(context) + listOf("movie", "series").map { Triple(cinemeta, it, "top") }
-        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(6)
         try {
             val futures = sources.map { (base, type, id) ->
                 pool.submit<List<Title>> {
@@ -155,14 +155,23 @@ object Catalog {
                     parse(body, base).take(15)
                 }
             }
-            val deadline = System.currentTimeMillis() + 9000
-            val found = futures.flatMap { f ->
-                runCatching { f.get(maxOf(1, deadline - System.currentTimeMillis()), java.util.concurrent.TimeUnit.MILLISECONDS) }
-                    .getOrElse { f.cancel(true); emptyList() }
-            }
             // The same film often comes from several addons: keep the first (the user's own addon).
-            val seen = HashSet<String>()
-            return found.filter { seen.add(it.id) && seen.add("${it.name.lowercase()}|${it.year?.take(4)}") }
+            fun merged(): List<Title> {
+                val seen = HashSet<String>()
+                return futures.filter { it.isDone && !it.isCancelled }
+                    .flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }
+                    .filter { seen.add(it.id) && seen.add("${it.name.lowercase()}|${it.year?.take(4)}") }
+            }
+            // Hand over what has arrived every moment, so fast sources show while slow ones finish.
+            val deadline = System.currentTimeMillis() + 9000
+            var shown = -1
+            while (futures.any { !it.isDone } && System.currentTimeMillis() < deadline) {
+                Thread.sleep(250)
+                val done = futures.count { it.isDone }
+                if (onPartial != null && done != shown) { shown = done; merged().takeIf { it.isNotEmpty() }?.let(onPartial) }
+            }
+            futures.forEach { if (!it.isDone) it.cancel(true) }
+            return merged()
         } finally {
             pool.shutdownNow()
         }

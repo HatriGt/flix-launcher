@@ -86,6 +86,13 @@
             android:theme="@style/Theme.Flix.Settings" />
 
         <activity
+            android:name=".SearchActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Flix" />
+
+        <activity
             android:name=".SetupActivity"
             android:excludeFromRecents="true"
             android:exported="false"

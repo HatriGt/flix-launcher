@@ -356,7 +356,12 @@ class PosterAdapter(
             // The name underneath is only for posters that don't exist; drawing it under a real
             // poster costs the GPU a second layer of pixels for every card.
             fallback.visibility = if (title.poster == null) View.VISIBLE else View.GONE
-            Images.into(poster, title.poster, widthPx)
+            Images.into(poster, title.poster, widthPx) {
+                // The poster link is dead: show the generated cover with the name instead of a blank card.
+                if (current?.id != title.id) return@into
+                fallback.visibility = View.VISIBLE
+                itemView.background = CoverArt(title.name)
+            }
             // Generated cover art only for titles with no poster; drawing it under a real
             // poster would double the pixels the GPU fills.
             itemView.background = if (title.poster == null) CoverArt(title.name) else null
@@ -376,6 +381,7 @@ class PosterAdapter(
             }
             itemView.setOnLongClickListener { adapter.onLongClick(title); true }
             if (!adapter.grows) {
+                collapse(instant = true) // resets the name shown when the poster can't load
                 itemView.setOnFocusChangeListener { _, focused -> lift(focused) }
                 lift(itemView.isFocused, instant = true)
                 return

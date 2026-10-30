@@ -66,16 +66,14 @@ class AllAppsActivity : Activity() {
         val style = tileStyle()
         val columns = if (style.isBanner) 5 else 8
 
-        searchMode = intent.getBooleanExtra(EXTRA_SEARCH, false) || intent.getBooleanExtra(EXTRA_VOICE, false)
-        if (searchMode) io.execute { Catalog.warmSearch(applicationContext) }
         count = text("", 12f, alpha = 0.55f)
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.BOTTOM
-            addView(text(if (searchMode) "Search" else "Library", 28f, bold = true))
+            addView(text("Library", 28f, bold = true))
             addView(count, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(12); bottomMargin = px(5) })
             addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))
-            addView(text(if (searchMode) "Films and shows · 🎤 to speak" else "Type to search · Menu or hold OK for options", 10.5f, alpha = 0.45f),
+            addView(text("Type to search · Menu or hold OK for options", 10.5f, alpha = 0.45f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(6) })
         }
         search = searchField()
@@ -89,11 +87,9 @@ class AllAppsActivity : Activity() {
 
         // Movies and shows found by the search sit above the app grid.
         titlesLabel = text("Movies & shows", 14f, bold = true).apply { setPadding(px(4), 0, 0, px(2)) }
-        titlesAdapter = if (searchMode) PosterAdapter(px(POSTER_W), px(POSTER_W * 3 / 2), dp, springy = false, onFocus = {}, onClick = ::openTitle, onLongClick = ::openTitle, grows = false)
-        else PosterAdapter(px(76), px(114), dp, springy = true, onFocus = {}, onClick = ::openTitle, onLongClick = ::openTitle)
+        titlesAdapter = PosterAdapter(px(76), px(114), dp, springy = true, onFocus = {}, onClick = ::openTitle, onLongClick = ::openTitle)
         val titlesList = RecyclerView(this).apply {
-            layoutManager = if (searchMode) GridLayoutManager(this@AllAppsActivity, SEARCH_COLUMNS)
-            else LinearLayoutManager(this@AllAppsActivity, RecyclerView.HORIZONTAL, false)
+            layoutManager = LinearLayoutManager(this@AllAppsActivity, RecyclerView.HORIZONTAL, false)
             adapter = titlesAdapter
             itemAnimator = null
             clipToPadding = false
@@ -105,16 +101,7 @@ class AllAppsActivity : Activity() {
             visibility = View.GONE
             clipChildren = false
             addView(titlesLabel)
-            addView(titlesList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, if (searchMode) ViewGroup.LayoutParams.MATCH_PARENT else px(140)))
-        }
-        if (searchMode) {
-            // Scrolled posters stay inside the grid instead of sliding over the search box.
-            titlesList.clipChildren = true
-            titlesList.clipToPadding = true
-            titlesList.setPadding(px(12), px(16), px(12), px(40))
-            titlesList.addItemDecoration(object : RecyclerView.ItemDecoration() {
-                override fun getItemOffsets(out: android.graphics.Rect, view: View, parent: RecyclerView, state: RecyclerView.State) { out.bottom = px(18) }
-            })
+            addView(titlesList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(140)))
         }
 
         adapter = AppAdapter(style, onFocus = {}, onClick = ::launch, onLongClick = ::showMenu)
@@ -163,12 +150,9 @@ class AllAppsActivity : Activity() {
                 }, LinearLayout.LayoutParams(px(46), px(46)).apply { marginStart = px(10) })
                 addView(chips, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(18) })
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(18) })
-            addView(titlesBlock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                if (searchMode) 0 else ViewGroup.LayoutParams.WRAP_CONTENT, if (searchMode) 1f else 0f).apply { topMargin = px(16) })
+            addView(titlesBlock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(16) })
             addView(FrameLayout(context).apply {
                 clipChildren = false
-                // The search page has no app grid: give the films the whole height.
-                if (searchMode) visibility = View.GONE
                 addView(grid)
                 addView(empty, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(200)))
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -183,7 +167,6 @@ class AllAppsActivity : Activity() {
         content.translationY = 30 * dp
         content.animate().translationY(0f).setDuration(380).setInterpolator(DecelerateInterpolator(2f)).start()
         load()
-        if (searchMode) showSuggestions()
     }
 
     // ---- Search ----
@@ -192,7 +175,7 @@ class AllAppsActivity : Activity() {
         val idle = GradientDrawable().apply { cornerRadius = 23 * dp; setColor(0x1AFFFFFF); setStroke(px(1), 0x1FFFFFFF) }
         val active = GradientDrawable().apply { cornerRadius = 23 * dp; setColor(0x26FFFFFF); setStroke(px(2), 0xFF7AA2FF.toInt()) }
         return EditText(this).apply {
-            hint = if (searchMode) "Search films and shows" else "Search apps, movies and shows"
+            hint = "Search apps, movies and shows"
             setHintTextColor(0x8CFFFFFF.toInt())
             setTextColor(Color.WHITE)
             textSize = 13.5f
@@ -228,25 +211,6 @@ class AllAppsActivity : Activity() {
 
     private var wantKeyboard = false
 
-    /** Opened from the home screen's Search: a search page, not the app library. */
-    private var searchMode = false
-
-    /** Before anything is typed: titles from the user's own rows, so the page starts full. */
-    private fun showSuggestions() {
-        val token = ++searchToken
-        io.execute {
-            val rows = Addons.rows(this).filter { it.enabled }.mapNotNull { Catalog.cached(this, it, null) }
-            val mixed = buildList { for (i in 0 until 20) rows.forEach { r -> r.getOrNull(i)?.let(::add) } }
-                .filter { it.poster != null }.distinctBy { it.id }.distinctBy { it.name.lowercase().trim() }.take(60)
-            runOnUiThread {
-                if (token != searchToken || isDestroyed || query.length >= 2) return@runOnUiThread
-                titlesAdapter.items = mixed
-                titlesLabel.text = if (mixed.isEmpty()) "Type or say a film or show" else "From your rows"
-                titlesBlock.visibility = View.VISIBLE
-            }
-        }
-    }
-
     private fun imm() = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
     private fun onQuery(text: String) {
@@ -255,7 +219,7 @@ class AllAppsActivity : Activity() {
         val token = ++searchToken
         main.removeCallbacksAndMessages(null)
         if (query.length < 2) {
-            if (searchMode) showSuggestions() else titlesBlock.visibility = View.GONE
+            titlesBlock.visibility = View.GONE
             return
         }
         // Wait for a pause in typing before asking the catalogue.
@@ -265,7 +229,7 @@ class AllAppsActivity : Activity() {
                 runOnUiThread {
                     if (token != searchToken || isDestroyed) return@runOnUiThread
                     titlesAdapter.items = found
-                    titlesLabel.text = if (found.isEmpty()) "No movies or shows for “$query”" else "Results for “$query” · ${found.size}"
+                    titlesLabel.text = if (found.isEmpty()) "No movies or shows for “$query”" else "Movies & shows · ${found.size}"
                     titlesBlock.visibility = View.VISIBLE
                 }
             }
@@ -317,15 +281,6 @@ class AllAppsActivity : Activity() {
     private fun render() {
         val q = query.lowercase()
         val shown = apps.filter { (category == Category.ALL || categoryOf(it) == category) && (q.isEmpty() || q in it.label.lowercase()) }
-        if (searchMode) {
-            // Films and shows only: apps live in the Apps tab and the library.
-            chips.visibility = View.GONE
-            grid.visibility = View.GONE
-            empty.visibility = View.GONE
-            adapter.items = emptyList()
-            count.text = ""
-            return
-        }
         adapter.items = shown
         count.text = if (q.isEmpty() && category == Category.ALL) "${apps.size} apps" else "${shown.size} of ${apps.size}"
         empty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
@@ -493,8 +448,6 @@ class AllAppsActivity : Activity() {
         /** Open listening for a spoken search (holding OK on the home screen's search button). */
         const val EXTRA_VOICE = "voice"
         private const val VOICE_REQUEST = 7
-        private const val SEARCH_COLUMNS = 7
-        private const val POSTER_W = 104
         private const val GOOGLE_VOICE = "com.google.android.katniss"
 
         val WATCH_HINTS = listOf("hotstar", "sonyliv", "graymatrix", "nuvio", "stremio", "smarttube", "youtube", "vlc", "tvplayer",
