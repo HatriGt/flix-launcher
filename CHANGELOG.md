@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.6] - 2026-10-30
+
+### Added
+- Works with the NuvioPlusIPTV fork (com.nuvio.livetv): resume, Continue watching, search and posters open in it
+
 ## [1.0.5] - 2026-10-30
 
 ### Added
