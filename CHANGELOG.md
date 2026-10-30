@@ -4,6 +4,13 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.9] - 2026-10-30
+
+### Changed
+- Home opens on what you were watching: pressing Home selects Resume on your latest Continue watching title, so one OK starts it. With nothing to resume, Home goes to your apps as before
+- New setting, Home screen → Home opens on: "What you were watching" or "Your apps"
+- Setup and settings are reworded around watching
+
 ## [1.0.8] - 2026-10-30
 
 ### Added
