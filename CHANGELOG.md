@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.7] - 2026-10-30
+
+### Fixed
+- After an update the Home button could go to the stock launcher, because Android left Flix's Home service marked as crashed. Flix now checks it again shortly after every update and turns it back on
+
 ## [1.0.6] - 2026-10-30
 
 ### Added

@@ -101,7 +101,7 @@ It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-i
 
    ```bash
    adb connect <tv-ip>:5555
-   adb install flix-launcher-1.0.6.apk
+   adb install flix-launcher-1.0.7.apk
    ```
 
 **Needs:** Android TV / Google TV 9 (API 28) or newer. [Nuvio](https://nuvio.tv) is optional and only needed for opening titles and Continue watching.
