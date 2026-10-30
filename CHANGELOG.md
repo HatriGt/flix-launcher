@@ -4,6 +4,12 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.8] - 2026-10-30
+
+### Added
+- Update ready: when a new version has downloaded, a glowing pill appears next to the quick buttons on the home screen; OK installs it
+- Settings shows an Install card at the top while an update is ready
+
 ## [1.0.7] - 2026-10-30
 
 ### Fixed
