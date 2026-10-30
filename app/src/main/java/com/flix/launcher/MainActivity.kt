@@ -738,6 +738,23 @@ class MainActivity : Activity() {
      *  - Up/Down lands on the card at the start of the next row (where its big card sits),
      *    rather than whichever card happens to be geometrically closest.
      */
+    /**
+     * Left/Right at the end of the dock, the top menu or the billboard's buttons stays put:
+     * true (swallow the key) when the next focus would be on a different line of the screen.
+     */
+    private fun sideStepLeavesRow(focused: View, keyCode: Int): Boolean {
+        val dir = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> View.FOCUS_LEFT
+            KeyEvent.KEYCODE_DPAD_RIGHT -> View.FOCUS_RIGHT
+            else -> return false
+        }
+        val next = focused.focusSearch(dir) ?: return true
+        val a = IntArray(2).also { focused.getLocationOnScreen(it) }
+        val b = IntArray(2).also { next.getLocationOnScreen(it) }
+        val centre = b[1] + next.height / 2
+        return centre < a[1] || centre > a[1] + focused.height
+    }
+
     private fun steerMovieRows(event: KeyEvent): Boolean {
         val focused = currentFocus ?: return false
         // Up from the apps dock goes to the top menu's current tab (it isn't straight above most apps).
@@ -748,7 +765,7 @@ class MainActivity : Activity() {
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, movieRows.billboard.view)) {
             movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }
         }
-        val row = movieRows.rowOf(focused) ?: return false
+        val row = movieRows.rowOf(focused) ?: return sideStepLeavesRow(focused, event.keyCode)
         val pos = row.list.getChildAdapterPosition(focused)
         val last = row.adapter.itemCount - 1
         when (event.keyCode) {
