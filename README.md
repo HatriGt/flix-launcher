@@ -5,8 +5,8 @@
 <h1 align="center">Flix Launcher</h1>
 
 <p align="center">
-  <b>A free, ad-free launcher for Android TV and Google TV.</b><br>
-  Your apps, your films and your shows on one cinematic home screen, built to stay light on 2 GB TVs.<br>
+  <b>An ad-free Android TV and Google TV launcher made for watching.</b><br>
+  Press Home and you're one click from your film: the episode you're halfway through, films worth starting and your streaming apps, nothing else.<br>
   Works on Sony BRAVIA, TCL, Hisense, Xiaomi Mi Box, Chromecast with Google TV, NVIDIA Shield and other Android TV devices.
 </p>
 
@@ -37,7 +37,7 @@
 
 ## Why Flix
 
-Stock Google TV launchers are full of ads and heavy on cheap TVs. Flix Launcher is a custom Android TV launcher that replaces them with one calm, fast screen: your favourite apps on top, films and shows underneath, and a moving scenic background when you're not using it.
+A TV is for watching, but the stock Google TV home screen fills itself with ads and promoted apps, and it's slow on cheap TVs. Flix Launcher is a custom Android TV launcher built around what you actually watch. It replaces the stock one with one calm, fast screen: your favourite apps on top, films and shows underneath, and a moving scenic background when you're not using it.
 
 It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-in QR code and the profile installer as dependencies) and frugal: about 54 MB of memory on a 2 GB TV, because every icon is redrawn once into a GPU bitmap and artwork only loads for the card you're looking at.
 
