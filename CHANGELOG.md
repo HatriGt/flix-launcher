@@ -4,7 +4,7 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.4] - 2026-10-30
 
 ### Changed
 - New Netflix-style search (the home screen's 🔍): an on-screen keyboard driven by the remote on the left, results on the right that fill in as each addon answers. It searches your own addons first, then Cinemeta, and opens on titles recommended from your rows
