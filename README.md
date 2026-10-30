@@ -1,10 +1,18 @@
 <p align="center">
-  <img src="docs/hero.png" alt="Flix Launcher" width="100%">
+  <img src="docs/hero.png" alt="Flix Launcher, a custom launcher for Android TV and Google TV" width="100%">
+</p>
+
+<h1 align="center">Flix Launcher</h1>
+
+<p align="center">
+  <b>A free, ad-free launcher for Android TV and Google TV.</b><br>
+  Your apps, your films and your shows on one cinematic home screen, built to stay light on 2 GB TVs.<br>
+  Works on Sony BRAVIA, TCL, Hisense, Xiaomi Mi Box, Chromecast with Google TV, NVIDIA Shield and other Android TV devices.
 </p>
 
 <p align="center">
-  <b>A fast, cinematic home screen for Android TV and Google TV.</b><br>
-  Your apps, your films and your shows on one screen, built to stay light on 2 GB TVs.
+  <a href="https://hatrigt.github.io/flix-launcher/"><b>Website</b></a> ·
+  <a href="https://github.com/HatriGt/flix-launcher/releases/latest"><b>Download the APK</b></a>
 </p>
 
 <p align="center">
@@ -29,7 +37,7 @@
 
 ## Why Flix
 
-Stock Google TV launchers are full of ads and heavy on cheap TVs. Flix replaces them with one calm, fast screen: your favourite apps on top, films and shows underneath, and a moving scenic background when you're not using it.
+Stock Google TV launchers are full of ads and heavy on cheap TVs. Flix Launcher is a custom Android TV launcher that replaces them with one calm, fast screen: your favourite apps on top, films and shows underneath, and a moving scenic background when you're not using it.
 
 It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-in QR code and the profile installer as dependencies) and frugal: about 54 MB of memory on a 2 GB TV, because every icon is redrawn once into a GPU bitmap and artwork only loads for the card you're looking at.
 
@@ -189,6 +197,30 @@ None. They stream when shown and are never saved; only a small list of addresses
 <summary><b>How do I go back to the stock launcher?</b></summary>
 
 Switch off Flix in **Settings → Accessibility**, or uninstall it.
+</details>
+
+<details>
+<summary><b>How do I remove ads from the Google TV home screen?</b></summary>
+
+Install Flix Launcher and make it your home screen (see [Make it your home screen](#make-it-your-home-screen)). The Home button then opens Flix, which has no ads or sponsored rows. The stock launcher stays installed, unused.
+</details>
+
+<details>
+<summary><b>Does it work with Nuvio, NuvioPlusIPTV and Stremio addons?</b></summary>
+
+Yes. Sign in with your Nuvio account to get Continue watching and your addons' rows on the home screen, and OK on a title opens it in Nuvio. It works with Nuvio from GitHub, the Play Store and the NuvioPlusIPTV fork. Rows come from any Stremio-protocol addon you've added in Nuvio.
+</details>
+
+<details>
+<summary><b>Which TVs does it run on?</b></summary>
+
+Any Android TV or Google TV device on Android 9 or later: Sony BRAVIA, TCL, Hisense, Philips, Xiaomi Mi Box and Mi TV Stick, Chromecast with Google TV, NVIDIA Shield and Onn boxes. It's tuned for TVs with only 2 GB of memory.
+</details>
+
+<details>
+<summary><b>How does it update?</b></summary>
+
+Flix updates itself from this repository's releases: a new version downloads in the background, and an "Update ready" pill appears on the home screen. It installs while the TV is idle, or when you press OK on the pill.
 </details>
 
 ## Acknowledgements

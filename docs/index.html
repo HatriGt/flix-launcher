@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flix Launcher: free, ad-free launcher for Android TV and Google TV</title>
+<meta name="description" content="Flix Launcher is a free, open-source, ad-free home screen for Android TV and Google TV. Apps, films and shows on one screen, Nuvio resume, aerial video backgrounds, about 700 KB. Works on Sony BRAVIA, TCL, Hisense, Chromecast and more.">
+<meta name="keywords" content="Flix Launcher, Android TV launcher, Google TV launcher, ad-free launcher, custom TV launcher, Nuvio, Stremio, Sony BRAVIA launcher, Chromecast launcher">
+<link rel="canonical" href="https://hatrigt.github.io/flix-launcher/">
+<meta name="theme-color" content="#08090c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Flix Launcher">
+<meta property="og:title" content="Flix Launcher: free, ad-free launcher for Android TV and Google TV">
+<meta property="og:description" content="Your apps, films and shows on one cinematic home screen. No ads, about 700 KB, light on 2 GB TVs.">
+<meta property="og:url" content="https://hatrigt.github.io/flix-launcher/">
+<meta property="og:image" content="https://hatrigt.github.io/flix-launcher/social.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Flix Launcher for Android TV and Google TV">
+<meta name="twitter:description" content="A free, ad-free home screen for Android TV and Google TV.">
+<meta name="twitter:image" content="https://hatrigt.github.io/flix-launcher/social.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2308090c'/%3E%3Ctext x='32' y='47' font-family='Arial Black,Arial' font-weight='900' font-size='44' text-anchor='middle' fill='%23E50914'%3EF%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Flix Launcher",
+  "alternateName": "Flix TV Launcher",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android TV 9+, Google TV",
+  "description": "A free, open-source, ad-free home screen for Android TV and Google TV with apps, films and shows on one screen.",
+  "url": "https://hatrigt.github.io/flix-launcher/",
+  "downloadUrl": "https://github.com/HatriGt/flix-launcher/releases/latest",
+  "softwareHelp": "https://github.com/HatriGt/flix-launcher#faq",
+  "image": "https://hatrigt.github.io/flix-launcher/social.png",
+  "screenshot": "https://hatrigt.github.io/flix-launcher/home.jpg",
+  "license": "https://opensource.org/licenses/MIT",
+  "author": {"@type": "Person", "name": "HatriGt", "url": "https://github.com/HatriGt"},
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How do I remove ads from the Google TV home screen?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Install Flix Launcher and switch on Flix Launcher in Settings → Accessibility. The Home button then opens Flix, which has no ads or sponsored rows."}},
+    {"@type": "Question", "name": "Which TVs does Flix Launcher run on?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Any Android TV or Google TV device on Android 9 or later, including Sony BRAVIA, TCL, Hisense, Philips, Xiaomi Mi Box, Chromecast with Google TV and NVIDIA Shield."}},
+    {"@type": "Question", "name": "Does Flix Launcher work with Nuvio and Stremio addons?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. Sign in with Nuvio to get Continue watching and your addons' rows on the home screen; titles open in Nuvio, including the Play Store version and the NuvioPlusIPTV fork."}},
+    {"@type": "Question", "name": "Is Flix Launcher free?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. It is free and open source under the MIT licence, with no ads and no analytics."}}
+  ]
+}
+</script>
+<style>
+:root{--bg:#08090c;--panel:#111318;--line:#23262e;--text:#f2f3f5;--dim:#a3a7b0;--red:#e50914;--red2:#b20710}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.logo{font-weight:900;letter-spacing:-.02em;font-size:22px;text-decoration:none}
+.logo b{color:var(--red)}
+nav .links{display:flex;gap:22px;font-size:15px;color:var(--dim)}
+nav .links a{text-decoration:none}nav .links a:hover{color:var(--text)}
+.hero{position:relative;padding:56px 0 40px;text-align:center}
+.hero::before{content:"";position:absolute;inset:-40% -20% auto;height:620px;background:radial-gradient(closest-side,rgba(229,9,20,.28),transparent);z-index:-1}
+h1{font-size:clamp(40px,7vw,76px);line-height:1.02;letter-spacing:-.035em;margin:0 0 18px;font-weight:850}
+h1 span{color:var(--red)}
+.lede{font-size:clamp(18px,2.2vw,21px);color:var(--dim);max-width:640px;margin:0 auto 32px}
+.cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;font-weight:700;text-decoration:none;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px)}
+.primary{background:linear-gradient(90deg,var(--red),var(--red2));box-shadow:0 10px 30px -10px rgba(229,9,20,.7)}
+.ghost{border:1px solid var(--line);background:var(--panel)}
+.meta{margin-top:18px;font-size:14px;color:var(--dim)}
+.shot{margin:48px auto 0;border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:0 40px 120px -40px rgba(229,9,20,.45)}
+.shot img{display:block;width:100%;height:auto}
+section{padding:72px 0 0}
+h2{font-size:clamp(28px,4vw,40px);letter-spacing:-.02em;margin:0 0 10px}
+.sub{color:var(--dim);margin:0 0 32px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.card h3{margin:0 0 6px;font-size:18px}
+.card p{margin:0;color:var(--dim);font-size:15.5px}
+.card .ic{font-size:24px;margin-bottom:10px;display:block}
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
+ol.steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px 18px 66px;position:relative}
+ol.steps li::before{content:counter(s);position:absolute;left:20px;top:17px;width:30px;height:30px;border-radius:50%;background:var(--red);display:grid;place-items:center;font-weight:800;font-size:15px}
+code{background:#1a1d24;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:14px}
+details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:700}
+details p{color:var(--dim);margin:10px 0 0}
+.devices{display:flex;flex-wrap:wrap;gap:10px}
+.devices span{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--dim)}
+footer{margin:80px 0 0;padding:30px 0 48px;border-top:1px solid var(--line);color:var(--dim);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:640px){nav .links{display:none}.hero{padding-top:28px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="logo" href="#"><b>FLIX</b> Launcher</a>
+    <div class="links">
+      <a href="#features">Features</a><a href="#install">Install</a><a href="#faq">FAQ</a>
+      <a href="https://github.com/HatriGt/flix-launcher">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <h1>Flix Launcher.<br>Your TV, <span>without the ads.</span></h1>
+    <p class="lede">A free, open-source home screen for Android TV and Google TV. Your apps, films and shows on one cinematic screen, about 700 KB, light even on 2 GB TVs.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/HatriGt/flix-launcher/releases/latest">Download the APK</a>
+      <a class="btn ghost" href="https://github.com/HatriGt/flix-launcher">View on GitHub</a>
+    </div>
+    <p class="meta">Android TV 9+ · MIT licence · Updates itself</p>
+    <div class="shot"><img src="home.jpg" width="1280" height="720" alt="Flix Launcher home screen on Android TV: favourite apps, a featured film carousel and movie rows over an aerial mountain background"></div>
+  </header>
+
+  <section id="features">
+    <h2>Everything on one screen</h2>
+    <p class="sub">Replace the stock Google TV launcher with a calm, fast home screen that puts what you watch first.</p>
+    <div class="grid">
+      <div class="card"><span class="ic">🚫</span><h3>No ads, no tracking</h3><p>No sponsored rows, no analytics. Just your apps and what you watch.</p></div>
+      <div class="card"><span class="ic">▶️</span><h3>Resume in one press</h3><p>Continue watching and Up next from your Nuvio account, right on the home screen.</p></div>
+      <div class="card"><span class="ic">🎬</span><h3>Films and shows</h3><p>Rows from your Stremio addons, a Top 10, trailers on focus and a featured carousel.</p></div>
+      <div class="card"><span class="ic">🔍</span><h3>Netflix-style search</h3><p>An on-screen keyboard for the remote, voice search, and results from your own addons.</p></div>
+      <div class="card"><span class="ic">🌄</span><h3>Aerial backgrounds</h3><p>Apple TV and Fire TV aerial videos or daily Bing photos, streamed, never stored.</p></div>
+      <div class="card"><span class="ic">⚡</span><h3>Tiny and fast</h3><p>About 700 KB and around 54 MB of memory on a 2 GB TV. Themes, weather and a clock included.</p></div>
+    </div>
+  </section>
+
+  <section id="devices">
+    <h2>Works on your TV</h2>
+    <p class="sub">Any Android TV or Google TV device running Android 9 or later.</p>
+    <div class="devices">
+      <span>Sony BRAVIA</span><span>TCL</span><span>Hisense</span><span>Philips</span><span>Xiaomi Mi Box &amp; Mi TV Stick</span>
+      <span>Chromecast with Google TV</span><span>NVIDIA Shield</span><span>Onn 4K</span>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install in a minute</h2>
+    <p class="sub">Flix isn't on the Play Store, so you sideload it once. After that it updates itself.</p>
+    <ol class="steps">
+      <li>On the TV, install <b>Downloader</b> (or any file manager) and allow it to install unknown apps.</li>
+      <li>Open the <a href="https://github.com/HatriGt/flix-launcher/releases/latest">latest release</a> and install <code>flix-launcher-*.apk</code>. Or from a computer: <code>adb install flix-launcher-*.apk</code></li>
+      <li>Open Flix and follow the setup: connect Nuvio, choose your rows, then switch on <b>Flix Launcher</b> in <b>Settings → Accessibility</b> so the Home button opens Flix.</li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="shot" style="margin-top:0"><img src="settings.jpg" width="1280" height="720" loading="lazy" alt="Flix Launcher settings on Android TV with sections, search and wallpaper options"></div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <details open><summary>How do I remove ads from the Google TV home screen?</summary><p>Install Flix Launcher and switch it on in Settings → Accessibility. The Home button then opens Flix, which has no ads or sponsored rows. The stock launcher stays installed, unused.</p></details>
+    <details><summary>Does it work with Nuvio and Stremio addons?</summary><p>Yes. Sign in with Nuvio for Continue watching and your addons' rows. Titles open in Nuvio, including the Play Store version and the NuvioPlusIPTV fork.</p></details>
+    <details><summary>Is it free?</summary><p>Yes, free and open source under the MIT licence.</p></details>
+    <details><summary>How does it update?</summary><p>New versions download in the background from GitHub. An "Update ready" pill appears on the home screen; it installs when the TV is idle or when you press OK.</p></details>
+    <details><summary>How do I go back to the stock launcher?</summary><p>Switch off Flix Launcher in Settings → Accessibility, or uninstall it.</p></details>
+  </section>
+
+  <footer>
+    <span>Flix Launcher · MIT © HatriGt · Not affiliated with Netflix, Google, Stremio or Nuvio.</span>
+    <a href="https://github.com/HatriGt/flix-launcher">github.com/HatriGt/flix-launcher</a>
+  </footer>
+</div>
+</body>
+</html>
