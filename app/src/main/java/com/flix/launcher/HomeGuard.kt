@@ -48,14 +48,15 @@ object HomeGuard {
         val app = context.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         if (previous is CrashHeal) return
-        Thread.setDefaultUncaughtExceptionHandler(CrashHeal(previous) {
-            runCatching {
-                val pending = android.app.PendingIntent.getBroadcast(app, 0, Intent(app, Receiver::class.java),
-                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
-                (app.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager)
-                    .set(android.app.AlarmManager.ELAPSED_REALTIME, android.os.SystemClock.elapsedRealtime() + 2000, pending)
-            }
-        })
+        Thread.setDefaultUncaughtExceptionHandler(CrashHeal(previous) { ensureLater(app, 2000, 0) })
+    }
+
+    /** Runs [ensure] again after [delayMs]; each [requestCode] is its own pending alarm. */
+    private fun ensureLater(context: Context, delayMs: Long, requestCode: Int) = runCatching {
+        val pending = android.app.PendingIntent.getBroadcast(context, requestCode, Intent(context, Receiver::class.java),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        (context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager)
+            .set(android.app.AlarmManager.ELAPSED_REALTIME, android.os.SystemClock.elapsedRealtime() + delayMs, pending)
     }
 
     private class CrashHeal(val previous: Thread.UncaughtExceptionHandler?, val heal: () -> Unit) : Thread.UncaughtExceptionHandler {
@@ -82,6 +83,15 @@ object HomeGuard {
 
     /** Runs after boot and after every update of Flix. */
     class Receiver : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = ensure(context)
+        override fun onReceive(context: Context, intent: Intent) {
+            ensure(context)
+            // Right after an update the system may still be tearing down the old binding and
+            // mark the fresh one as crashed, leaving Home on the stock launcher. Check again a
+            // little later; ensure() does nothing once the service is running.
+            if (intent.action != null) {
+                ensureLater(context, 6000, 1)
+                ensureLater(context, 20000, 2)
+            }
+        }
     }
 }
