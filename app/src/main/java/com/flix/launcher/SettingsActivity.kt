@@ -431,6 +431,7 @@ class SettingsActivity : Activity() {
         checkMarks.clear()
         content.removeAllViews()
         val section = SECTIONS[index]
+        updateBanner()
         header(section.title, section.blurb)
         catalogue().filter { it.section == index }.groupBy { it.group }.forEach { (caption, entries) ->
             group(caption, entries.flatMap { it.views() })
@@ -854,6 +855,43 @@ class SettingsActivity : Activity() {
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
     // ---- Updates ----
+
+    /** A card above every section while a downloaded update waits; OK installs it. */
+    private fun updateBanner() {
+        val update = Updater.ready(this) ?: return
+        // The first bullet of the release notes, by its bold lead-in when it has one ("**Weather city:** …").
+        val notes = update.notes.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("- ") || it.startsWith("* ") }
+            ?.drop(2)?.let { Regex("""^\*\*(.+?):?\*\*""").find(it)?.groupValues?.get(1) ?: it.replace("**", "") }
+            ?.trimEnd(':', '.')?.let { if (it.length > 90) it.take(88).trimEnd() + "…" else it }
+            ?.let { "New: $it" }
+        val bg = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0x40E50914, 0x14E50914)).apply {
+            cornerRadius = 16 * dp; setStroke(px(1), 0x55E50914)
+        }
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isFocusable = true
+            background = bg
+            setPadding(px(16), px(14), px(16), px(14))
+            addView(FrameLayout(context).apply {
+                background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(RED) }
+                addView(ImageView(context).apply { setImageResource(R.drawable.ic_o_reset) }, FrameLayout.LayoutParams(px(22), px(22), Gravity.CENTER))
+            }, LinearLayout.LayoutParams(px(44), px(44)).apply { marginEnd = px(16) })
+            addView(textBlock("Flix ${update.version} is ready", notes ?: "Press OK to install. Flix reopens by itself in a few seconds."),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(text("Install", 14f, bold = true).apply {
+                setTextColor(Color.BLACK)
+                background = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(Color.WHITE) }
+                setPadding(px(18), px(8), px(18), px(8))
+            })
+            setOnFocusChangeListener { _, has -> bg.setStroke(px(if (has) 2 else 1), if (has) Color.WHITE else 0x55E50914) }
+            setOnClickListener { updateNow() }
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+            }
+        }
+        content.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(18) })
+    }
 
     private fun updateNow() {
         if (!Updater.canInstall(this)) {

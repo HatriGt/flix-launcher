@@ -206,6 +206,23 @@ class MainActivity : Activity() {
         overridePendingTransition(0, 0)
     }
 
+    /** A red dot on Flix's settings button while a downloaded update waits to be installed. */
+    private fun showUpdateDot() {
+        val button = findViewById<View>(R.id.qs_flix)
+        button.overlay.clear()
+        if (Updater.ready(this) == null) return
+        val size = (10 * resources.displayMetrics.density).toInt()
+        button.post {
+            button.overlay.clear()
+            button.overlay.add(android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(0xFFE50914.toInt())
+                setStroke(size / 5, 0xFF000000.toInt())
+                setBounds(button.width - size * 2, size / 2, button.width - size, size * 3 / 2)
+            })
+        }
+    }
+
     private fun isOn(option: FlixSettings.Option) = FlixSettings.isOn(this, option)
 
     /** Tile geometry for the chosen shape and size; the favourites row is a step larger than All apps. */
@@ -731,7 +748,11 @@ class MainActivity : Activity() {
         if (appliedRevision != FlixSettings.revision(this)) applySettings()
         if (browsing) main.postDelayed(pauseForBackdrop, 1500)
         movieRows.refreshContinue()
-        Thread { runCatching { Updater.check(applicationContext) } }.start()
+        showUpdateDot()
+        Thread {
+            runCatching { Updater.check(applicationContext) }
+            main.post { if (!isDestroyed) showUpdateDot() }
+        }.start()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
     }
