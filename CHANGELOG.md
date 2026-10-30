@@ -4,6 +4,14 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] - 2026-10-30
+
+### Added
+- Weather city (Settings → Clock & weather): type your city when the automatic location is wrong; leave it empty to go back to automatic
+
+### Fixed
+- The TV no longer shows Android's update confirmation over the idle screen: idle updates install only when they need no confirmation
+
 ## [1.0.4] - 2026-10-30
 
 ### Changed
