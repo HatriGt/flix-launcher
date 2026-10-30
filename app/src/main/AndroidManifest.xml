@@ -29,6 +29,7 @@
             <action android:name="com.android.tv.action.VIEW_INPUTS" />
         </intent>
         <package android:name="com.nuvio.tv" />
+        <package android:name="com.nuvio.app" />
     </queries>
 
     <application

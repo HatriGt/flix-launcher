@@ -40,7 +40,13 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             val release = signingConfigs.getByName("release")
-            signingConfig = if (release.storeFile?.exists() == true) release else signingConfigs.getByName("debug")
+            // Never ship a debug-signed release by accident: without the release key the build stops,
+            // unless debug signing is asked for explicitly (CI test builds, which aren't published).
+            signingConfig = when {
+                release.storeFile?.exists() == true -> release
+                project.hasProperty("allowDebugSigning") -> signingConfigs.getByName("debug")
+                else -> throw GradleException("Release key not found: set flix.storeFile etc. in local.properties or FLIX_* env vars (or pass -PallowDebugSigning for a test build)")
+            }
         }
     }
     compileOptions {

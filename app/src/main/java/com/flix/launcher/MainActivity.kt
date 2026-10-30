@@ -285,7 +285,7 @@ class MainActivity : Activity() {
             FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
-        packageManager.getLaunchIntentForPackage(NUVIO) != null,
+        packageManager.getLaunchIntentForPackage(findNuvio(packageManager)) != null,
     )
 
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
@@ -1173,7 +1173,15 @@ class MainActivity : Activity() {
     }
 
     companion object {
-        const val NUVIO = "com.nuvio.tv"
+        /** Nuvio's package: com.nuvio.tv from GitHub, com.nuvio.app from the Play Store. */
+        private val NUVIO_PACKAGES = listOf("com.nuvio.tv", "com.nuvio.app")
+        @Volatile var NUVIO = NUVIO_PACKAGES[0]; private set
+
+        /** Picks whichever Nuvio is installed; call before using [NUVIO]. */
+        fun findNuvio(pm: android.content.pm.PackageManager): String {
+            NUVIO = NUVIO_PACKAGES.firstOrNull { p -> runCatching { pm.getPackageInfo(p, 0) }.isSuccess } ?: NUVIO_PACKAGES[0]
+            return NUVIO
+        }
         /** How long each wallpaper photo stays up. */
         const val ROTATE_MS = 60_000L
         private const val GRID_COLUMNS = 7

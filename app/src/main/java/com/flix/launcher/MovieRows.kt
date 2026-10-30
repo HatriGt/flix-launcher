@@ -60,7 +60,7 @@ class MovieRows(
         }
         if (FlixSettings.isOn(activity, FlixSettings.BILLBOARD)) container.addView(billboard.view)
         if (!NuvioAccount.isSignedIn(activity) && FlixSettings.isOn(activity, FlixSettings.CONTINUE_WATCHING) &&
-            activity.packageManager.getLaunchIntentForPackage(MainActivity.NUVIO) != null) {
+            activity.packageManager.getLaunchIntentForPackage(MainActivity.findNuvio(activity.packageManager)) != null) {
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
             rows += row
             container.addView(row.view)

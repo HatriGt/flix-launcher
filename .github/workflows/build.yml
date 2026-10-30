@@ -17,8 +17,8 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -PallowDebugSigning  # test build only; releases are signed locally with the release key
       - uses: actions/upload-artifact@v4
         with:
-          name: flix-launcher-apk
+          name: flix-launcher-apk-debug-signed
           path: app/build/outputs/apk/release/app-release.apk

@@ -683,7 +683,7 @@ class SettingsActivity : Activity() {
     private fun nuvioCard(): View {
         val signedIn = NuvioAccount.isSignedIn(this)
         val profile = NuvioAccount.profile(this)?.name
-        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.findNuvio(packageManager)) }.getOrNull()
         val art = if (logo != null) ImageView(this).apply {
             setImageDrawable(logo)
             background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(0xFF0B0F1A.toInt()) }

@@ -88,7 +88,7 @@ class NuvioLoginActivity : Activity() {
         generation++
         main.removeCallbacksAndMessages(null)
         body.removeAllViews()
-        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.findNuvio(packageManager)) }.getOrNull()
         body.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

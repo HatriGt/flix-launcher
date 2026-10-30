@@ -60,6 +60,7 @@ class AllAppsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MainActivity.findNuvio(packageManager)
         repo = AppRepository(this)
         Images.init(this)
         val style = tileStyle()

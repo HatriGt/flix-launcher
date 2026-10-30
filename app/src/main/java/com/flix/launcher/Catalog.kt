@@ -47,7 +47,7 @@ object Catalog {
                 else -> null
             }
             return android.content.Intent(android.content.Intent.ACTION_VIEW)
-                .setClassName(MainActivity.NUVIO, "${MainActivity.NUVIO}.MainActivity")
+                .setClassName(MainActivity.NUVIO, "com.nuvio.tv.MainActivity")
                 .putExtra("launchMode", "stream")
                 .putExtra("contentId", id)
                 .putExtra("contentType", type)
