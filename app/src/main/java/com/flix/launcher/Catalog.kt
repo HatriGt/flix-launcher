@@ -134,19 +134,70 @@ object Catalog {
     }
 
     /** Searches Cinemeta's movies and series by name (no caching: results are per keystroke). */
-    fun search(query: String): List<Title> {
+    /**
+     * Films and series matching [query]: first from the user's own addons that can search
+     * (so Tamil, Telugu… addons find their own titles), then Cinemeta's worldwide list.
+     * Every source is asked at once and the whole search is capped at a few seconds.
+     */
+    fun search(context: Context, query: String): List<Title> {
         val q = URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
-        return listOf("movie", "series").flatMap { type ->
-            runCatching {
-                val conn = URL("https://v3-cinemeta.strem.io/catalog/$type/top/search=$q.json").openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 8000
-                conn.instanceFollowRedirects = true
-                val body = try { SafeIo.readText(conn) } finally { conn.disconnect() }
-                parse(body, "https://v3-cinemeta.strem.io").take(15)
-            }.getOrDefault(emptyList())
+        val cinemeta = "https://v3-cinemeta.strem.io"
+        val sources = searchCatalogues(context) + listOf("movie", "series").map { Triple(cinemeta, it, "top") }
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        try {
+            val futures = sources.map { (base, type, id) ->
+                pool.submit<List<Title>> {
+                    val conn = URL("$base/catalog/$type/$id/search=$q.json").openConnection() as HttpURLConnection
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 7000
+                    conn.instanceFollowRedirects = true
+                    val body = try { SafeIo.readText(conn) } finally { conn.disconnect() }
+                    parse(body, base).take(15)
+                }
+            }
+            val deadline = System.currentTimeMillis() + 9000
+            val found = futures.flatMap { f ->
+                runCatching { f.get(maxOf(1, deadline - System.currentTimeMillis()), java.util.concurrent.TimeUnit.MILLISECONDS) }
+                    .getOrElse { f.cancel(true); emptyList() }
+            }
+            // The same film often comes from several addons: keep the first (the user's own addon).
+            val seen = HashSet<String>()
+            return found.filter { seen.add(it.id) && seen.add("${it.name.lowercase()}|${it.year?.take(4)}") }
+        } finally {
+            pool.shutdownNow()
         }
     }
+
+    /** Fetches the addons' manifests ahead of the first search, so it isn't slowed by them. */
+    fun warmSearch(context: Context) { runCatching { searchCatalogues(context) } }
+
+    /** Searchable catalogues ("search" extra) of the addons behind the user's rows, as (base, type, id). */
+    private fun searchCatalogues(context: Context): List<Triple<String, String, String>> =
+        Addons.rows(context).map { it.manifest }.distinct()
+            .filter { it.startsWith("https://") && !it.contains("v3-cinemeta.strem.io") }
+            .parallelStream().map { manifest ->
+                val file = File(context.cacheDir, "manifest_${hashName(manifest)}.json")
+                val text = file.takeIf { it.exists() && System.currentTimeMillis() - it.lastModified() < 24 * 3600_000L }
+                    ?.let { runCatching { it.readText() }.getOrNull() }
+                    ?: runCatching {
+                        val conn = URL(manifest).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 4000
+                        conn.readTimeout = 5000
+                        val body = try { SafeIo.readText(conn) } finally { conn.disconnect() }
+                        SafeIo.write(file, body); body
+                    }.getOrNull() ?: return@map emptyList()
+                val catalogs = runCatching { org.json.JSONObject(text).optJSONArray("catalogs") }.getOrNull() ?: return@map emptyList()
+                val base = manifest.removeSuffix("/manifest.json").removeSuffix("/")
+                (0 until catalogs.length()).mapNotNull { catalogs.optJSONObject(it) }
+                    .filter { c ->
+                        val extras = c.optJSONArray("extra")
+                        (extras != null && (0 until extras.length()).any { extras.optJSONObject(it)?.optString("name") == "search" }) ||
+                            c.optJSONArray("extraSupported")?.let { a -> (0 until a.length()).any { a.optString(it) == "search" } } == true
+                    }
+                    .map { Triple(base, it.optString("type", "movie"), it.getString("id")) }
+            }
+            .collect(java.util.stream.Collectors.toList()).flatten()
+            .take(12)
 
     private fun cacheFile(context: Context, source: Addons.Row, genre: String?) =
         File(context.cacheDir, "catalog_${hashName(source.key + "|" + (genre ?: "all"))}.json")

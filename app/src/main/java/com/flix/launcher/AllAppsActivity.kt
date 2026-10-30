@@ -66,14 +66,16 @@ class AllAppsActivity : Activity() {
         val style = tileStyle()
         val columns = if (style.isBanner) 5 else 8
 
+        searchMode = intent.getBooleanExtra(EXTRA_SEARCH, false) || intent.getBooleanExtra(EXTRA_VOICE, false)
+        if (searchMode) io.execute { Catalog.warmSearch(applicationContext) }
         count = text("", 12f, alpha = 0.55f)
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.BOTTOM
-            addView(text("Library", 28f, bold = true))
+            addView(text(if (searchMode) "Search" else "Library", 28f, bold = true))
             addView(count, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = px(12); bottomMargin = px(5) })
             addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))
-            addView(text("Type to search · Menu or hold OK for options", 10.5f, alpha = 0.45f),
+            addView(text(if (searchMode) "Films, shows and apps · 🎤 to speak" else "Type to search · Menu or hold OK for options", 10.5f, alpha = 0.45f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(6) })
         }
         search = searchField()
@@ -211,6 +213,9 @@ class AllAppsActivity : Activity() {
 
     private var wantKeyboard = false
 
+    /** Opened from the home screen's Search: a search page, not the app library. */
+    private var searchMode = false
+
     private fun imm() = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
     private fun onQuery(text: String) {
@@ -225,7 +230,7 @@ class AllAppsActivity : Activity() {
         // Wait for a pause in typing before asking the catalogue.
         main.postDelayed({
             io.execute {
-                val found = Catalog.search(query)
+                val found = Catalog.search(this, query)
                 runOnUiThread {
                     if (token != searchToken || isDestroyed) return@runOnUiThread
                     titlesAdapter.items = found
@@ -281,6 +286,15 @@ class AllAppsActivity : Activity() {
     private fun render() {
         val q = query.lowercase()
         val shown = apps.filter { (category == Category.ALL || categoryOf(it) == category) && (q.isEmpty() || q in it.label.lowercase()) }
+        if (searchMode) {
+            // Nothing typed yet: an inviting empty page rather than every app. After that, only matching apps.
+            chips.visibility = View.GONE
+            adapter.items = if (q.isEmpty()) emptyList() else shown
+            count.text = if (q.isEmpty() || shown.isEmpty()) "" else "${shown.size} ${if (shown.size == 1) "app" else "apps"}"
+            empty.visibility = if (q.isEmpty()) View.VISIBLE else View.GONE
+            empty.text = "Type or say a film, show or app"
+            return
+        }
         adapter.items = shown
         count.text = if (q.isEmpty() && category == Category.ALL) "${apps.size} apps" else "${shown.size} of ${apps.size}"
         empty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
