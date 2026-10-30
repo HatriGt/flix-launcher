@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/hero.png" alt="Flix Launcher, a custom launcher for Android TV and Google TV" width="100%">
+  <img src="docs/hero.png" alt="Flix Launcher, a custom launcher for Android TV" width="100%">
 </p>
 
 <h1 align="center">Flix Launcher</h1>
 
 <p align="center">
-  <b>An ad-free Android TV and Google TV launcher made for watching.</b><br>
+  <b>An ad-free Android TV launcher made for watching.</b><br>
   Press Home and you're one click from your film: the episode you're halfway through, films worth starting and your streaming apps, nothing else.<br>
   Works on Sony BRAVIA, TCL, Hisense, Xiaomi Mi Box, Chromecast with Google TV, NVIDIA Shield and other Android TV devices.
 </p>
@@ -112,7 +112,7 @@ It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-i
    adb install flix-launcher-1.0.10.apk
    ```
 
-**Needs:** Android TV / Google TV 9 (API 28) or newer. [Nuvio](https://nuvio.tv) is optional and only needed for opening titles and Continue watching.
+**Needs:** Android TV 9 (API 28) or newer. [Nuvio](https://nuvio.tv) is optional and only needed for opening titles and Continue watching.
 
 ## Make it your home screen
 
@@ -214,7 +214,7 @@ Yes. Sign in with your Nuvio account to get Continue watching and your addons' r
 <details>
 <summary><b>Which TVs does it run on?</b></summary>
 
-Any Android TV or Google TV device on Android 9 or later: Sony BRAVIA, TCL, Hisense, Philips, Xiaomi Mi Box and Mi TV Stick, Chromecast with Google TV, NVIDIA Shield and Onn boxes. It's tuned for TVs with only 2 GB of memory.
+Any Android TV device on Android 9 or later: Sony BRAVIA, TCL, Hisense, Philips, Xiaomi Mi Box and Mi TV Stick, Chromecast with Google TV, NVIDIA Shield and Onn boxes. It's tuned for TVs with only 2 GB of memory.
 </details>
 
 <details>
