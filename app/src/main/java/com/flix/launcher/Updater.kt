@@ -108,6 +108,17 @@ object Updater {
         error("Update download failed")
     }
 
+    /**
+     * Whether Android will install an update without asking: only on Android 12+ and only once
+     * Flix itself installed the current copy. A copy put on by adb or a sideloading app asks the
+     * first time; after the user confirms that once, later updates are silent.
+     */
+    fun installsSilently(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        val installer = runCatching { context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName }.getOrNull()
+        return installer == context.packageName && canInstall(context)
+    }
+
     /** Whether Android lets Flix install packages ("Install unknown apps"). */
     fun canInstall(context: Context) = context.packageManager.canRequestPackageInstalls()
 

@@ -918,8 +918,7 @@ class MainActivity : Activity() {
         idle = value
         // Nobody's using the TV: a good moment to install a downloaded update. Only where
         // Android installs it silently, so no confirmation pops up over the scenery.
-        if (value && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
-            Updater.ready(this) != null && Updater.canInstall(this)) Updater.install(this)
+        if (value && Updater.ready(this) != null && Updater.installsSilently(this)) Updater.install(this)
         val duration = if (value) 1200L else 350L
         ui.animate().alpha(if (value) 0f else 1f).setDuration(duration).withLayer().start()
         scrim.animate().alpha(if (value) 0.25f else 1f).setDuration(duration).start()
