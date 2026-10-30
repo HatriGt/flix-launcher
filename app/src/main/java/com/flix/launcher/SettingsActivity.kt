@@ -388,6 +388,9 @@ class SettingsActivity : Activity() {
         opt(2, "Clock", FlixSettings.GREETING, R.drawable.ic_o_chat, "hello good morning evening")
         opt(2, "Clock", FlixSettings.DATE, R.drawable.ic_o_calendar, "day month today")
         opt(2, "Weather", FlixSettings.WEATHER, R.drawable.ic_o_sun, "forecast rain temperature")
+        val city = FlixSettings.weatherCity(this@SettingsActivity)
+        act(2, "Weather", "Weather city", city.ifEmpty { "Automatic, from your internet connection" },
+            R.drawable.ic_o_pin, "location place town city weather wrong") { askWeatherCity() }
         opt(2, "Weather", FlixSettings.UNITS, R.drawable.ic_o_thermo, "celsius fahrenheit degrees")
 
         // Wallpaper
@@ -911,6 +914,30 @@ class SettingsActivity : Activity() {
                             .onFailure { toast(it.message ?: "Couldn't restore that backup") }
                     }
                 }.start()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** Asks for the weather's city; a blank answer goes back to locating the TV automatically. */
+    private fun askWeatherCity() {
+        val input = EditText(this).apply {
+            setText(FlixSettings.weatherCity(this@SettingsActivity))
+            hint = "e.g. Chennai"
+            setSingleLine()
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Weather city")
+            .setMessage("Leave it empty to use your internet connection's location.")
+            .setView(android.widget.FrameLayout(this).apply { setPadding(px(24), 0, px(24), 0); addView(input) })
+            .setPositiveButton("Save") { _, _ ->
+                FlixSettings.setWeatherCity(this, input.text.toString())
+                applyToHome(); refresh(animate = false)
+            }
+            .setNeutralButton("Automatic") { _, _ ->
+                FlixSettings.setWeatherCity(this, "")
+                applyToHome(); refresh(animate = false)
             }
             .setNegativeButton("Cancel", null)
             .show()

@@ -6,7 +6,10 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-/** Current conditions and a 3-day outlook from wttr.in, which locates the TV by its public IP; no API key needed. */
+/**
+ * Current conditions and a 3-day outlook from wttr.in; no API key needed. Without a [city]
+ * wttr.in locates the TV by its public IP, which can land on the internet provider's hub.
+ */
 object Weather {
     data class Day(val name: String, val icon: String, val high: Int, val low: Int)
 
@@ -23,8 +26,9 @@ object Weather {
         val sunset: java.util.Date?,
     )
 
-    fun fetch(): Report? = runCatching {
-        val conn = URL("https://wttr.in/?format=j1").openConnection() as HttpURLConnection
+    fun fetch(city: String = ""): Report? = runCatching {
+        val place = java.net.URLEncoder.encode(city.trim(), "UTF-8").replace("+", "%20")
+        val conn = URL("https://wttr.in/$place?format=j1").openConnection() as HttpURLConnection
         conn.connectTimeout = 6000
         conn.readTimeout = 8000
         conn.setRequestProperty("User-Agent", "curl/8")

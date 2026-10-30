@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private var imageIndex = 0
     private var allApps: List<AppEntry> = emptyList()
     private var lastWeatherAt = 0L
+    private var weatherCity: String? = null
     private var initialFocusDone = false
     private var idle = false
     private var resumed = false
@@ -267,6 +268,9 @@ class MainActivity : Activity() {
         date.visibility = if (isOn(FlixSettings.DATE)) View.VISIBLE else View.GONE
         findViewById<View>(R.id.weather_card).visibility = if (isOn(FlixSettings.WEATHER)) View.VISIBLE else View.GONE
         lastReport?.let(::showWeather)
+        val city = FlixSettings.weatherCity(this)
+        if (weatherCity != null && weatherCity != city) { lastWeatherAt = 0L; refreshWeather() }
+        weatherCity = city
         main.removeCallbacks(tick)
         main.post(tick)
 
@@ -1091,7 +1095,7 @@ class MainActivity : Activity() {
         if (System.currentTimeMillis() - lastWeatherAt < 30 * 60_000) return
         lastWeatherAt = System.currentTimeMillis() // one request in flight at a time
         net.execute {
-            val report = Weather.fetch()
+            val report = Weather.fetch(FlixSettings.weatherCity(this))
             main.post {
                 if (isDestroyed) return@post
                 if (report == null) lastWeatherAt = 0L else showWeather(report)

@@ -93,6 +93,14 @@ object FlixSettings {
         p.edit().putString(option.key, id).putInt(KEY_REVISION, p.getInt(KEY_REVISION, 0) + 1).apply()
     }
 
+    /** The city typed for the weather, or "" to locate the TV from its internet connection. */
+    fun weatherCity(context: Context): String = prefs(context).getString("weather_city", null).orEmpty()
+
+    fun setWeatherCity(context: Context, city: String) {
+        val p = prefs(context)
+        p.edit().putString("weather_city", city.trim()).putInt(KEY_REVISION, p.getInt(KEY_REVISION, 0) + 1).apply()
+    }
+
     /** Bumped on every change, so the home screen knows when to re-apply. */
     fun revision(context: Context) = prefs(context).getInt(KEY_REVISION, 0)
 
