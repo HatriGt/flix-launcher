@@ -904,8 +904,8 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Where Home puts you: on Resume for what you were watching (TV is for watching), or on
-     * the first app when there's nothing to resume or the user prefers apps first.
+     * Where Home puts you: on the first app by default, or, if the user chose "What you were
+     * watching", on Resume for their latest show when there is one.
      */
     private fun focusStart() {
         val bb = movieRows.billboard

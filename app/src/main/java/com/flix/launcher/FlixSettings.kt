@@ -28,8 +28,8 @@ object FlixSettings {
 
     // What the Home button lands on
     val HOME_FOCUS = Option("home_focus", "Home opens on",
-        listOf("watching" to "What you were watching", "apps" to "Your apps"), "watching",
-        summary = "Resume your last show in one press, or start on your apps")
+        listOf("apps" to "Your apps", "watching" to "What you were watching"), "apps",
+        summary = "Start on your apps, or on Resume for your last show")
 
     // Icons
     val ICON_SHAPE = Option("icon_shape", "Icon shape",

@@ -74,7 +74,7 @@ class SetupActivity : Activity() {
             0 -> {
                 val signedIn = NuvioAccount.isSignedIn(this)
                 title.text = "Pick up where you left off"
-                body.text = "Connect your Nuvio account and Home opens on what you were watching, one press from playing. " +
+                body.text = "Connect your Nuvio account and what you were watching waits on the home screen, one press from playing. " +
                     "Your addons' films and shows fill the rows below. You'll scan a code with your phone; no typing on the TV."
                 status(if (signedIn) "✓  Signed in as ${NuvioAccount.profile(this)?.name.orEmpty()}" else null)
                 primary(if (signedIn) "Next" else "Connect Nuvio") {
