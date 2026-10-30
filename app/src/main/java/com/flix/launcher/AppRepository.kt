@@ -204,7 +204,7 @@ class AppRepository(private val context: Context) {
         private const val KEY_ORDER_VERSION = "favorites_order_version"
         private const val ORDER_VERSION = 2
         private const val SMARTTUBE = "org.smarttube.stable"
-        private val LEADING = listOf("com.nuvio.tv", "ar.tvplayer.tv", SMARTTUBE)
+        private val LEADING = listOf("com.nuvio.tv", "com.nuvio.app", "com.nuvio.livetv", "ar.tvplayer.tv", SMARTTUBE)
         private val HIDDEN = setOf("com.spocky.projengmenu")
         private val DEFAULT_FAVORITES = LEADING + listOf(
             "com.stremio.one",

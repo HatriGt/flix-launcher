@@ -1285,8 +1285,8 @@ class MainActivity : Activity() {
     }
 
     companion object {
-        /** Nuvio's package: com.nuvio.tv from GitHub, com.nuvio.app from the Play Store. */
-        private val NUVIO_PACKAGES = listOf("com.nuvio.tv", "com.nuvio.app")
+        /** Nuvio's package: com.nuvio.tv from GitHub, com.nuvio.app from the Play Store, com.nuvio.livetv for the NuvioPlusIPTV fork. */
+        private val NUVIO_PACKAGES = listOf("com.nuvio.tv", "com.nuvio.app", "com.nuvio.livetv")
         @Volatile var NUVIO = NUVIO_PACKAGES[0]; private set
 
         /** Picks whichever Nuvio is installed; call before using [NUVIO]. */
