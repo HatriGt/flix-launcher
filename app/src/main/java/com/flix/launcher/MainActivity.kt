@@ -18,6 +18,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -206,21 +207,81 @@ class MainActivity : Activity() {
         overridePendingTransition(0, 0)
     }
 
-    /** A red dot on Flix's settings button while a downloaded update waits to be installed. */
+    private var updatePill: View? = null
+
+    /**
+     * While a downloaded update waits, a glowing "Update ready" pill slides into the quick
+     * buttons: a light sweeps across it every few seconds, and OK installs the update.
+     */
     private fun showUpdateDot() {
-        val button = findViewById<View>(R.id.qs_flix)
-        button.overlay.clear()
-        if (Updater.ready(this) == null) return
-        val size = (10 * resources.displayMetrics.density).toInt()
-        button.post {
-            button.overlay.clear()
-            button.overlay.add(android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(0xFFE50914.toInt())
-                setStroke(size / 5, 0xFF000000.toInt())
-                setBounds(button.width - size * 2, size / 2, button.width - size, size * 3 / 2)
+        val row = findViewById<LinearLayout>(R.id.quick_settings)
+        val update = Updater.ready(this)
+        if (update == null) { updatePill?.let(row::removeView); updatePill = null; return }
+        updatePill?.let { (it.tag as? String) == update.version && return; row.removeView(it) }
+        val dp = resources.displayMetrics.density
+        fun px(v: Float) = (v * dp).toInt()
+        val fill = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(0xFFE50914.toInt(), 0xFFB20710.toInt())).apply { cornerRadius = 28 * dp }
+        val ring = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 28 * dp; setStroke(px(2.5f), android.graphics.Color.TRANSPARENT) }
+        val pill = FrameLayout(this).apply {
+            tag = update.version
+            isFocusable = true
+            clipToOutline = true
+            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            background = fill
+            foreground = ring
+            contentDescription = "Install Flix ${update.version}"
+            elevation = 6 * dp
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(px(14f), 0, px(20f), 0)
+            addView(ImageView(context).apply { setImageResource(R.drawable.ic_o_reset) }, LinearLayout.LayoutParams(px(22f), px(22f)).apply { marginEnd = px(10f) })
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(context).apply {
+                    text = "Update ready"; textSize = 14f; setTextColor(android.graphics.Color.WHITE)
+                    typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+                })
+                addView(TextView(context).apply {
+                    text = "Flix ${update.version} · OK to install"; textSize = 10.5f; setTextColor(0xD9FFFFFF.toInt())
+                })
             })
         }
+        pill.addView(content, FrameLayout.LayoutParams(-2, -1))
+        // The light that sweeps across the pill.
+        val shine = View(this).apply {
+            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(0x00FFFFFF, 0x59FFFFFF, 0x00FFFFFF))
+            rotation = 18f
+        }
+        pill.addView(shine, FrameLayout.LayoutParams(px(46f), -1).apply { topMargin = -px(12f); bottomMargin = -px(12f) })
+        fun sweep() {
+            if (pill.parent == null) return
+            shine.translationX = -px(60f).toFloat()
+            shine.animate().translationX(pill.width.toFloat() + px(20f)).setDuration(900)
+                .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+                .withEndAction { pill.postDelayed({ sweep() }, 5000) }.start()
+        }
+        pill.setOnFocusChangeListener { v, has ->
+            ring.setStroke(px(2.5f), if (has) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT)
+            v.animate().scaleX(if (has) 1.08f else 1f).scaleY(if (has) 1.08f else 1f).setDuration(160).start()
+            if (has) shine.animate().cancel().also { sweep() }
+        }
+        pill.setOnClickListener {
+            when {
+                !Updater.canInstall(this) -> openFlixSettings()
+                Updater.install(this) -> Toast.makeText(this, "Updating to ${update.version}…", Toast.LENGTH_SHORT).show()
+                else -> openFlixSettings()
+            }
+        }
+        row.addView(pill, 0, LinearLayout.LayoutParams(-2, px(52f)).apply { marginEnd = px(12f); gravity = Gravity.CENTER_VERTICAL })
+        updatePill = pill
+        // Entrance: grows out of the buttons with a little overshoot, then the first sweep.
+        pill.alpha = 0f; pill.scaleX = 0.6f; pill.scaleY = 0.6f
+        pill.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(400).setDuration(450)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).withEndAction { sweep() }.start()
     }
 
     private fun isOn(option: FlixSettings.Option) = FlixSettings.isOn(this, option)
