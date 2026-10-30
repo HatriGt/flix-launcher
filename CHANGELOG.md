@@ -7,7 +7,7 @@ All notable changes to Flix Launcher are listed here. The format follows
 ## [Unreleased]
 
 ### Changed
-- Search (the home screen's 🔍) is now a real search page: it searches your own addons (Tamil, Telugu… catalogues) as well as Cinemeta, your addons first, and shows apps only when their name matches
+- Search (the home screen's 🔍) is now a real search page: it searches your own addons (Tamil, Telugu… catalogues) as well as Cinemeta, your addons first, opens on films from your rows in a grid of large posters, and never lists apps
 
 ## [1.0.3] - 2026-10-30
 

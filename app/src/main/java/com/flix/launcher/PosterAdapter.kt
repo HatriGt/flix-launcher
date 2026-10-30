@@ -28,6 +28,8 @@ class PosterAdapter(
     private val onClick: (Catalog.Title) -> Unit,
     private val onLongClick: (Catalog.Title) -> Unit,
     private val ranked: Boolean = false,
+    /** False in a grid (search): focus just lifts the poster instead of widening it into a landscape card. */
+    private val grows: Boolean = true,
 ) : RecyclerView.Adapter<PosterAdapter.Holder>() {
 
     var items: List<Catalog.Title> = emptyList()
@@ -240,6 +242,17 @@ class PosterAdapter(
 
         private var reveal: android.animation.ValueAnimator? = null
 
+        /** Grid focus: the poster grows a little and gets a white ring. */
+        private fun lift(focused: Boolean, instant: Boolean = false) {
+            val s = if (focused) 1.1f else 1f
+            itemView.animate().cancel()
+            if (instant) { itemView.scaleX = s; itemView.scaleY = s } else itemView.animate().scaleX(s).scaleY(s).setDuration(160).start()
+            itemView.elevation = if (focused) 12 * density else 0f
+            itemView.foreground = if (focused) android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 8 * density; setStroke((3 * density).toInt(), android.graphics.Color.WHITE)
+            } else null
+        }
+
         /** Sets the card's laid-out size; the row's next layout (see [RowRecyclerView.flip]) applies it. */
         fun size(expanded: Boolean) {
             val lp = itemView.layoutParams as ViewGroup.MarginLayoutParams
@@ -362,6 +375,11 @@ class PosterAdapter(
                 }.start()
             }
             itemView.setOnLongClickListener { adapter.onLongClick(title); true }
+            if (!adapter.grows) {
+                itemView.setOnFocusChangeListener { _, focused -> lift(focused) }
+                lift(itemView.isFocused, instant = true)
+                return
+            }
             itemView.setOnFocusChangeListener { _, focused ->
                 if (focused) {
                     expand(title) // also pins the card to the start of the row, as Netflix does
