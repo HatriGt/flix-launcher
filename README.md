@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://hatrigt.github.io/flix-launcher/"><b>Website</b></a> ·
-  <a href="https://github.com/HatriGt/flix-launcher/releases/latest"><b>Download the APK</b></a>
+  <a href="https://github.com/HatriGt/flix-launcher/releases/latest/download/flix-launcher.apk"><b>Download the APK</b></a>
 </p>
 
 <p align="center">
