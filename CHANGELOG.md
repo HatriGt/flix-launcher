@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.10] - 2026-10-30
+
+### Changed
+- Home opens on your apps again by default. To land on Resume instead, choose "What you were watching" in Settings → Home screen → Home opens on
+
 ## [1.0.9] - 2026-10-30
 
 ### Changed
