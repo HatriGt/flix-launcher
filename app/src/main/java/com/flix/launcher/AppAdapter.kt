@@ -136,6 +136,15 @@ class AppAdapter(
             val banner = app.banner
             val icon = app.icon
             when {
+                s.isBanner && banner == null -> {
+                    // No banner (Flix's own All apps tile, some phone apps): the icon sits small
+                    // in the middle, with the name underneath, instead of being stretched to fill.
+                    art.scaleType = ImageView.ScaleType.FIT_CENTER
+                    art.setImageDrawable(icon)
+                    tile.background = tileBackground(app)
+                    val side = (s.heightPx * 0.24f).toInt()
+                    art.setPadding(side, (s.heightPx * 0.16f).toInt(), side, (s.heightPx * 0.34f).toInt())
+                }
                 s.isBanner || (!app.hasIcon && banner != null) -> {
                     art.scaleType = if (s.isBanner) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                     art.setImageDrawable(banner ?: icon)

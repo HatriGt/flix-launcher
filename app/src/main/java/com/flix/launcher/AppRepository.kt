@@ -114,20 +114,22 @@ class AppRepository(private val context: Context) {
      */
     private fun compact(d: Drawable, w: Int, h: Int): Drawable = when (d) {
         is YouTubeBanner -> d
+        // AdaptiveIconDrawable composites its layers on a software canvas of its own, which
+        // can't draw GPU-only bitmaps, so its layers stay ordinary bitmaps.
         is android.graphics.drawable.AdaptiveIconDrawable -> android.graphics.drawable.AdaptiveIconDrawable(
-            d.background?.let { raster(it, w, h) }, d.foreground?.let { raster(it, w, h) })
+            d.background?.let { raster(it, w, h, gpu = false) }, d.foreground?.let { raster(it, w, h, gpu = false) })
         else -> raster(d, w, h)
     }
 
-    private fun raster(d: Drawable, w: Int, h: Int): Drawable {
+    private fun raster(d: Drawable, w: Int, h: Int, gpu: Boolean = true): Drawable {
         val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val old = android.graphics.Rect(d.bounds)
         d.setBounds(0, 0, w, h)
         d.draw(android.graphics.Canvas(bitmap))
         d.bounds = old
-        val gpu = bitmap.copy(android.graphics.Bitmap.Config.HARDWARE, false)
-        if (gpu != null) bitmap.recycle()
-        return android.graphics.drawable.BitmapDrawable(context.resources, gpu ?: bitmap)
+        val hw = if (gpu) bitmap.copy(android.graphics.Bitmap.Config.HARDWARE, false) else null
+        if (hw != null) bitmap.recycle()
+        return android.graphics.drawable.BitmapDrawable(context.resources, hw ?: bitmap)
     }
 
     /** The xxxhdpi icon where the app has one: the TV's own density gives blurry icons at Flix's tile sizes. */
