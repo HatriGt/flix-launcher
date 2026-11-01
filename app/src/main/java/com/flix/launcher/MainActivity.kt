@@ -1383,10 +1383,31 @@ class MainActivity : Activity() {
         private val NUVIO_PACKAGES = listOf("com.nuvio.tv", "com.nuvio.app", "com.nuvio.livetv")
         @Volatile var NUVIO = NUVIO_PACKAGES[0]; private set
 
-        /** Picks whichever Nuvio is installed; call before using [NUVIO]. */
+        /**
+         * Picks whichever Nuvio is installed; call before using [NUVIO]. The known packages
+         * come first; otherwise any installed app that carries Nuvio's own player screen
+         * counts, so forks under a new name work without a Flix update.
+         */
         fun findNuvio(pm: android.content.pm.PackageManager): String {
-            NUVIO = NUVIO_PACKAGES.firstOrNull { p -> runCatching { pm.getPackageInfo(p, 0) }.isSuccess } ?: NUVIO_PACKAGES[0]
+            NUVIO = NUVIO_PACKAGES.firstOrNull { p -> runCatching { pm.getPackageInfo(p, 0) }.isSuccess }
+                ?: findFork(pm) ?: NUVIO_PACKAGES[0]
             return NUVIO
+        }
+
+        private const val NUVIO_ACTIVITY = "com.nuvio.tv.MainActivity"
+        @Volatile private var forkChecked: Pair<String?, Long>? = null
+
+        /** A launchable app with Nuvio's main screen inside; checked at most once a minute. */
+        private fun findFork(pm: android.content.pm.PackageManager): String? {
+            forkChecked?.takeIf { System.currentTimeMillis() - it.second < 60_000 }?.let { return it.first }
+            val launchable = listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER).flatMap { cat ->
+                runCatching { pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(cat), 0) }.getOrDefault(emptyList())
+            }.map { it.activityInfo.packageName }.distinct()
+            val fork = launchable.firstOrNull { p ->
+                runCatching { pm.getActivityInfo(android.content.ComponentName(p, NUVIO_ACTIVITY), 0) }.isSuccess
+            }
+            forkChecked = fork to System.currentTimeMillis()
+            return fork
         }
         /** How long each wallpaper photo stays up. */
         const val ROTATE_MS = 60_000L

@@ -81,7 +81,7 @@ class AppAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
 
     inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
-        private val tile: View = view.findViewById(R.id.tile)
+        private val tile: ShapeTile = view.findViewById(R.id.tile)
         private val art: ImageView = view.findViewById(R.id.art)
         private val fallbackLabel: TextView = view.findViewById(R.id.fallback_label)
         private val label: TextView = view.findViewById(R.id.label)
@@ -106,6 +106,7 @@ class AppAdapter(
                     else outline.setRoundRect(0, 0, view.width, view.height, radius)
                 }
             }
+            tile.setShape(s.shape == "circle", radius)
             tile.foreground = focusRing(s, radius)
             bindArt(app, s)
 
