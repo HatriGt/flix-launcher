@@ -4,6 +4,16 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.11] - 2026-11-01
+
+### Fixed
+- App icons showed as plain squares on some TVs (reported on NVIDIA Shield Pro): tiles now cut their own circle or rounded shape
+- Flix could crash with the Wide banner icon shape when an app had no banner
+- The All apps tile no longer stretches in Wide banner mode
+
+### Added
+- Any Nuvio fork is recognised automatically, whatever its app name
+
 ## [1.0.10] - 2026-10-30
 
 ### Changed
