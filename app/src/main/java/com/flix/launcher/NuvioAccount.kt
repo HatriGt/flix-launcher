@@ -55,7 +55,47 @@ object NuvioAccount {
         // Keeps the public anon key: it isn't tied to the account and saves a fetch next sign-in.
         val anon = prefs(context).getString("anon_key", null)
         prefs(context).edit().clear().apply { anon?.let { putString("anon_key", it) } }.apply()
-        File(context.cacheDir, "continue.json").delete()
+        context.cacheDir.listFiles()?.filter { it.name.startsWith("continue_") }?.forEach { it.delete() }
+    }
+
+    // ---- Continue watching, kept on the TV so the row shows at once on a cold start ----
+
+    private fun continueFile(context: Context, profile: Profile) = File(context.cacheDir, "continue_${profile.index}.json")
+
+    /** The row as it was last loaded for the chosen profile; empty if never loaded. */
+    fun cachedContinue(context: Context): List<Catalog.Title> = runCatching {
+        val profile = profile(context) ?: return emptyList()
+        val file = continueFile(context, profile)
+        if (!file.exists()) return emptyList()
+        val list = JSONArray(file.readText())
+        (0 until list.length()).map { i ->
+            val o = list.getJSONObject(i)
+            fun str(key: String) = o.optString(key).takeIf { o.has(key) && !o.isNull(key) }
+            fun int(key: String) = if (o.has(key) && !o.isNull(key)) o.getInt(key) else null
+            Catalog.Title(
+                id = o.getString("id"), type = o.getString("type"), name = o.getString("name"),
+                poster = str("poster"), backdrop = str("backdrop"), logo = str("logo"), year = str("year"),
+                rating = str("rating"), runtime = str("runtime"),
+                genres = o.optJSONArray("genres")?.let { g -> (0 until g.length()).map { g.getString(it) } }.orEmpty(),
+                description = str("description"), addonBase = str("addonBase"),
+                progress = if (o.has("progress")) o.getDouble("progress").toFloat() else null,
+                episodeLabel = str("episodeLabel"), season = int("season"), episode = int("episode"),
+                minutesLeft = int("minutesLeft"),
+            )
+        }
+    }.getOrDefault(emptyList())
+
+    private fun saveContinue(context: Context, profile: Profile, titles: List<Catalog.Title>) = runCatching {
+        val list = JSONArray()
+        for (t in titles) list.put(JSONObject().apply {
+            put("id", t.id); put("type", t.type); put("name", t.name)
+            put("poster", t.poster); put("backdrop", t.backdrop); put("logo", t.logo); put("year", t.year)
+            put("rating", t.rating); put("runtime", t.runtime); put("genres", JSONArray(t.genres))
+            put("description", t.description); put("addonBase", t.addonBase)
+            t.progress?.let { put("progress", it.toDouble()) }
+            put("episodeLabel", t.episodeLabel); put("season", t.season); put("episode", t.episode); put("minutesLeft", t.minutesLeft)
+        })
+        SafeIo.write(continueFile(context, profile), list.toString())
     }
 
     // ---- Sign-in by code ----
@@ -135,6 +175,10 @@ object NuvioAccount {
     /** Unfinished titles for the chosen profile, newest first, with artwork from Cinemeta. */
     fun continueWatching(context: Context): List<Catalog.Title> {
         val profile = profile(context) ?: return emptyList()
+        return loadContinue(context, profile).also { saveContinue(context, profile, it) }
+    }
+
+    private fun loadContinue(context: Context, profile: Profile): List<Catalog.Title> {
         val rows = JSONArray(rpc(context, "sync_pull_watch_progress", JSONObject().put("p_profile_id", profile.index)))
         val latest = LinkedHashMap<String, JSONObject>()
         for (i in 0 until rows.length()) {

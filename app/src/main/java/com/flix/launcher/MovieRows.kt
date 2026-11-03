@@ -70,7 +70,10 @@ class MovieRows(
             val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
             rows += row
             container.addView(row.view)
-            row.view.visibility = View.GONE // shown once progress arrives
+            // Last time's row straight away (no wait for Nuvio after a reboot); the refresh
+            // below replaces it once fresh progress arrives.
+            val cached = NuvioAccount.cachedContinue(activity)
+            if (cached.isNotEmpty()) show(row, cached) else row.view.visibility = View.GONE
             refreshContinue(force = true)
         }
         // Top 10: by default ranked from the family's own first movie row (their language),
