@@ -92,14 +92,25 @@ class SetupActivity : Activity() {
                 secondary("Next") { next() }
             }
             else -> {
-                val on = HomeKeyService.running
+                // Each TV gets its own way to send Home to Flix (see HomeButton).
+                val state = HomeButton.state(this)
+                val on = HomeButton.works(this)
+                val googleTv = HomeButton.isGoogleTv(this)
                 title.text = "One press to your show"
-                body.text = "Google TV sends the Home button to its own screen, full of things to buy. Switch on \"Flix Launcher\" in " +
-                    "Accessibility and Home brings you back to what you watch instead. It only listens for the Home key."
+                body.text = when {
+                    state == HomeButton.State.BLOCKED -> "Flix Launcher is switched on in Accessibility, but this TV won't start it. " +
+                        "Android does this for apps installed from a downloaded APK. There's a one-time fix."
+                    googleTv -> "Google TV sends the Home button to its own screen, full of things to buy. Switch on \"Flix Launcher\" in " +
+                        "Accessibility and Home brings you back to what you watch instead. It only listens for the Home key."
+                    else -> "Make Flix your home app and the Home button brings you straight back to what you watch. " +
+                        "Choose Flix Launcher, then Always."
+                }
                 status(if (on) "✓  Home opens Flix: you're ready to watch" else null)
-                primary(if (on) "Finish" else "Open Accessibility") {
-                    if (on) finishSetup()
-                    else runCatching { startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                when {
+                    on -> primary("Finish") { finishSetup() }
+                    state == HomeButton.State.BLOCKED -> primary("Show me the fix") { HomeButton.showBlockedHelp(this) }
+                    googleTv -> primary("Open Accessibility") { HomeButton.openAccessibility(this) }
+                    else -> primary("Make Flix the home app") { HomeButton.chooseDefault(this) }
                 }
                 secondary(if (on) null else "Finish") { finishSetup() }
             }

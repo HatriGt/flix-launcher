@@ -441,7 +441,8 @@ class MainActivity : Activity() {
      * instead of Home silently going to the stock launcher.
      */
     private val checkHomeButton: Runnable = Runnable {
-        if (HomeKeyService.running || isFinishing || isDefaultHome()) { homeBanner?.visibility = View.GONE; return@Runnable }
+        val state = HomeButton.state(this)
+        if (isFinishing || HomeButton.works(this)) { homeBanner?.visibility = View.GONE; return@Runnable }
         val canFix = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val banner = homeBanner ?: TextView(this).apply {
             val dp = resources.displayMetrics.density
@@ -459,28 +460,21 @@ class MainActivity : Activity() {
                 android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL).apply { bottomMargin = (28 * dp).toInt() })
             homeBanner = this
         }
-        banner.text = if (canFix) "⚠  The Home button isn't going to Flix.  Press OK to fix it"
-        else "⚠  The Home button isn't going to Flix.  Press OK, then turn on Flix Launcher"
+        banner.text = when {
+            canFix -> "⚠  The Home button isn't going to Flix.  Press OK to fix it"
+            state == HomeButton.State.BLOCKED -> "⚠  Android is blocking Flix's Home switch.  Press OK for the fix"
+            !HomeButton.isGoogleTv(this) -> "⚠  The Home button isn't going to Flix.  Press OK to make Flix your home app"
+            else -> "⚠  The Home button isn't going to Flix.  Press OK, then turn on Flix Launcher"
+        }
         banner.setOnClickListener {
-            if (canFix) {
+            if (canFix && state != HomeButton.State.BLOCKED) {
                 HomeGuard.setWanted(this, true)
                 HomeGuard.ensure(this)
                 main.postDelayed(checkHomeButton, 2500)
-            } else runCatching {
-                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
+            } else HomeButton.fix(this)
         }
         banner.visibility = View.VISIBLE
     }
-
-    /**
-     * On plain Android TV (not Google TV) the Home button follows the default home app, so
-     * when the user picked Flix there it already works without the accessibility service.
-     */
-    private fun isDefaultHome(): Boolean = runCatching {
-        packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
-            ?.activityInfo?.packageName == packageName
-    }.getOrDefault(false)
 
     /** The avatar at the end of the top menu: the Nuvio profile whose Continue watching is shown. */
     private fun drawProfile() {

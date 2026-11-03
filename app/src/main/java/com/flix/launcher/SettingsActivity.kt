@@ -352,6 +352,10 @@ class SettingsActivity : Activity() {
             add(Entry(s, group, "$title $sub $extra ${SECTIONS[s].title}") { actionRow(title, sub, icon, onClick) })
 
         // Home screen
+        act(0, "When you press Home", "Home button", HomeButton.describe(this@SettingsActivity), R.drawable.ic_s_home,
+            "home key button remote accessibility default launcher blocked not working fix") {
+            if (HomeButton.works(this@SettingsActivity)) toast("Home already opens Flix") else HomeButton.fix(this@SettingsActivity)
+        }
         opt(0, "When you press Home", FlixSettings.HOME_FOCUS, R.drawable.ic_o_resume, "home button start focus resume continue watching apps first")
         opt(0, "Look", FlixSettings.THEME, R.drawable.ic_o_contrast, "theme colour color style glass cinema midnight minimal dark apple netflix")
         opt(0, "App tiles", FlixSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
@@ -417,6 +421,8 @@ class SettingsActivity : Activity() {
         act(4, "Updates", if (update != null) "Update to ${update.version}" else "Check for updates",
             if (update != null) "Downloaded. Installs now; Flix reopens by itself" else "Flix updates itself when the TV is idle",
             R.drawable.ic_o_reset, "update upgrade new version download install release") { updateNow() }
+        act(4, "Help", "Report a problem", "Scan a code with your phone to send a bug report", R.drawable.ic_o_phone,
+            "bug issue problem help feedback broken crash support logs") { Report.show(this@SettingsActivity) }
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
     }
 
