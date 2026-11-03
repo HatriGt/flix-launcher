@@ -4,6 +4,14 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.13] - 2026-11-03
+
+### Added
+- **Home button setup fits your TV**: on plain Android TV (Mi Box, Shield) Flix offers to become the default home app; on Google TV it opens Accessibility as before
+- When Android blocks Flix's Home switch (seen on some Android 13+ boxes), Flix explains why and shows the one-time fix instead of a switch that keeps turning off
+- **Settings → Home screen → Home button** shows whether Home reaches Flix, and fixes it
+- **Settings → About → Report a problem**: scan a code with your phone to open a bug report already filled in with your TV, Flix version and recent errors
+
 ## [1.0.12] - 2026-11-03
 
 ### Fixed
