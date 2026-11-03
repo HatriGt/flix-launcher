@@ -379,6 +379,8 @@ class SettingsActivity : Activity() {
         opt(1, "Previews", FlixSettings.TRAILER_SOUND, R.drawable.ic_o_sound, "audio volume mute loud")
         opt(1, "Previews", FlixSettings.BACKDROP, R.drawable.ic_o_image, "artwork background picture")
         opt(1, "Look", FlixSettings.POSTER_SIZE, R.drawable.ic_o_poster, "big bigger smaller tiles")
+        opt(1, "Look", FlixSettings.RATING_BADGE, R.drawable.ic_o_rank, "imdb score stars rpdb badge")
+        opt(1, "Look", FlixSettings.TYPE_TABS, R.drawable.ic_o_rows, "menu top bar movies shows series hide")
         act(1, "Look", "Show hidden titles", "Bring back titles you hid from rows", R.drawable.ic_o_eye, "unhide restore films movies") {
             Catalog.clearHiddenTitles(this@SettingsActivity); applyToHome(); toast("Hidden titles are back")
         }

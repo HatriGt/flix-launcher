@@ -356,6 +356,12 @@ class MainActivity : Activity() {
         sceneTitle.visibility = if (isOn(FlixSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
         player?.shuffle = isOn(FlixSettings.SHUFFLE)
         hero.backdropEnabled = isOn(FlixSettings.BACKDROP)
+        val typeTabs = if (isOn(FlixSettings.TYPE_TABS)) View.VISIBLE else View.GONE
+        listOf(R.id.nav_movies, R.id.nav_shows).forEach { id ->
+            val tab = findViewById<View>(id)
+            if (typeTabs == View.GONE && tab.isSelected) selectHomeTab()
+            tab.visibility = typeTabs
+        }
         trailer.enabled = isOn(FlixSettings.TRAILERS)
         trailer.sound = isOn(FlixSettings.TRAILER_SOUND)
         trailer.delayMs = FlixSettings.get(this, FlixSettings.TRAILER_DELAY).toLong() * 1000
@@ -375,7 +381,7 @@ class MainActivity : Activity() {
 
     private fun rowsSnapshot(): List<Any> = listOf(
         listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.TOP_TEN,
-            FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
+            FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION, FlixSettings.RATING_BADGE).map { FlixSettings.get(this, it) },
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
         packageManager.getLaunchIntentForPackage(findNuvio(packageManager)) != null,
@@ -435,7 +441,7 @@ class MainActivity : Activity() {
      * instead of Home silently going to the stock launcher.
      */
     private val checkHomeButton: Runnable = Runnable {
-        if (HomeKeyService.running || isFinishing) { homeBanner?.visibility = View.GONE; return@Runnable }
+        if (HomeKeyService.running || isFinishing || isDefaultHome()) { homeBanner?.visibility = View.GONE; return@Runnable }
         val canFix = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val banner = homeBanner ?: TextView(this).apply {
             val dp = resources.displayMetrics.density
@@ -466,6 +472,15 @@ class MainActivity : Activity() {
         }
         banner.visibility = View.VISIBLE
     }
+
+    /**
+     * On plain Android TV (not Google TV) the Home button follows the default home app, so
+     * when the user picked Flix there it already works without the accessibility service.
+     */
+    private fun isDefaultHome(): Boolean = runCatching {
+        packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName == packageName
+    }.getOrDefault(false)
 
     /** The avatar at the end of the top menu: the Nuvio profile whose Continue watching is shown. */
     private fun drawProfile() {

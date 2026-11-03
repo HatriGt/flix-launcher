@@ -52,6 +52,9 @@ class TrailerService : Service() {
         w.settings.javaScriptEnabled = true
         w.settings.mediaPlaybackRequiresUserGesture = false
         w.settings.domStorageEnabled = true
+        // The page lays out at a fixed 1280 px width (see [page]) and is scaled to the surface.
+        w.settings.useWideViewPort = true
+        w.settings.loadWithOverviewMode = true
         w.webChromeClient = WebChromeClient()
         w.addJavascriptInterface(object {
             @JavascriptInterface
@@ -121,10 +124,15 @@ class TrailerService : Service() {
         view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId, data.getBoolean("sound"), seq), "text/html", "utf-8", null)
     }
 
+    /**
+     * A fixed 1280 px layout width: on TVs with a high density, the half-size surface was only
+     * ~480 CSS px wide, so YouTube picked a 240p stream and drew its small-player overlays
+     * ("More videos", the title bar) too big for the crop to hide.
+     */
     private fun page(ytId: String, sound: Boolean, pageSeq: Int) = """
-        <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+        <!doctype html><html><head><meta name="viewport" content="width=1280">
         <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
-        #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.32)}</style></head>
+        #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.2)}</style></head>
         <body><div id="p"></div>
         <script>
         // Defined before YouTube's script loads: from cache it can be ready at once, and a

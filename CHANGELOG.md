@@ -4,6 +4,18 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.12] - 2026-11-03
+
+### Fixed
+- **Weather works again**: when wttr.in is down, Flix now uses Open-Meteo, for both your typed city and automatic location
+- Trailers play in better quality and are less cropped, without YouTube's "More videos" text on high-density TVs
+- No more "Home button isn't going to Flix" warning when Flix is already your default home app
+- Continue watching follows Nuvio more closely: finished at 90%, Up next from your watched history, and no 30-day cut-off
+
+### Added
+- Option to hide the Movies and Shows tabs (Settings → Movies & shows → Look)
+- Option to hide the rating on posters, for addons whose posters already show one
+
 ## [1.0.11] - 2026-11-01
 
 ### Fixed

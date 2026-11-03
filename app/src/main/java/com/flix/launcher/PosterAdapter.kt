@@ -365,7 +365,7 @@ class PosterAdapter(
             // Generated cover art only for titles with no poster; drawing it under a real
             // poster would double the pixels the GPU fills.
             itemView.background = if (title.poster == null) CoverArt(title.name) else null
-            badge.text = Rating.text(title.rating)
+            badge.text = if (FlixSettings.isOn(itemView.context, FlixSettings.RATING_BADGE)) Rating.text(title.rating) else null
             badge.visibility = if (badge.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             itemView.contentDescription = title.name
             // A recycled card may still be pressed in from its last click. (Not cancelling the

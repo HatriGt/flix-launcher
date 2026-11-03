@@ -74,6 +74,8 @@ object FlixSettings {
     val GENRE = Option("genre", "Genre filter", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
         "Thriller" to "Thriller", "Horror" to "Horror", "Romance" to "Romance", "Sci-Fi" to "Sci-Fi", "Animation" to "Animation",
         "Crime" to "Crime", "Family" to "Family"), "all", summary = "Only for rows whose addon supports it")
+    val RATING_BADGE = toggle("rating_badge", "Rating on posters", summary = "Off if your addon's posters already show a rating")
+    val TYPE_TABS = toggle("type_tabs", "Movies and Shows tabs", summary = "Home already shows both")
     val POSTER_SIZE = Option("poster_size", "Poster size", listOf("small" to "Small", "medium" to "Medium", "large" to "Large"), "medium")
     val BACKDROP = toggle("backdrop", "Backdrop preview", summary = "Show the focused title's artwork behind the rows")
     val TOP_TEN = Option("top_ten_from", "Top 10 row",

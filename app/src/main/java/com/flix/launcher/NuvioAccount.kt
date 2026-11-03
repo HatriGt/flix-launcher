@@ -144,16 +144,37 @@ object NuvioAccount {
             val previous = latest[id]
             if (previous == null || r.optLong("last_watched") > previous.optLong("last_watched")) latest[id] = r
         }
+        // Nuvio seeds "Up next" from the watched history too (episodes marked watched, or
+        // played elsewhere), not only from progress: add each show's furthest watched episode
+        // as a finished row, unless the show already has progress.
+        runCatching {
+            val watched = JSONArray(rpc(context, "sync_pull_watched_items", JSONObject()
+                .put("p_profile_id", profile.index).put("p_page", 1).put("p_page_size", 500)))
+            val furthest = HashMap<String, JSONObject>()
+            for (i in 0 until watched.length()) {
+                val w = watched.getJSONObject(i)
+                val id = w.optString("content_id")
+                val season = w.optInt("season", 0)
+                if (id.isBlank() || w.optString("content_type") != "series" || season <= 0 || latest.containsKey(id)) continue
+                val best = furthest[id]
+                if (best == null || season > best.optInt("season") ||
+                    (season == best.optInt("season") && w.optInt("episode") > best.optInt("episode"))) furthest[id] = w
+            }
+            for ((id, w) in furthest) latest[id] = JSONObject()
+                .put("content_id", id).put("content_type", "series")
+                .put("season", w.optInt("season")).put("episode", w.optInt("episode"))
+                .put("position", 1).put("duration", 1)
+                .put("last_watched", watchedAtMs(w.opt("watched_at")))
+        }
         return latest.values
             .filter { r ->
                 // Unfinished titles, plus series whose latest episode was finished recently
                 // (they come back as "Up next" with the following episode).
                 val duration = r.optLong("duration")
                 val done = duration > 0 && r.optLong("position").toFloat() / duration >= FINISHED
-                duration > 0 && (!done || (r.optString("content_type") == "series" &&
-                    System.currentTimeMillis() - lastWatchedMs(r) < UP_NEXT_DAYS * 24 * 3600_000L))
+                duration > 0 && (!done || r.optString("content_type") == "series")
             }
-            .sortedByDescending { it.optLong("last_watched") }
+            .sortedByDescending { lastWatchedMs(it) }
             .take(20)
             .let { picked ->
                 // Look titles up in parallel; each may hit a different addon. The whole lookup
@@ -208,8 +229,18 @@ object NuvioAccount {
     }
 
     private const val META_BUDGET_MS = 20_000L
-    private const val FINISHED = 0.92f
-    private const val UP_NEXT_DAYS = 30
+    // Nuvio's own threshold for a finished title.
+    private const val FINISHED = 0.90f
+
+    /** watched_at may be epoch seconds, milliseconds or an ISO date. */
+    private fun watchedAtMs(v: Any?): Long = when (v) {
+        is Number -> v.toLong().let { if (it in 1 until 100_000_000_000L) it * 1000 else it }
+        is String -> v.toLongOrNull()?.let { watchedAtMs(it) } ?: runCatching {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.parse(v.take(19))!!.time
+        }.getOrDefault(0L)
+        else -> 0L
+    }
 
     private fun lastWatchedMs(r: JSONObject): Long = r.optLong("last_watched").let { if (it in 1 until 100_000_000_000L) it * 1000 else it }
 
