@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.14] - 2026-11-03
+
+### Changed
+- **Continue watching shows at once**: after a reboot, or when Android had closed Flix, the row appears straight away from last time and refreshes from Nuvio in the background. It also stays on screen when the TV is offline
+
 ## [1.0.13] - 2026-11-03
 
 ### Added
