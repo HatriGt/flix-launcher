@@ -357,7 +357,7 @@ class SettingsActivity : Activity() {
             if (HomeButton.works(this@SettingsActivity)) toast("Home already opens Flix") else HomeButton.fix(this@SettingsActivity)
         }
         opt(0, "When you press Home", FlixSettings.HOME_FOCUS, R.drawable.ic_o_resume, "home button start focus resume continue watching apps first")
-        opt(0, "Look", FlixSettings.THEME, R.drawable.ic_o_contrast, "theme colour color style glass cinema midnight minimal dark apple netflix")
+        add(Entry(0, "Look", "theme colour color style glass cinema midnight minimal dark apple netflix look") { themePicker() })
         opt(0, "App tiles", FlixSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
         opt(0, "App tiles", FlixSettings.ICON_SIZE, R.drawable.ic_o_size, "icons big bigger smaller")
         opt(0, "App tiles", FlixSettings.LABELS, R.drawable.ic_o_text, "names titles text")
@@ -600,6 +600,77 @@ class SettingsActivity : Activity() {
         row.setOnFocusChangeListener { v, has -> focusRow(v, has); refresh(animate = false) }
         refresh(animate = false)
         return row
+    }
+
+    /**
+     * Themes as four small home screens, each drawn in its own colours, so the choice is made
+     * by looking rather than by name. OK picks one; home switches to it when Settings closes.
+     */
+    private fun themePicker(): View {
+        val option = FlixSettings.THEME
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(px(12), px(12), px(12), px(14))
+        }
+        box.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val (tile, _) = iconTile(R.drawable.ic_o_contrast)
+            addView(tile, LinearLayout.LayoutParams(px(38), px(38)).apply { marginEnd = px(16) })
+            addView(textBlock(option.title, "How the home screen looks. It changes when you close Settings"))
+        })
+        val strip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, px(14), 0, 0)
+        }
+        val marks = mutableListOf<Pair<String, (Boolean) -> Unit>>()
+        option.choices.forEachIndexed { i, (id, label) ->
+            val ring = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.TRANSPARENT) }
+            val name = text(label, 13f)
+            val state = text("", 11f, alpha = 0.6f)
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                isFocusable = true
+                background = ring
+                setPadding(px(5), px(5), px(5), px(8))
+                addView(ThemePreview(context, com.flix.launcher.Look.named(id)), LinearLayout.LayoutParams(-1, px(92)))
+                addView(LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(px(4), px(8), px(4), 0)
+                    addView(name, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(state)
+                })
+            }
+            fun paint() {
+                val chosen = FlixSettings.get(this, option) == id
+                val focused = card.isFocused
+                ring.setColor(if (focused) 0x24FFFFFF else Color.TRANSPARENT)
+                ring.setStroke(px(2), when { focused -> Color.WHITE; chosen -> 0x66FFFFFF; else -> Color.TRANSPARENT })
+                state.text = if (chosen) "✓ In use" else ""
+                name.alpha = if (chosen || focused) 1f else 0.7f
+            }
+            marks += id to { _: Boolean -> paint() }
+            card.setOnFocusChangeListener { v, has ->
+                paint()
+                v.animate().scaleX(if (has) 1.04f else 1f).scaleY(if (has) 1.04f else 1f).setDuration(140).start()
+            }
+            card.setOnClickListener {
+                if (FlixSettings.get(this, option) == id) return@setOnClickListener
+                FlixSettings.set(this, option, id)
+                marks.forEach { it.second(true) }
+                applyToHome()
+            }
+            if (i == 0) card.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+            }
+            paint()
+            strip.addView(card, LinearLayout.LayoutParams(0, -2, 1f).apply { if (i > 0) marginStart = px(10) })
+        }
+        box.addView(strip)
+        return box
     }
 
     private fun actionRow(title: String, subtitle: String, iconRes: Int, onClick: () -> Unit): View {
@@ -967,27 +1038,105 @@ class SettingsActivity : Activity() {
     }
 
     /** Asks for the weather's city; a blank answer goes back to locating the TV automatically. */
+    /**
+     * Picking the weather city: a search box with matching places listed under it as you
+     * type (name, region and country, so the right Vellore is clear), and "Automatic" at the
+     * top to go back to the internet connection's location. Sits at the top of the screen,
+     * clear of the on-screen keyboard.
+     */
     private fun askWeatherCity() {
-        val input = EditText(this).apply {
-            setText(FlixSettings.weatherCity(this@SettingsActivity))
-            hint = "e.g. Chennai"
-            setSingleLine()
-            setSelection(text.length)
+        val dialog = android.app.Dialog(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply { cornerRadius = 22 * dp; setColor(0xF2161A22.toInt()); setStroke(px(1), 0x1FFFFFFF) }
+            setPadding(px(22), px(20), px(22), px(16))
         }
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Weather city")
-            .setMessage("Leave it empty to use your internet connection's location.")
-            .setView(android.widget.FrameLayout(this).apply { setPadding(px(24), 0, px(24), 0); addView(input) })
-            .setPositiveButton("Save") { _, _ ->
-                FlixSettings.setWeatherCity(this, input.text.toString())
-                applyToHome(); refresh(animate = false)
+        panel.addView(text("Weather city", 22f, bold = true))
+        panel.addView(text("Search for your town, then pick it from the list", 13f, alpha = 0.55f).apply { setPadding(0, px(4), 0, px(14)) })
+        val fieldBg = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(0x14FFFFFF); setStroke(px(2), 0x26FFFFFF) }
+        val input = EditText(this).apply {
+            hint = "Town or city"
+            setHintTextColor(0x66FFFFFF)
+            setTextColor(Color.WHITE)
+            textSize = 17f
+            setSingleLine()
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+            background = fieldBg
+            setPadding(px(16), px(12), px(16), px(12))
+            setText(FlixSettings.weatherCity(this@SettingsActivity))
+            setSelection(text.length)
+            setOnFocusChangeListener { _, has -> fieldBg.setStroke(px(2), if (has) Color.WHITE else 0x26FFFFFF) }
+        }
+        panel.addView(input)
+        val status = text("", 13f, alpha = 0.55f).apply { setPadding(px(6), px(12), 0, px(4)) }
+        panel.addView(status)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        panel.addView(list)
+
+        fun choice(title: String, sub: String, icon: Int, chosen: Boolean, pick: () -> Unit): View {
+            val (tile, tileBg) = iconTile(icon)
+            return rowShell(tileBg).apply {
+                addView(tile, LinearLayout.LayoutParams(px(34), px(34)).apply { marginEnd = px(14) })
+                addView(textBlock(title, sub), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                if (chosen) addView(text("✓", 16f, bold = true))
+                minimumHeight = px(52)
+                setOnFocusChangeListener { v, has -> focusRow(v, has) }
+                setOnClickListener { pick(); dialog.dismiss() }
             }
-            .setNeutralButton("Automatic") { _, _ ->
-                FlixSettings.setWeatherCity(this, "")
-                applyToHome(); refresh(animate = false)
-            }
-            .setNegativeButton("Cancel", null)
-            .showWithKeyboard(input)
+        }
+        val current = FlixSettings.weatherCity(this)
+        fun done() { applyToHome(); refresh(animate = false) }
+        fun show(places: List<Weather.Place>) {
+            list.removeAllViews()
+            list.addView(choice("Automatic", "From your internet connection", R.drawable.ic_o_tv, current.isEmpty()) {
+                FlixSettings.setWeatherCity(this, ""); done()
+            })
+            for (p in places) list.addView(choice(p.name, p.area, R.drawable.ic_o_pin, p.name == current) {
+                FlixSettings.setWeatherPlace(this, p.name, p.lat to p.lon); done()
+            })
+        }
+        show(emptyList())
+
+        var asked = 0
+        val search = Runnable {
+            val q = input.text.toString().trim()
+            if (q.length < 2) { status.text = ""; show(emptyList()); return@Runnable }
+            val mine = ++asked
+            status.text = "Searching…"
+            Thread {
+                val places = Weather.search(q)
+                runOnUiThread {
+                    if (mine != asked || !dialog.isShowing) return@runOnUiThread
+                    status.text = if (places.isEmpty()) "No place called \"$q\". Check the spelling" else "Pick your town"
+                    show(places)
+                }
+            }.start()
+        }
+        input.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) { main.removeCallbacks(search); main.postDelayed(search, 350) }
+        })
+        // The keyboard's search key closes it and moves to the first result.
+        input.setOnEditorActionListener { v, _, _ ->
+            getSystemService(android.view.inputmethod.InputMethodManager::class.java).hideSoftInputFromWindow(v.windowToken, 0)
+            list.getChildAt(if (list.childCount > 1) 1 else 0)?.requestFocus(); true
+        }
+        if (current.isNotEmpty()) main.post(search)
+
+        dialog.setContentView(panel)
+        dialog.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setLayout(px(560), ViewGroup.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+            attributes = attributes.apply { y = px(28) }
+            setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        }
+        input.setOnClickListener {
+            getSystemService(android.view.inputmethod.InputMethodManager::class.java).showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
+        dialog.setOnShowListener { input.requestFocus() }
+        dialog.show()
     }
 
     /** Lists hidden apps; picking one brings it back to the All apps row. */

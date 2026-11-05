@@ -317,7 +317,12 @@ class MainActivity : Activity() {
         appliedRevision = FlixSettings.revision(this)
         // A new theme reaches colours baked into many views: rebuild the screen once.
         val theme = FlixSettings.get(this, FlixSettings.THEME)
-        if (appliedTheme != null && appliedTheme != theme) { appliedTheme = theme; recreate(); return }
+        if (appliedTheme != null && appliedTheme != theme) {
+            // Rebuilding the screen behind the see-through settings panel, on every step through
+            // the themes, restarted the video and flashed. Do it once, when home is back in front.
+            if (!resumed) { appliedRevision = -1; return }
+            appliedTheme = theme; recreate(); return
+        }
         appliedTheme = theme
         findViewById<View>(R.id.top_bar).background = Look.panel(this)
         findViewById<View>(R.id.nav_tabs).background = Look.panel(this, Look.of(this).radiusDp * 0.8f)
@@ -1200,7 +1205,7 @@ class MainActivity : Activity() {
         if (System.currentTimeMillis() - lastWeatherAt < 30 * 60_000) return
         lastWeatherAt = System.currentTimeMillis() // one request in flight at a time
         net.execute {
-            val report = Weather.fetch(FlixSettings.weatherCity(this))
+            val report = Weather.fetch(FlixSettings.weatherCity(this), FlixSettings.weatherCoords(this))
             main.post {
                 if (isDestroyed) return@post
                 if (report == null) lastWeatherAt = 0L else showWeather(report)

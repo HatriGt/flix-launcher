@@ -103,9 +103,21 @@ object FlixSettings {
     /** The city typed for the weather, or "" to locate the TV from its internet connection. */
     fun weatherCity(context: Context): String = prefs(context).getString("weather_city", null).orEmpty()
 
-    fun setWeatherCity(context: Context, city: String) {
+    fun setWeatherCity(context: Context, city: String) = setWeatherPlace(context, city, null)
+
+    /** A place picked from the search list keeps its coordinates, so the right town of that name is used. */
+    fun setWeatherPlace(context: Context, city: String, coords: Pair<Double, Double>?) {
         val p = prefs(context)
-        p.edit().putString("weather_city", city.trim()).putInt(KEY_REVISION, p.getInt(KEY_REVISION, 0) + 1).apply()
+        p.edit().putString("weather_city", city.trim())
+            .apply { if (coords == null) remove("weather_lat").remove("weather_lon")
+                     else putString("weather_lat", coords.first.toString()).putString("weather_lon", coords.second.toString()) }
+            .putInt(KEY_REVISION, p.getInt(KEY_REVISION, 0) + 1).apply()
+    }
+
+    fun weatherCoords(context: Context): Pair<Double, Double>? = prefs(context).let { p ->
+        val lat = p.getString("weather_lat", null)?.toDoubleOrNull()
+        val lon = p.getString("weather_lon", null)?.toDoubleOrNull()
+        if (lat != null && lon != null) lat to lon else null
     }
 
     /** Bumped on every change, so the home screen knows when to re-apply. */

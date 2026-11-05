@@ -27,7 +27,23 @@ object Weather {
     )
 
     /** wttr.in first; it is often down or slow, so Open-Meteo answers when it doesn't. */
-    fun fetch(city: String = ""): Report? = wttr(city) ?: openMeteo(city)
+    fun fetch(city: String = "", coords: Pair<Double, Double>? = null): Report? =
+        (wttr(coords?.let { "${it.first},${it.second}" } ?: city) ?: openMeteo(city, coords))
+            // A picked place is named as the user chose it, not after wttr.in's nearest station.
+            ?.let { if (city.isNotBlank() && coords != null) it.copy(place = city) else it }
+
+    data class Place(val name: String, val area: String, val lat: Double, val lon: Double)
+
+    /** Places matching [query], for the city picker: name plus region and country to tell them apart. */
+    fun search(query: String): List<Place> = runCatching {
+        val enc = java.net.URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
+        val results = getJson("https://geocoding-api.open-meteo.com/v1/search?name=$enc&count=6").optJSONArray("results") ?: return emptyList()
+        (0 until results.length()).map { i ->
+            val o = results.getJSONObject(i)
+            Place(o.getString("name"), listOf(o.optString("admin1"), o.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
+                o.getDouble("latitude"), o.getDouble("longitude"))
+        }
+    }.getOrDefault(emptyList())
 
     private fun getJson(url: String, connect: Int = 6000, read: Int = 8000): JSONObject {
         val conn = URL(url).openConnection() as HttpURLConnection
@@ -81,9 +97,9 @@ object Weather {
      * Open-Meteo needs coordinates: the typed city goes through its geocoder, and without
      * one the TV is placed by its public IP (ipwho.is), the same guess wttr.in makes.
      */
-    private fun openMeteo(city: String): Report? = runCatching {
+    private fun openMeteo(city: String, coords: Pair<Double, Double>? = null): Report? = runCatching {
         val enc = java.net.URLEncoder.encode(city.trim(), "UTF-8").replace("+", "%20")
-        val (lat, lon, place) = if (city.isNotBlank()) {
+        val (lat, lon, place) = if (coords != null) Triple(coords.first, coords.second, city) else if (city.isNotBlank()) {
             val hit = getJson("https://geocoding-api.open-meteo.com/v1/search?name=$enc&count=1").getJSONArray("results").getJSONObject(0)
             Triple(hit.getDouble("latitude"), hit.getDouble("longitude"), hit.optString("name"))
         } else {

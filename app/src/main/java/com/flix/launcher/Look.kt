@@ -29,7 +29,9 @@ object Look {
         "minimal" to Theme(0xFFB8BCC4.toInt(), 0xFFE5E7EB.toInt(), 0x26000000, 0x14FFFFFF, 14f, 8f),
     )
 
-    fun of(context: Context): Theme = THEMES[FlixSettings.get(context, FlixSettings.THEME)] ?: THEMES.getValue("cinema")
+    fun of(context: Context): Theme = named(FlixSettings.get(context, FlixSettings.THEME))
+
+    fun named(id: String): Theme = THEMES[id] ?: THEMES.getValue("cinema")
 
     fun accent(context: Context) = of(context).accent
 
