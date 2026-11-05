@@ -52,7 +52,7 @@ class TrailerService : Service() {
         w.settings.javaScriptEnabled = true
         w.settings.mediaPlaybackRequiresUserGesture = false
         w.settings.domStorageEnabled = true
-        // The page lays out at a fixed 1280 px width (see [page]) and is scaled to the surface.
+        // The page lays out exactly as wide as the surface in pixels (see [page]).
         w.settings.useWideViewPort = true
         w.settings.loadWithOverviewMode = true
         w.webChromeClient = WebChromeClient()
@@ -121,16 +121,17 @@ class TrailerService : Service() {
                 runCatching { client?.send(reply) }
             }
         }
-        view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId, data.getBoolean("sound"), seq), "text/html", "utf-8", null)
+        view.loadDataWithBaseURL("https://www.youtube-nocookie.com", page(ytId, data.getBoolean("sound"), seq, data.getInt("w").coerceIn(320, 960)), "text/html", "utf-8", null)
     }
 
     /**
-     * A fixed 1280 px layout width: on TVs with a high density, the half-size surface was only
-     * ~480 CSS px wide, so YouTube picked a 240p stream and drew its small-player overlays
-     * ("More videos", the title bar) too big for the crop to hide.
+     * The page is laid out exactly as wide as the surface is in pixels (about 960 on a
+     * 1080p screen, half of it on 4K, so the scale stays whole), whatever the TV's density. With the density's CSS width the player was
+     * tiny on high-density TVs (240p, oversized "More videos" text); with a fixed 1280 it was
+     * scaled by a fraction, which drew a seam across the middle, and 720p stuttered on slow chips.
      */
-    private fun page(ytId: String, sound: Boolean, pageSeq: Int) = """
-        <!doctype html><html><head><meta name="viewport" content="width=1280">
+    private fun page(ytId: String, sound: Boolean, pageSeq: Int, widthPx: Int) = """
+        <!doctype html><html><head><meta name="viewport" content="width=$widthPx">
         <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
         #p{position:absolute;top:50%;left:50%;width:177.78vh;height:100vh;min-width:100vw;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.2)}</style></head>
         <body><div id="p"></div>

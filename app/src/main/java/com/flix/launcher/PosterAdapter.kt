@@ -68,6 +68,11 @@ class PosterAdapter(
     /** Space left of each card in a Top 10 row for its rank number. */
     val rankRoom = (heightPx * 0.42f).toInt()
 
+    /** Decodes the wide artwork of the card at [position] ahead of it being focused. */
+    fun prefetch(position: Int) {
+        items.getOrNull(position)?.let { it.backdrop ?: it.poster }?.let { Images.get(it, expandedPx, big = false) {} }
+    }
+
     /** The card in this row that's currently big, if any. */
     private var big: Holder? = null
 
@@ -307,7 +312,7 @@ class PosterAdapter(
             // No wide artwork (short films, small addons): the poster, cropped to fill, beats a half-empty card.
             val url = title.backdrop ?: title.poster ?: return
             var waited = false
-            Images.get(url, expandedPx) { bmp ->
+            Images.get(url, expandedPx, big = false) { bmp ->
                 if (bmp == null || current?.id != title.id || !itemView.isFocused) return@get
                 backdrop.setImageBitmap(bmp)
                 // Already loaded (the usual case, see prefetchNeighbours): show it at once, so the
@@ -322,7 +327,7 @@ class PosterAdapter(
         private fun prefetchNeighbours(position: Int) {
             if (position == RecyclerView.NO_POSITION) return
             for (i in intArrayOf(position + 1, position - 1, position + 2)) {
-                owner.items.getOrNull(i)?.let { it.backdrop ?: it.poster }?.let { Images.get(it, expandedPx) {} }
+                owner.prefetch(i)
             }
         }
 

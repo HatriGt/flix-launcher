@@ -102,6 +102,22 @@ class MovieRows(
         }
     }
 
+    /**
+     * Moving up or down lands on the card in the next row that sits under the focused one,
+     * usually its first visible card: decode those backdrops now, so that card widens with its
+     * picture instead of waiting a second for it.
+     */
+    private fun prefetchAround(row: Row) {
+        val i = rows.indexOf(row)
+        for (other in listOf(rows.getOrNull(i - 1), rows.getOrNull(i + 1))) {
+            if (other == null || other.view.visibility != View.VISIBLE) continue
+            val first = (other.list.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)?.findFirstVisibleItemPosition() ?: continue
+            if (first < 0) continue
+            other.adapter.prefetch(first)
+            other.adapter.prefetch(first + 1)
+        }
+    }
+
     private var lastContinueAt = 0L
 
     /** Empties Continue watching at once (a new profile was picked) until its titles arrive. */
@@ -126,7 +142,7 @@ class MovieRows(
     private fun makeRow(source: Addons.Row, w: Int, h: Int, genre: String?, ranked: Boolean = false): Row {
         val springy = FlixSettings.get(activity, FlixSettings.MOTION) == "spring"
         lateinit var row: Row
-        val adapter = PosterAdapter(w, h, dp, springy, { t -> describe(row, t); onFocus(t) }, onOpen, onMenu, ranked)
+        val adapter = PosterAdapter(w, h, dp, springy, { t -> describe(row, t); onFocus(t); prefetchAround(row) }, onOpen, onMenu, ranked)
         val title = TextView(activity).apply {
             val kind = if (source.type == "series") "Series" else "Movies"
             // Addons often reuse a name for their movie and series lists; tell them apart.

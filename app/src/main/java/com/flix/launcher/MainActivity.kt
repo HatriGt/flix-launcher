@@ -634,14 +634,15 @@ class MainActivity : Activity() {
         if (resumed) player?.play()
     }
 
-    private fun openInNuvio(title: Catalog.Title) {
+    /** [details]: Nuvio's page for the title (cast, ratings, episodes) instead of its streams. */
+    private fun openInNuvio(title: Catalog.Title, details: Boolean = false) {
         if (title.id == MovieRows.SIGN_IN.id) {
             settingsOpen = true
             startActivity(Intent(this, NuvioLoginActivity::class.java))
             overridePendingTransition(0, 0)
             return
         }
-        val intent = runCatching { title.nuvioStreamIntent() }.getOrNull()?.takeIf { it.resolveActivity(packageManager) != null }
+        val intent = (if (details) null else runCatching { title.nuvioStreamIntent() }.getOrNull()?.takeIf { it.resolveActivity(packageManager) != null })
             ?: Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(MainActivity.NUVIO)
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
@@ -664,7 +665,8 @@ class MainActivity : Activity() {
     private fun showTitleMenu(title: Catalog.Title) {
         if (title.id == MovieRows.SIGN_IN.id) return openInNuvio(title)
         OptionsMenu.show(this, title, listOf(
-            "Open in Nuvio" to { openInNuvio(title) },
+            "Watch in Nuvio" to { openInNuvio(title) },
+            "More info" to { openInNuvio(title, details = true) },
             "Hide this title" to {
                 Catalog.hideTitle(this, title.id)
                 movieRows.refreshHidden()

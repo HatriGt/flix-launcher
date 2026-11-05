@@ -76,7 +76,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         }
         setBackgroundColor(0xFF10141C.toInt())
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(250)).apply {
-            marginStart = px(44); marginEnd = px(44); topMargin = px(4); bottomMargin = px(10)
+            marginStart = px(44); marginEnd = px(44); topMargin = px(16); bottomMargin = px(10)
         }
         visibility = View.GONE
         // The photos get their own layer, so swapping which one is on top never moves the text.

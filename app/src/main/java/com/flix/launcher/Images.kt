@@ -30,7 +30,7 @@ object Images {
     private val large = object : LruCache<String, Bitmap>(2) {}
     private const val LARGE_PX = 1000
 
-    private fun cached(key: String, widthPx: Int): Bitmap? = if (widthPx >= LARGE_PX) large.get(key) else memory.get(key)
+    private fun cached(key: String, big: Boolean): Bitmap? = if (big) large.get(key) else memory.get(key)
 
     private var dir: File? = null
     /** Callbacks waiting on a decode already under way; main thread only. */
@@ -60,7 +60,7 @@ object Images {
             view.setImageDrawable(null)
             return
         }
-        cached(key(url, widthPx), widthPx)?.let {
+        cached(key(url, widthPx), widthPx >= LARGE_PX)?.let {
             view.alpha = 1f
             view.setImageBitmap(it)
             return
@@ -75,10 +75,14 @@ object Images {
         }
     }
 
-    /** Fetches a bitmap and hands it back on the main thread (null on failure). */
-    fun get(url: String, widthPx: Int, onReady: (Bitmap?) -> Unit) {
+    /**
+     * Fetches a bitmap and hands it back on the main thread (null on failure). [big] images go
+     * to the two-slot cache; card artwork passes false even when wide (on a high-density TV a
+     * card's backdrop passed [LARGE_PX], and prefetched ones pushed each other out).
+     */
+    fun get(url: String, widthPx: Int, big: Boolean = widthPx >= LARGE_PX, onReady: (Bitmap?) -> Unit) {
         val key = key(url, widthPx)
-        cached(key, widthPx)?.let { return onReady(it) }
+        cached(key, big)?.let { return onReady(it) }
         // A poster scrolled past and back (or asked for by two views) shares one decode.
         inFlight[key]?.let { it += onReady; return }
         inFlight[key] = mutableListOf(onReady)
@@ -86,7 +90,7 @@ object Images {
             val bitmap = runCatching { decode(bytes(url), widthPx) }.getOrNull()
             // A cached file that won't decode is broken (or not an image): fetch it afresh next time.
             if (bitmap == null) cacheFile(url)?.delete()
-            if (bitmap != null) { if (widthPx >= LARGE_PX) large.put(key, bitmap) else memory.put(key, bitmap) }
+            if (bitmap != null) { if (big) large.put(key, bitmap) else memory.put(key, bitmap) }
             main.post { inFlight.remove(key)?.forEach { it(bitmap) } }
         }
     }
