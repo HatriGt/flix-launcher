@@ -357,6 +357,7 @@ class SettingsActivity : Activity() {
             if (HomeButton.works(this@SettingsActivity)) toast("Home already opens Flix") else HomeButton.fix(this@SettingsActivity)
         }
         opt(0, "When you press Home", FlixSettings.HOME_FOCUS, R.drawable.ic_o_resume, "home button start focus resume continue watching apps first")
+        add(Entry(0, "Look", "layout home screen poster wall grid tv guide list cinema rows experience style view") { layoutPicker() })
         add(Entry(0, "Look", "theme colour color style glass cinema midnight minimal dark apple netflix look") { themePicker() })
         opt(0, "App tiles", FlixSettings.ICON_SHAPE, R.drawable.ic_o_shape, "icons round square")
         opt(0, "App tiles", FlixSettings.ICON_SIZE, R.drawable.ic_o_size, "icons big bigger smaller")
@@ -606,8 +607,15 @@ class SettingsActivity : Activity() {
      * Themes as four small home screens, each drawn in its own colours, so the choice is made
      * by looking rather than by name. OK picks one; home switches to it when Settings closes.
      */
-    private fun themePicker(): View {
-        val option = FlixSettings.THEME
+    private fun themePicker() = cardPicker(FlixSettings.THEME, R.drawable.ic_o_contrast,
+        "How the home screen looks. It changes when you close Settings") { ThemePreview(this, com.flix.launcher.Look.named(it)) }
+
+    /** The home screen's layout, picked the same way, each card a sketch of that layout. */
+    private fun layoutPicker() = cardPicker(FlixSettings.EXPERIENCE, R.drawable.ic_o_rows,
+        "Rows and a carousel, a wall of posters, or a guide-style list") { LayoutPreview(this, it) }
+
+    /** A row of picture cards for [option], one per choice; OK picks one. */
+    private fun cardPicker(option: FlixSettings.Option, icon: Int, subtitle: String, preview: (String) -> View): View {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(px(12), px(12), px(12), px(14))
@@ -615,9 +623,9 @@ class SettingsActivity : Activity() {
         box.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            val (tile, _) = iconTile(R.drawable.ic_o_contrast)
+            val (tile, _) = iconTile(icon)
             addView(tile, LinearLayout.LayoutParams(px(38), px(38)).apply { marginEnd = px(16) })
-            addView(textBlock(option.title, "How the home screen looks. It changes when you close Settings"))
+            addView(textBlock(option.title, subtitle))
         })
         val strip = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -635,7 +643,7 @@ class SettingsActivity : Activity() {
                 isFocusable = true
                 background = ring
                 setPadding(px(7), px(7), px(7), px(8))
-                addView(ThemePreview(context, com.flix.launcher.Look.named(id)), LinearLayout.LayoutParams(-1, px(92)))
+                addView(preview(id), LinearLayout.LayoutParams(-1, px(92)))
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL

@@ -177,6 +177,7 @@ class MainActivity : Activity() {
         favoritesList = setUpRow(R.id.favorites, favoritesAdapter)
         appsList = setUpRow(R.id.apps, appsAdapter)
         setUpAppsGrid()
+        setUpLayouts()
         playEntrance()
 
         setUpTabs()
@@ -324,6 +325,7 @@ class MainActivity : Activity() {
             appliedTheme = theme; recreate(); return
         }
         appliedTheme = theme
+        showLayout(appsTab = ::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE)
         findViewById<View>(R.id.top_bar).background = Look.panel(this)
         findViewById<View>(R.id.nav_tabs).background = Look.panel(this, Look.of(this).radiusDp * 0.8f)
         findViewById<View>(R.id.weather_card).background = Look.panel(this, Look.of(this).radiusDp * 0.8f)
@@ -566,8 +568,30 @@ class MainActivity : Activity() {
                 c.animate().alpha(if (c.top < now.top - 4) 0f else 1f).setDuration(250).start()
             }
             scrollRowsTo(if (first) 0 else appsGrid.top + now.top - heroLine() - (10 * resources.displayMetrics.density).toInt())
+        } else if (isInside(now, wall.view) || isInside(now, guide.view)) {
+            // Poster wall and TV guide: the page stays as it is; a lower line of posters or
+            // items rises to just under the menu, and the dock fades as the rows do.
+            exitBrowse()
+            val layoutView = if (isInside(now, wall.view)) wall.view else guide.view
+            val content = findViewById<View>(R.id.rows_content)
+            val first = topWithin(now, content) - topWithin(layoutView, content) < (220 * resources.displayMetrics.density)
+            favoritesBlock.animate().alpha(if (first) 1f else 0f).setDuration(250).start()
+            // Lines above the focused one fade, as in the Apps grid, so they never sit over the menu.
+            fadeAbove(layoutView, if (first) layoutView else now)
+            if (first) scrollRowsTo(0) else rowsScroll.post {
+                // From where the item really is on screen now (the scroll view may already be
+                // moving it into view by itself), not from its offset in the layout.
+                val at = IntArray(2).also { now.getLocationInWindow(it) }[1]
+                val box = IntArray(2).also { rowsScroll.getLocationInWindow(it) }[1]
+                val lift = ((now.scaleY - 1f) * now.height / 2).toInt()
+                scrollRowsTo(rowsScroll.scrollY + (at + lift - box) - heroLine() - (16 * resources.displayMetrics.density).toInt())
+            }
         } else if (isInside(now, rowsScroll) || isInside(now, header)) {
             exitBrowse()
+            // Back on the dock or the menu: the layout under it shows in full again.
+            favoritesBlock.animate().alpha(1f).setDuration(250).start()
+            fadeAbove(wall.view, wall.view)
+            fadeAbove(guide.view, guide.view)
             if (::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE) showAppsGrid(true)
             scrollRowsTo(0)
         }
@@ -701,6 +725,59 @@ class MainActivity : Activity() {
         else -> 0.12f
     }
 
+    // ---- Home layouts: Cinema (the rows), Poster wall and TV guide share one set of loaded rows ----
+
+    private lateinit var wall: PosterWall
+    private lateinit var guide: TvGuide
+    private val refreshLayouts = Runnable { if (::wall.isInitialized) { wall.refresh(); guide.refresh() } }
+
+    private fun setUpLayouts() {
+        wall = PosterWall(this, { movieRows.rows }, ::openInNuvio, ::showTitleMenu)
+        guide = TvGuide(this, { movieRows.rows }, ::openInNuvio, ::showTitleMenu)
+        val content = findViewById<ViewGroup>(R.id.rows_content)
+        val at = content.indexOfChild(findViewById(R.id.movie_rows)) + 1
+        for (v in listOf(wall.view, guide.view)) {
+            v.visibility = View.GONE
+            content.addView(v, at, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        // Rows report every change (titles arrived, a tab picked); several come at once, so batch them.
+        movieRows.onChanged = { main.removeCallbacks(refreshLayouts); main.post(refreshLayouts) }
+    }
+
+    private fun layout() = FlixSettings.get(this, FlixSettings.EXPERIENCE)
+
+    /** The layout under the dock, unless the Apps tab has the space. */
+    private fun showLayout(appsTab: Boolean) {
+        val chosen = layout()
+        findViewById<View>(R.id.movie_rows).visibility = if (!appsTab && chosen == "cinema") View.VISIBLE else View.GONE
+        wall.view.visibility = if (!appsTab && chosen == "wall") View.VISIBLE else View.GONE
+        guide.view.visibility = if (!appsTab && chosen == "guide") View.VISIBLE else View.GONE
+        main.post(refreshLayouts)
+    }
+
+    /** Fades every item and label in [layoutView] above [focused]'s line; shows the rest. */
+    private fun fadeAbove(layoutView: View, focused: View) {
+        val line = topWithin(focused, layoutView)
+        fun walk(v: View) {
+            // An item is a leaf, or a focusable card; lists and scrollers are focusable too but hold items.
+            val item = v !is ViewGroup || (v.isFocusable && v !is RecyclerView && v !is android.widget.HorizontalScrollView)
+            if (item && v !== layoutView) {
+                v.animate().alpha(if (focused === layoutView || topWithin(v, layoutView) >= line - 4) 1f else 0f).setDuration(250).start()
+                return
+            }
+            if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
+        }
+        walk(layoutView)
+    }
+
+    /** Where [view] sits within [ancestor], in pixels from its top. */
+    private fun topWithin(view: View, ancestor: View): Int {
+        var y = 0
+        var v: View? = view
+        while (v != null && v !== ancestor) { y += v.top; v = v.parent as? View }
+        return y
+    }
+
     // ---- Apps tab: every app in a grid right on the home screen, no separate page to load ----
 
     private lateinit var appsGrid: RecyclerView
@@ -755,7 +832,7 @@ class MainActivity : Activity() {
         appsGridLabel.alpha = 1f
         for (i in 0 until appsGrid.childCount) appsGrid.getChildAt(i).alpha = 1f
         if (appsGrid.visibility == v) return
-        findViewById<View>(R.id.movie_rows).visibility = if (show) View.GONE else View.VISIBLE
+        showLayout(appsTab = show)
         if (show) {
             appsGridAdapter.style = gridStyle()
             appsGridAdapter.items = allApps

@@ -387,7 +387,7 @@ class PosterAdapter(
             itemView.setOnLongClickListener { adapter.onLongClick(title); true }
             if (!adapter.grows) {
                 collapse(instant = true) // resets the name shown when the poster can't load
-                itemView.setOnFocusChangeListener { _, focused -> lift(focused) }
+                itemView.setOnFocusChangeListener { _, focused -> lift(focused); if (focused) adapter.onFocus(title) }
                 lift(itemView.isFocused, instant = true)
                 return
             }

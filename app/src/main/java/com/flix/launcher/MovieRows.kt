@@ -27,7 +27,16 @@ class MovieRows(
     class Row(val source: Addons.Row, val view: View, val list: RecyclerView, val adapter: PosterAdapter,
               val details: View, val meta: TextView, val about: TextView) {
         var all: List<Catalog.Title> = emptyList()
+        /** The name shown above the row, also used by the other home layouts. */
+        var label: String = source.title
+        /** The titles on show, after hidden ones and the Top 10 cut. */
+        val shown get() = adapter.items
+        /** On screen in the Cinema layout (has titles and matches the Movies/Shows tab). */
+        val visible get() = view.visibility == View.VISIBLE
     }
+
+    /** Called whenever any row's titles or the tab filter change, for the other home layouts. */
+    var onChanged: () -> Unit = {}
 
     /** The row whose details line is showing (only the focused row shows one, as on Netflix). */
     private var detailed: Row? = null
@@ -203,6 +212,7 @@ class MovieRows(
             addView(details)
         }
         row = Row(source, view, list, adapter, details, meta, about)
+        row.label = title.text.toString()
         return row
     }
 
@@ -245,6 +255,7 @@ class MovieRows(
         }
         typeFilter = type
         billboard.feature(type)
+        onChanged()
     }
 
     private var typeFilter: String? = null
@@ -258,6 +269,7 @@ class MovieRows(
         row.adapter.items = titles.filter { it.poster != null && it.id !in hidden }.distinctBy { it.id }.take(10)
         val match = typeFilter == null || typeFilter == "movie"
         row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
+        onChanged()
     }
 
     private fun show(row: Row, titles: List<Catalog.Title>) {
@@ -270,6 +282,7 @@ class MovieRows(
         row.adapter.items = titles.filter { it.id !in hidden }
         val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
         row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
+        onChanged()
     }
 
     /** Re-applies the hidden-titles filter without refetching. */
