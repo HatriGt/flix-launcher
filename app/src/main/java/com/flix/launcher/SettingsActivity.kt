@@ -627,14 +627,14 @@ class SettingsActivity : Activity() {
         }
         val marks = mutableListOf<Pair<String, (Boolean) -> Unit>>()
         option.choices.forEachIndexed { i, (id, label) ->
-            val ring = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.TRANSPARENT) }
+            val ring = GradientDrawable().apply { cornerRadius = 16 * dp; setColor(Color.TRANSPARENT) }
             val name = text(label, 13f)
             val state = text("", 11f, alpha = 0.6f)
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 isFocusable = true
                 background = ring
-                setPadding(px(5), px(5), px(5), px(8))
+                setPadding(px(7), px(7), px(7), px(8))
                 addView(ThemePreview(context, com.flix.launcher.Look.named(id)), LinearLayout.LayoutParams(-1, px(92)))
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL

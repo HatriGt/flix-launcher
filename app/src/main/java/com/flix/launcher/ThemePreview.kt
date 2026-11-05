@@ -18,14 +18,20 @@ class ThemePreview(context: Context, private val theme: Look.Theme) : View(conte
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val r = RectF()
+    private val clip = android.graphics.Path()
 
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
         // The scenery behind everything: a dusk sky, the same for every theme so only the theme differs.
         fill.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0xFF2B3A55.toInt(), 0xFF1A2236.toInt(), 0xFF0B0E16.toInt()), null, Shader.TileMode.CLAMP)
+        // Everything stays inside the card's rounded corners (the poster row used to run off them).
+        clip.reset()
+        clip.addRoundRect(RectF(0f, 0f, w, h), 10 * dp, 10 * dp, android.graphics.Path.Direction.CW)
+        canvas.save()
+        canvas.clipPath(clip)
         r.set(0f, 0f, w, h)
-        canvas.drawRoundRect(r, 10 * dp, 10 * dp, fill)
+        canvas.drawRect(r, fill)
         fill.shader = null
 
         // Scale the real home screen's corner radii (in dp at 960 dp wide) down to this card.
@@ -45,9 +51,10 @@ class ThemePreview(context: Context, private val theme: Look.Theme) : View(conte
         val dockH = h * 0.2f
         r.set(pad * 0.6f, dockTop, w - pad * 0.6f, dockTop + dockH)
         panel(canvas, theme.radiusDp * dp * scale * 2.2f)
-        val d = dockH * 0.62f
+        val d = dockH * 0.56f
         for (i in 0 until 4) {
-            val cx = pad + d / 2 + i * d * 1.35f
+            // Inset from the dock's edge by more than the focus ring, so the ring never touches it.
+            val cx = pad * 0.6f + dockH * 0.5f + 5 * dp + i * d * 1.4f
             val cy = dockTop + dockH / 2
             fill.color = if (i == 0) 0xFFFFFFFF.toInt() else 0x59FFFFFF
             canvas.drawCircle(cx, cy, d / 2, fill)
@@ -79,15 +86,18 @@ class ThemePreview(context: Context, private val theme: Look.Theme) : View(conte
         for (i in 0 until 6) {
             val x = pad + i * pw * 1.1f
             if (x > w) break
-            r.set(x, pTop, x + pw, h + 4 * dp)
+            // Posters stop short of the bottom, as the real row sits above the screen's edge.
+            val bottom = h - pad * 0.7f
+            r.set(x, pTop, x + pw, bottom)
             fill.color = 0x40FFFFFF
-            canvas.drawRoundRect(r, br * 0.4f, br * 0.4f, fill)
+            canvas.drawRoundRect(r, br * 0.4f + 1.5f * dp, br * 0.4f + 1.5f * dp, fill)
             if (i == 0) {
                 fill.color = theme.accent
-                r.set(x, h - 4 * dp, x + pw * 0.6f, h - 2 * dp)
-                canvas.drawRect(r, fill)
+                r.set(x + 2 * dp, bottom - 3.5f * dp, x + pw * 0.6f, bottom - 1.5f * dp)
+                canvas.drawRoundRect(r, 1 * dp, 1 * dp, fill)
             }
         }
+        canvas.restore()
     }
 
     private fun panel(canvas: Canvas, radius: Float) {
