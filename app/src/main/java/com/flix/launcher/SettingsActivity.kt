@@ -987,7 +987,7 @@ class SettingsActivity : Activity() {
                 applyToHome(); refresh(animate = false)
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .showWithKeyboard(input)
     }
 
     /** Lists hidden apps; picking one brings it back to the All apps row. */

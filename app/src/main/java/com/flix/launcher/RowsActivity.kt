@@ -299,7 +299,7 @@ class RowsActivity : Activity() {
             .setView(input)
             .setPositiveButton("Add") { _, _ -> addUrl(input.text.toString()) }
             .setNegativeButton("Cancel", null)
-            .show()
+            .showWithKeyboard(input)
     }
 
     private fun addUrl(url: String) {
