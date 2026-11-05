@@ -335,7 +335,7 @@
                     android:clipChildren="false"
                     android:clipToPadding="false"
                     android:orientation="vertical"
-                    android:paddingTop="76dp">
+                    android:paddingTop="82dp">
 
 
 
@@ -344,12 +344,12 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="48dp"
                     android:layout_marginEnd="44dp"
-                    android:layout_marginBottom="8dp"
                     android:gravity="bottom">
 
                     <TextView
                         android:id="@+id/focused_label"
                         style="@style/Flix.Text"
+                        android:layout_marginBottom="6dp"
                         android:fontFamily="sans-serif-medium"
                         android:textSize="20sp" />
 
@@ -361,7 +361,7 @@
                     <TextView
                         android:id="@+id/hint"
                         style="@style/Flix.Text.Muted"
-                        android:layout_marginBottom="3dp"
+                        android:layout_marginBottom="9dp"
                         android:alpha="0.7"
                         android:text="Hold OK for options"
                         android:textSize="10sp" />
