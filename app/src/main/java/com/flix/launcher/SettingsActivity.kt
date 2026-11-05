@@ -1136,7 +1136,24 @@ class SettingsActivity : Activity() {
             getSystemService(android.view.inputmethod.InputMethodManager::class.java).showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
         dialog.setOnShowListener { input.requestFocus() }
+        // The rows were rebuilt while the panel was open, so the row that opened it is gone and
+        // focus would fall to the search box: put it back on the new Weather city row.
+        dialog.setOnDismissListener { content.post { focusRowTitled("Weather city") } }
         dialog.show()
+    }
+
+    /** Focuses the row whose title is [title], if it is on screen. */
+    private fun focusRowTitled(title: String) {
+        fun find(v: View): View? {
+            if (v is TextView && v.text?.toString() == title) {
+                var p: View? = v
+                while (p != null && !p.isFocusable) p = p.parent as? View
+                return p
+            }
+            if (v is ViewGroup) for (i in 0 until v.childCount) find(v.getChildAt(i))?.let { return it }
+            return null
+        }
+        find(content)?.requestFocus()
     }
 
     /** Lists hidden apps; picking one brings it back to the All apps row. */
