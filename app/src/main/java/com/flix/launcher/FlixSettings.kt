@@ -26,11 +26,6 @@ object FlixSettings {
         listOf("cinema" to "Cinema", "glass" to "Glass", "midnight" to "Midnight", "minimal" to "Minimal"), "cinema",
         summary = "Colours and shapes of the home screen")
 
-    // The home screen's whole layout: rows and carousel, a poster grid, or a guide-style list
-    val EXPERIENCE = Option("experience", "Home layout",
-        listOf("cinema" to "Cinema", "wall" to "Poster wall", "guide" to "TV guide"), "cinema",
-        summary = "How films and shows are laid out under your apps")
-
     // What the Home button lands on
     val HOME_FOCUS = Option("home_focus", "Home opens on",
         listOf("apps" to "Your apps", "watching" to "What you were watching"), "apps",
