@@ -45,6 +45,7 @@ class MovieRows(
     fun rebuild() {
         container.removeAllViews()
         rows.clear()
+        pending.clear()
         sharedPool.clear()
         sharedPool = RecyclerView.RecycledViewPool()
         detailed = null
@@ -267,15 +268,38 @@ class MovieRows(
         if (row.source !== CONTINUE && billboard.view.parent != null) billboard.offer(titles)
         if (row.source === CONTINUE && billboard.view.parent != null) billboard.resumeWith(titles.firstOrNull { it.id != SIGN_IN.id })
         val hidden = Catalog.hiddenTitles(activity)
-        row.adapter.items = titles.filter { it.id !in hidden }
-        val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
-        row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
+        val visible = titles.filter { it.id !in hidden }
+        staged(row) {
+            row.adapter.items = visible
+            val match = typeFilter == null || row.source.type == typeFilter || row.source === CONTINUE
+            row.view.visibility = if (row.adapter.items.isEmpty() || !match) View.GONE else View.VISIBLE
+        }
+    }
+
+    /**
+     * Rows below the first screen fill in one at a time while the main thread is idle, instead
+     * of all in the frame their data arrives: building a row's cards takes ~40 ms, and doing
+     * eight at once froze the home screen for half a second after start.
+     */
+    private val pending = LinkedHashMap<Row, () -> Unit>()
+
+    private fun staged(row: Row, fill: () -> Unit) {
+        if (rows.indexOf(row) < ON_SCREEN) { pending.remove(row); return fill() }
+        val idle = pending.isEmpty()
+        pending[row] = fill
+        if (idle) Looper.myQueue().addIdleHandler {
+            pending.keys.firstOrNull()?.let { next -> pending.remove(next)?.let { if (next in rows) it() } }
+            pending.isNotEmpty()
+        }
     }
 
     /** Re-applies the hidden-titles filter without refetching. */
     fun refreshHidden() = rows.forEach { show(it, it.all) }
 
     companion object {
+        /** Rows filled at once; the rest are staged (Continue watching, Top 10 and the first row). */
+        private const val ON_SCREEN = 3
+
         /** Stand-in source for the Continue watching row, which comes from the Nuvio account rather than an addon. */
         val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
 

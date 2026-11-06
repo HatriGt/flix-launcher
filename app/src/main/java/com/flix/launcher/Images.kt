@@ -43,13 +43,19 @@ object Images {
         if (dir != null) return
         val folder = File(context.cacheDir, "img").apply { mkdirs() }
         dir = folder
-        // Keep the disk cache to roughly the newest 80 MB.
-        pool.execute {
-            var total = 0L
-            folder.listFiles()?.sortedByDescending { it.lastModified() }?.forEach { file ->
-                total += file.length()
-                if (total > 80L * 1024 * 1024) file.delete()
-            }
+        pool.execute { prune() }
+    }
+
+    /** The disk cache keeps only the newest [DISK_MAX] of images; checked at start and every [PRUNE_EVERY] downloads. */
+    private const val DISK_MAX = 40L * 1024 * 1024
+    private const val PRUNE_EVERY = 150
+    private val saved = java.util.concurrent.atomic.AtomicInteger()
+
+    private fun prune() {
+        var total = 0L
+        dir?.listFiles()?.sortedByDescending { it.lastModified() }?.forEach { file ->
+            total += file.length()
+            if (total > DISK_MAX) file.delete()
         }
     }
 
@@ -138,7 +144,11 @@ object Images {
 
     private fun bytes(url: String): ByteArray {
         val file = cacheFile(url)
-        if (file != null && file.exists()) return file.readBytes()
+        if (file != null && file.exists()) {
+            // Touch it, so pruning drops what hasn't been seen lately rather than what was fetched first.
+            file.setLastModified(System.currentTimeMillis())
+            return file.readBytes()
+        }
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 6000
         conn.readTimeout = 10000
@@ -150,6 +160,7 @@ object Images {
         }
         // Whole or not at all; a failed save only costs a re-download.
         file?.let { runCatching { SafeIo.write(it, data) } }
+        if (saved.incrementAndGet() % PRUNE_EVERY == 0) prune()
         return data
     }
 

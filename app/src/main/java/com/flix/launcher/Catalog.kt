@@ -232,7 +232,9 @@ object Catalog {
             val ours = f.name.startsWith("meta_") || f.name.startsWith("trailer_") || f.name.startsWith("catalog_")
             val old = now - f.lastModified() > 14 * 24 * 3600_000L
             val staleTmp = f.name.endsWith(".tmp") && now - f.lastModified() > 3600_000L
-            if (f.isFile && ((ours && old) || staleTmp)) f.delete()
+            // A downloaded update is only needed until it's installed.
+            val oldUpdate = f.name == "update.apk" && now - f.lastModified() > 24 * 3600_000L
+            if (f.isFile && ((ours && old) || staleTmp || oldUpdate)) f.delete()
         }
     }
 
