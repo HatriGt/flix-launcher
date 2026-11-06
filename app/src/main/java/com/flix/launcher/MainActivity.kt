@@ -455,6 +455,9 @@ class MainActivity : Activity() {
     private val checkHomeButton: Runnable = Runnable {
         val state = HomeButton.state(this)
         if (isFinishing || HomeButton.works(this)) { homeBanner?.visibility = View.GONE; return@Runnable }
+        // Only judge while home is in front: behind first-run setup the user hasn't had a
+        // chance to switch Home on yet, and the warning would greet them as setup closes.
+        if (!resumed || SetupActivity.needed(this)) return@Runnable
         val canFix = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val banner = homeBanner ?: TextView(this).apply {
             val dp = resources.displayMetrics.density
@@ -822,6 +825,8 @@ class MainActivity : Activity() {
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         main.removeCallbacks(checkHomeButton)
+        // A warning from earlier goes as soon as Home works; otherwise look again shortly.
+        if (HomeButton.works(this)) homeBanner?.visibility = View.GONE
         main.postDelayed(checkHomeButton, 7000)
         if (appliedRevision != FlixSettings.revision(this)) applySettings()
         if (browsing) main.postDelayed(pauseForBackdrop, 1500)

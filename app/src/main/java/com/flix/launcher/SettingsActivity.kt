@@ -896,7 +896,7 @@ class SettingsActivity : Activity() {
             art = tile,
             tile = bg,
             title = "Addons & rows",
-            subtitle = "$addons addons · choose and order what appears",
+            subtitle = "$addons ${if (addons == 1) "addon" else "addons"} · choose and order what appears",
             badge = "$shown on home",
             badgeColor = 0x2EFFFFFF,
         ) { open(RowsActivity::class.java) }
