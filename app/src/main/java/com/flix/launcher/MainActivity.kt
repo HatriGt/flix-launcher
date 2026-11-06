@@ -837,6 +837,7 @@ class MainActivity : Activity() {
         if (launchedFromHome || ui.alpha < 1f && !idle) playReturn()
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
+        Housekeeping.maybeRun(this)
         if (CoachMarks.pending(this) && !SetupActivity.needed(this)) main.postDelayed(::lookRound, 1500)
         main.removeCallbacks(checkHomeButton)
         // A warning from earlier goes as soon as Home works; otherwise look again shortly.

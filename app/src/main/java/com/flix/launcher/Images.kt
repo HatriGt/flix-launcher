@@ -51,9 +51,14 @@ object Images {
     private const val PRUNE_EVERY = 150
     private val saved = java.util.concurrent.atomic.AtomicInteger()
 
+    /** Trims the disk cache now, off the main thread (called by [Housekeeping]). */
+    fun pruneNow() = prune()
+
     private fun prune() {
         var total = 0L
-        dir?.listFiles()?.sortedByDescending { it.lastModified() }?.forEach { file ->
+        // Each file's date is read once before sorting: images shown meanwhile get re-dated,
+        // and a date changing mid-sort made the sort throw and crashed Flix.
+        dir?.listFiles()?.map { it to it.lastModified() }?.sortedByDescending { it.second }?.forEach { (file, _) ->
             total += file.length()
             if (total > DISK_MAX) file.delete()
         }
