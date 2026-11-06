@@ -20,7 +20,7 @@
   <a href="https://github.com/HatriGt/flix-launcher/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/HatriGt/flix-launcher/build.yml?style=flat-square&label=build"></a>
   <img alt="Android TV 9+" src="https://img.shields.io/badge/Android%20TV-9%2B-3DDC84?style=flat-square&logo=android&logoColor=white">
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-plain%20Views-7F52FF?style=flat-square&logo=kotlin&logoColor=white">
-  <img alt="APK size" src="https://img.shields.io/badge/APK-~700%20KB-141414?style=flat-square">
+  <img alt="APK size" src="https://img.shields.io/badge/APK-~2%20MB-141414?style=flat-square">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/HatriGt/flix-launcher?style=flat-square&color=141414"></a>
 </p>
 
@@ -39,19 +39,25 @@
 
 A TV is for watching, but the stock Google TV home screen fills itself with ads and promoted apps, and it's slow on cheap TVs. Flix Launcher is a custom Android TV launcher built around what you actually watch. It replaces the stock one with one calm, fast screen: your favourite apps on top, films and shows underneath, and a moving scenic background when you're not using it.
 
-It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-in QR code and the profile installer as dependencies) and frugal: about 54 MB of memory on a 2 GB TV, because every icon is redrawn once into a GPU bitmap and artwork only loads for the card you're looking at.
+It's small (an APK of about 2 MB, with only RecyclerView, ZXing for the sign-in QR code, the profile installer and Media3 for live TV as dependencies) and frugal: about 54 MB of memory on a 2 GB TV, because every icon is redrawn once into a GPU bitmap and artwork only loads for the card you're looking at.
 
 ## See it
 
 <p align="center">
-  <img src="docs/home.webp" alt="Flix home screen: apps, featured carousel and film rows over an aerial mountain video" width="100%">
+  <img src="docs/home.webp" alt="Flix home screen: your apps on top, Continue watching and Top 10 rows over a scenic background" width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/settings.webp" alt="Flix settings: sections, wallpaper list and searching for trailer settings" width="100%">
+  <img src="docs/shows.webp" alt="Shows tab: the focused title widens with its artwork, year, length, genres and progress" width="49%">
+  <img src="docs/tv.webp" alt="TV tab: Nuvio+IPTV channels with logos, what's on now and a time bar, the channel playing behind" width="49%">
 </p>
 
-<p align="center"><sub>Recorded on a Sony BRAVIA (Android TV 14, 2 GB) with the Landscapes aerial video background.</sub></p>
+<p align="center">
+  <img src="docs/setup.webp" alt="First-run setup: one step at a time, here making the Home button open Flix" width="49%">
+  <img src="docs/settings.webp" alt="Flix settings: sections, wallpaper list and searching for trailer settings" width="49%">
+</p>
+
+<p align="center"><sub>Captured on a Sony BRAVIA (Android TV 14, 2 GB). Home, Shows, TV (with Nuvio+IPTV), setup and settings.</sub></p>
 
 ## Features
 
@@ -81,6 +87,12 @@ It's small (an APK of about 700 KB, with only RecyclerView, ZXing for the sign-i
 </tr>
 <tr>
 <td valign="top">
+
+### 📺 Live TV (with Nuvio+IPTV)
+- A **TV tab** with your Nuvio+IPTV channels: Recently watched first, then the groups you keep visible
+- Each channel shows its logo and what's on now, with a time bar and what's next
+- Rest on a channel and it plays full screen behind the page, like a trailer; OK watches it in Nuvio+IPTV
+- Hold OK to hide a channel. Read through Nuvio+IPTV's Setup Sync, with your Nuvio sign-in
 
 ### 🌄 Backgrounds
 - **About 270 aerial videos** (Apple TV, Amazon and community aerials): nature, sea, cities, space and art
