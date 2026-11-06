@@ -4,6 +4,28 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.16] - 2026-11-06
+
+### Added
+- **New first-run setup**: connect Nuvio, pick your profile picture, choose your rows, **choose the apps in your top row**, and set up the Home button, each with its own illustration
+- **A look round the home screen** after setup: the real screen dims and each part lights up in turn with a short line about it
+- **Themed backup and restore**: the backup list and the restore confirmation now match Flix; backups include profile pictures
+- New film wallpapers by genre (blockbusters, sci-fi, action, animation, fantasy, horror) and an Open movies video wall
+
+### Changed
+- **Half the download size** (1 MB, down from 2.2 MB)
+- **Smoother scrolling**: poster cards are drawn once and moved, and rows far off-screen stop drawing; about a fifth fewer dropped frames
+- **Faster start**: rows below the first screen fill in while the TV is idle
+- **Storage stays small by itself**: images, trailer data and old files are trimmed automatically every few hours
+- Game trailers now play straight away from a fixed list of well-known games
+- Profiles without a chosen picture show the same default portrait
+
+### Fixed
+- A crash in the image cache cleanup
+- Google TV wasn't recognised during setup, so it showed the wrong Home-button steps
+- A false "Home button isn't going to Flix" warning right after setup
+- "1 addons" in Settings
+
 ## [1.0.15] - 2026-11-06
 
 ### Added
