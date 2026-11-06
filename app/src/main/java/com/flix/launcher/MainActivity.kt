@@ -487,16 +487,12 @@ class MainActivity : Activity() {
         val profile = NuvioAccount.profile(this)?.takeIf { NuvioAccount.isSignedIn(this) }
         if (profile == null) { view.visibility = View.GONE; return }
         view.visibility = View.VISIBLE
-        view.text = profile.name.trim().take(1).uppercase().ifBlank { "${profile.index}" }
+        view.text = ""
         val dp = resources.displayMetrics.density
-        view.background = android.graphics.drawable.StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(profile.color); setStroke((3 * dp).toInt(), android.graphics.Color.WHITE)
-            })
-            addState(intArrayOf(), android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(profile.color)
-            })
-        }
+        // The profile's cartoon, round, with a white ring when focused.
+        view.background = ProfilePicture.drawable(this, profile)
+        ProfilePicture.circle(view)
+        view.foreground = ProfilePicture.ring(dp)
     }
 
     private fun switchProfile() {
@@ -506,16 +502,14 @@ class MainActivity : Activity() {
             main.post {
                 if (isFinishing) return@post
                 if (profiles.isNullOrEmpty()) { Toast.makeText(this, "Couldn't reach Nuvio", Toast.LENGTH_SHORT).show(); return@post }
-                OptionsMenu.show(this, "Who's watching?", profiles.sortedByDescending { it.index == current?.index }.map { p ->
-                    (if (p.index == current?.index) "✓  ${p.name}" else "     ${p.name}") to {
-                        if (p.index != current?.index) {
-                            NuvioAccount.setProfile(this, p)
-                            drawProfile()
-                            movieRows.clearContinue()
-                            movieRows.refreshContinue(force = true)
-                        }
+                WhosWatching.show(this, profiles, current) { p ->
+                    if (p.index != current?.index) {
+                        NuvioAccount.setProfile(this, p)
+                        drawProfile()
+                        movieRows.clearContinue()
+                        movieRows.refreshContinue(force = true)
                     }
-                })
+                }
             }
         }.start()
     }

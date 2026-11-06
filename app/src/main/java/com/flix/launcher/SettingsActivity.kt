@@ -372,6 +372,9 @@ class SettingsActivity : Activity() {
 
         // Movies & shows
         add(Entry(1, null, "Nuvio account sign in login profile continue watching") { nuvioCard() })
+        NuvioAccount.profile(this@SettingsActivity)?.takeIf { NuvioAccount.isSignedIn(this@SettingsActivity) }?.let { profile ->
+            add(Entry(1, null, "profile picture avatar face image photo cartoon character") { pictureRow(profile) })
+        }
         add(Entry(1, null, "Addons rows catalogues order choose") { rowsCard() })
         opt(1, "On the home screen", FlixSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
         opt(1, "On the home screen", FlixSettings.BILLBOARD, R.drawable.ic_o_layers, "carousel billboard banner featured hero slideshow poster")
@@ -788,6 +791,73 @@ class SettingsActivity : Activity() {
             badge = if (signedIn) "Connected" else "Sign in",
             badgeColor = if (signedIn) 0xFF16A34A.toInt() else RED,
         ) { open(NuvioLoginActivity::class.java) }
+    }
+
+    /** The signed-in profile's picture, with a chevron into the picker. */
+    private fun pictureRow(profile: NuvioAccount.Profile): View {
+        val face = ImageView(this).also { ProfilePicture.into(it, profile) }
+        val row = rowShell().apply { setPadding(px(12), px(12), px(16), px(12)) }
+        row.addView(face, LinearLayout.LayoutParams(px(44), px(44)))
+        row.addView(textBlock("Profile picture", "The face shown for “${profile.name.ifBlank { "this profile" }}”"),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(16) })
+        row.addView(chevron())
+        row.setOnFocusChangeListener { v, has -> focusRow(v, has) }
+        row.setOnClickListener { pickPicture(profile) }
+        row.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { rail.getChildAt(sectionIndex)?.requestFocus(); true } else false
+        }
+        return row
+    }
+
+    /** All sixteen portraits in a grid; OK picks one and the home screen's bar updates at once. */
+    private fun pickPicture(profile: NuvioAccount.Profile) {
+        val dialog = android.app.Dialog(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+        val chosen = ProfilePicture.indexFor(this, profile)
+        val grid = android.widget.GridLayout(this).apply { columnCount = 4; clipChildren = false; clipToPadding = false }
+        ProfilePicture.all.forEachIndexed { i, res ->
+            val face = ImageView(this).apply {
+                setImageResource(res)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                isFocusable = true
+                foreground = ProfilePicture.ring(dp)
+                setOnFocusChangeListener { v, has ->
+                    v.animate().scaleX(if (has) 1.12f else 1f).scaleY(if (has) 1.12f else 1f).setDuration(160).setInterpolator(RowRecyclerView.EASE).start()
+                }
+                setOnClickListener {
+                    ProfilePicture.set(this@SettingsActivity, profile, i)
+                    dialog.dismiss()
+                    applyToHome(); refresh(animate = false)
+                    content.post { focusRowTitled("Profile picture") }
+                }
+            }
+            ProfilePicture.circle(face)
+            // The one in use wears a small tick.
+            val cell = FrameLayout(this).apply {
+                clipChildren = false
+                addView(face, FrameLayout.LayoutParams(px(96), px(96)))
+                if (i == chosen) addView(FrameLayout(context).apply {
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(RED); setStroke(px(2), 0xFF161A22.toInt()) }
+                    addView(ImageView(context).apply { setImageResource(R.drawable.ic_check) }, FrameLayout.LayoutParams(px(13), px(13), Gravity.CENTER))
+                }, FrameLayout.LayoutParams(px(26), px(26), Gravity.BOTTOM or Gravity.END))
+            }
+            grid.addView(cell, android.widget.GridLayout.LayoutParams().apply { setMargins(px(10), px(10), px(10), px(10)) })
+            if (i == chosen) face.post { face.requestFocus() }
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            background = GradientDrawable().apply { cornerRadius = 22 * dp; setColor(0xF2161A22.toInt()); setStroke(px(1), 0x1FFFFFFF) }
+            setPadding(px(24), px(20), px(24), px(20))
+            addView(text("Choose a picture", 22f, bold = true))
+            addView(text("For “${profile.name.ifBlank { "this profile" }}”", 13f, alpha = 0.55f).apply { setPadding(0, px(4), 0, px(14)) })
+            addView(grid)
+        }
+        dialog.setContentView(panel)
+        dialog.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setDimAmount(0.6f)
+        }
+        dialog.show()
     }
 
     private fun rowsCard(): View {
