@@ -7,11 +7,14 @@ import android.widget.ImageView
 
 /**
  * The cartoon picture each Nuvio profile shows as its face: one of sixteen bundled portraits,
- * chosen in Settings and kept per profile on this TV. A profile that has never picked one gets
- * a default that depends on its index, so a family's profiles start out different.
+ * chosen during setup or in Settings and kept per profile on this TV. A profile that has never
+ * picked one shows [DEFAULT].
  */
 object ProfilePicture {
     const val COUNT = 16
+
+    /** The picture a profile shows until one is chosen: the curly-haired listener with headphones. */
+    const val DEFAULT = 4
 
     /** The bundled portraits, in the order the picker shows them. */
     val all: List<Int> = listOf(
@@ -23,9 +26,9 @@ object ProfilePicture {
 
     private fun prefs(context: Context) = context.getSharedPreferences("profile_pictures", Context.MODE_PRIVATE)
 
-    /** 0-based picture index for [profile]: the stored choice, else a default spread by profile index. */
+    /** 0-based picture index for [profile]: the stored choice, else [DEFAULT]. */
     fun indexFor(context: Context, profile: NuvioAccount.Profile): Int =
-        prefs(context).getInt("p${profile.index}", -1).takeIf { it in 0 until COUNT } ?: ((profile.index - 1).mod(COUNT))
+        prefs(context).getInt("p${profile.index}", -1).takeIf { it in 0 until COUNT } ?: DEFAULT
 
     fun set(context: Context, profile: NuvioAccount.Profile, index: Int) {
         prefs(context).edit().putInt("p${profile.index}", index.coerceIn(0, COUNT - 1)).apply()

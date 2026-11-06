@@ -16,8 +16,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * First-run setup, three steps with the remote: connect Nuvio, pick the rows, and make the
- * Home button open Flix. Every step can be skipped and done later from Settings. Shown once,
+ * First-run setup, four steps with the remote: connect Nuvio, choose a profile picture, pick
+ * the rows, and make the Home button open Flix. Every step can be skipped and done later from Settings. Shown once,
  * on a fresh install; people updating from an older Flix never see it.
  */
 class SetupActivity : Activity() {
@@ -25,6 +25,9 @@ class SetupActivity : Activity() {
     private fun px(v: Int) = (v * dp).toInt()
 
     private var step = 0
+    /** Which way the last move went, so a skipped step is passed in that direction. */
+    private var forward = true
+    private lateinit var extra: FrameLayout
     private lateinit var dots: LinearLayout
     private lateinit var number: TextView
     private lateinit var title: TextView
@@ -47,6 +50,7 @@ class SetupActivity : Activity() {
                 title = text("", 38f, bold = true).also { addView(it, lp(top = 6)) }
                 body = text("", 17f, alpha = 0.72f).apply { setLineSpacing(0f, 1.25f) }.also { addView(it, LinearLayout.LayoutParams(px(720), -2).apply { topMargin = px(14) }) }
                 status = text("", 15f, bold = true).also { addView(it, lp(top = 18)) }
+                extra = FrameLayout(context).apply { clipChildren = false; clipToPadding = false }.also { addView(it, lp(top = 22)) }
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     primary = button(true).also { addView(it) }
@@ -69,7 +73,11 @@ class SetupActivity : Activity() {
     }
 
     private fun show() {
-        number.text = "STEP ${step + 1} OF 3"
+        // The picture belongs to a Nuvio profile: without one there's nothing to set yet.
+        if (step == 1 && NuvioAccount.profile(this) == null) { step = if (forward) 2 else 0 }
+        number.text = "STEP ${step + 1} OF 4"
+        extra.removeAllViews()
+        extra.visibility = View.GONE
         when (step) {
             0 -> {
                 val signedIn = NuvioAccount.isSignedIn(this)
@@ -83,6 +91,16 @@ class SetupActivity : Activity() {
                 secondary(if (signedIn) null else "Skip for now") { next() }
             }
             1 -> {
+                val profile = NuvioAccount.profile(this)!!
+                title.text = "Pick your face"
+                body.text = "Choose a picture for ${profile.name.ifBlank { "your profile" }}. It sits at the top of the home screen " +
+                    "and in Who's watching. You can change it any time in Settings."
+                status(null)
+                faces(profile)
+                primary("Next") { next() }
+                secondary(null) {}
+            }
+            2 -> {
                 val rows = Addons.rows(this).count { it.enabled }
                 title.text = "Choose what's on"
                 body.text = "Pick the film and series rows you actually want to browse, and their order. " +
@@ -116,15 +134,58 @@ class SetupActivity : Activity() {
             }
         }
         dots.removeAllViews()
-        repeat(3) { i ->
+        repeat(4) { i ->
             dots.addView(View(this).apply {
                 background = GradientDrawable().apply { cornerRadius = 3 * dp; setColor(if (i == step) Color.WHITE else 0x40FFFFFF) }
             }, LinearLayout.LayoutParams(px(if (i == step) 28 else 8), px(6)).apply { marginEnd = px(8) })
         }
-        primary.post { primary.requestFocus() }
+        if (step != 1) primary.post { primary.requestFocus() }
     }
 
-    private fun next() { step++; show() }
+    /** All sixteen pictures in a row; the chosen one is ringed and ticked, OK picks. */
+    private fun faces(profile: NuvioAccount.Profile) {
+        extra.visibility = View.VISIBLE
+        val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(px(4), px(10), px(4), px(10)) }
+        val scroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false; clipChildren = false; clipToPadding = false; overScrollMode = View.OVER_SCROLL_NEVER
+            addView(strip)
+        }
+        val ticks = mutableListOf<View>()
+        ProfilePicture.all.forEachIndexed { i, res ->
+            val face = android.widget.ImageView(this).apply {
+                setImageResource(res)
+                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                isFocusable = true
+                foreground = ProfilePicture.ring(dp)
+                setOnFocusChangeListener { v, has ->
+                    v.animate().scaleX(if (has) 1.14f else 1f).scaleY(if (has) 1.14f else 1f).setDuration(180).setInterpolator(RowRecyclerView.EASE).start()
+                }
+                setOnClickListener {
+                    ProfilePicture.set(this@SetupActivity, profile, i)
+                    ticks.forEachIndexed { j, t -> t.visibility = if (j == i) View.VISIBLE else View.GONE }
+                    status("✓  Picture chosen")
+                    primary.requestFocus()
+                }
+            }
+            ProfilePicture.circle(face)
+            val tick = FrameLayout(this).apply {
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFE50914.toInt()); setStroke(px(2), 0xFF0B0E14.toInt()) }
+                addView(android.widget.ImageView(context).apply { setImageResource(R.drawable.ic_check) }, FrameLayout.LayoutParams(px(13), px(13), Gravity.CENTER))
+                visibility = if (i == ProfilePicture.indexFor(this@SetupActivity, profile)) View.VISIBLE else View.GONE
+            }
+            ticks += tick
+            strip.addView(FrameLayout(this).apply {
+                clipChildren = false
+                addView(face, FrameLayout.LayoutParams(px(84), px(84)))
+                addView(tick, FrameLayout.LayoutParams(px(24), px(24), Gravity.BOTTOM or Gravity.END))
+            }, LinearLayout.LayoutParams(px(84), px(84)).apply { marginEnd = px(18) })
+        }
+        extra.addView(scroll, FrameLayout.LayoutParams(-1, -2))
+        val chosen = ProfilePicture.indexFor(this, profile)
+        strip.post { (strip.getChildAt(chosen) as? ViewGroup)?.getChildAt(0)?.requestFocus() }
+    }
+
+    private fun next() { forward = true; step++; show() }
 
     private fun finishSetup() {
         markDone(this)
@@ -133,7 +194,7 @@ class SetupActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (step > 0) { step--; show() } else finishSetup()
+        if (step > 0) { forward = false; step--; show() } else finishSetup()
     }
 
     private fun status(text: String?) {
