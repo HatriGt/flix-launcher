@@ -101,6 +101,8 @@ object LiveTv {
             .map { (name, list) -> Group(name, list.sortedBy { it.number }) }
         val built = Lineup(favouriteKeys.mapNotNull { byKey[it] }, groups)
         lineup = built
+        // Every logo the tab can show, fetched now and kept, so cards appear with them.
+        Images.preload(built.all.flatMap { it.logos }.distinct())
         return built
     }
 
@@ -205,6 +207,15 @@ object LiveTv {
         guides.put(channel.streamId, now to g)
         return g
     }
+
+    // ---- Channels hidden in Flix ----
+
+    fun hidden(context: Context): Set<String> = prefs(context).getStringSet("livetv_hidden", emptySet()).orEmpty()
+
+    fun hide(context: Context, channel: Channel) =
+        prefs(context).edit().putStringSet("livetv_hidden", hidden(context) + channel.key).apply()
+
+    fun unhideAll(context: Context) = prefs(context).edit().remove("livetv_hidden").apply()
 
     // ---- Recently watched (from Flix) ----
 

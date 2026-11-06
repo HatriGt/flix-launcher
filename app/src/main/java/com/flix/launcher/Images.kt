@@ -54,11 +54,28 @@ object Images {
     /** Trims the disk cache now, off the main thread (called by [Housekeeping]). */
     fun pruneNow() = prune()
 
+    /**
+     * Images that stay on disk whatever their age (channel logos): pruning skips them, so
+     * they are fetched once and kept. Names (hashes) listed in img/keep.txt.
+     */
+    private val kept = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /** Downloads [urls] into the disk cache in the background (no decoding) and keeps them there. */
+    fun preload(urls: Collection<String>) {
+        val names = urls.map { sha1(it) }
+        kept.addAll(names)
+        pool.execute {
+            dir?.let { d -> runCatching { File(d, "keep.txt").writeText(kept.joinToString("\n")) } }
+            for (u in urls) runCatching { if (cacheFile(u)?.exists() != true) bytes(u) }
+        }
+    }
+
     private fun prune() {
         var total = 0L
+        dir?.let { d -> runCatching { File(d, "keep.txt").takeIf { it.exists() }?.readLines()?.let { kept.addAll(it) } } }
         // Each file's date is read once before sorting: images shown meanwhile get re-dated,
         // and a date changing mid-sort made the sort throw and crashed Flix.
-        dir?.listFiles()?.map { it to it.lastModified() }?.sortedByDescending { it.second }?.forEach { (file, _) ->
+        dir?.listFiles()?.filter { it.name !in kept && it.name != "keep.txt" }?.map { it to it.lastModified() }?.sortedByDescending { it.second }?.forEach { (file, _) ->
             total += file.length()
             if (total > DISK_MAX) file.delete()
         }

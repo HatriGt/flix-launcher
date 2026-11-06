@@ -176,18 +176,19 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         about.visibility = View.VISIBLE
         info.findViewWithTag<View>("buttons")?.visibility = View.GONE
         // Built once, and again when something new was watched (Recently watched changed).
-        val recentKeys = LiveTv.recent(activity)
+        val recentKeys = LiveTv.recent(activity) + LiveTv.hidden(activity).sorted().map { "-$it" }
         if (rows.isNotEmpty() && recentKeys == builtRecent) return
         builtRecent = recentKeys
+        val hidden = LiveTv.hidden(activity)
         rowsBox.removeAllViews(); rows.clear()
         val byKey = lineup.all.associateBy { it.key }
-        val recent = LiveTv.recent(activity).mapNotNull { byKey[it] }
+        val recent = LiveTv.recent(activity).mapNotNull { byKey[it] }.filter { it.key !in LiveTv.hidden(activity) }
         val sections = buildList {
             // Recently watched first; until there is any, the favourites take its place.
             if (recent.isNotEmpty()) add("Recently watched" to recent)
             else if (lineup.favourites.isNotEmpty()) add("Your channels" to lineup.favourites)
             lineup.groups.forEach { add(pretty(it.name) to it.channels) }
-        }
+        }.map { (n, l) -> n to l.filter { it.key !in hidden } }.filter { it.second.isNotEmpty() }
         sections.forEach { (name, list) -> addRow(name, list) }
         (recent.firstOrNull() ?: lineup.favourites.firstOrNull() ?: lineup.all.firstOrNull())?.let { select(it, play = false) }
     }
@@ -392,10 +393,29 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
                 if (has) channel?.let { select(it) }
             }
             root.setOnClickListener { channel?.let { LiveTv.open(activity, it) } }
+            root.setOnLongClickListener { channel?.let { menu(it) }; true }
             root.setOnKeyListener { _, code, e ->
+                // Holding OK opens the menu (handled here as well as by long-click: remotes differ).
+                if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && e.action == KeyEvent.ACTION_DOWN && (e.isLongPress || e.repeatCount == 1)) {
+                    channel?.let { menu(it) }; return@setOnKeyListener true
+                }
+                if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && e.action == KeyEvent.ACTION_DOWN && e.repeatCount > 1) return@setOnKeyListener true
                 if (e.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 val row = rows.indexOfFirst { it === root.parent }
                 when (code) {
+                    // Sideways stays in the row: the next card may not be laid out yet, and the
+                    // focus search then jumped up to the menu.
+                    KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        val list = root.parent as? RecyclerView ?: return@setOnKeyListener true
+                        val pos = list.getChildAdapterPosition(root) + if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
+                        if (pos < 0 || pos >= (list.adapter?.itemCount ?: 0)) return@setOnKeyListener true
+                        val lm = list.layoutManager as LinearLayoutManager
+                        lm.findViewByPosition(pos)?.requestFocus() ?: run {
+                            list.scrollToPosition(pos)
+                            list.post { lm.findViewByPosition(pos)?.requestFocus() }
+                        }
+                        true
+                    }
                     KeyEvent.KEYCODE_DPAD_DOWN -> { focusRow(row + 1); true }
                     KeyEvent.KEYCODE_DPAD_UP -> if (row > 0) focusRow(row - 1) else { stopVideo(); false }
                     else -> false
@@ -426,6 +446,27 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
                 }
             }
         }
+    }
+
+    /** Hold OK on a card: watch, hide it, or bring back hidden ones. */
+    private var menuAt = 0L
+
+    private fun menu(c: LiveTv.Channel) {
+        // A held key reaches both the long-click and the key listener: open one menu only.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - menuAt < 1500) return
+        menuAt = now
+        val count = LiveTv.hidden(activity).size
+        OptionsMenu.show(activity, c.name.substringAfter(": ").trim(), buildList {
+            add("Watch" to { LiveTv.open(activity, c) })
+            add("Hide this channel" to {
+                LiveTv.hide(activity, c)
+                val focusRowIndex = rows.indexOfFirst { r -> (0 until r.childCount).any { r.getChildAt(it).hasFocus() } }.coerceAtLeast(0)
+                render()
+                focusRow(focusRowIndex.coerceAtMost(rows.lastIndex))
+            })
+            if (count > 0) add("Show $count hidden channel${if (count == 1) "" else "s"}" to { LiveTv.unhideAll(activity); render() })
+        })
     }
 
     /** Shows the first of [urls] that loads; [onNone] when none does. Loaded logos stay in the image cache. */
