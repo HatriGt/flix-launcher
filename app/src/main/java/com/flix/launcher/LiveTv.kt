@@ -26,9 +26,12 @@ object LiveTv {
     private const val DAY = 24 * 3600_000L
 
     class Channel(
-        val key: String, val name: String, val number: Int, val logo: String?, val group: String,
-        val streamId: String, val epgId: String?,
-    )
+        val key: String, val name: String, val number: Int,
+        /** Logo addresses to try in order: iptv-org's when it knows the channel, then the provider's. */
+        val logos: List<String>, val group: String, val streamId: String, val epgId: String?,
+    ) {
+        val logo get() = logos.firstOrNull()
+    }
 
     class Group(val name: String, val channels: List<Channel>)
 
@@ -103,7 +106,7 @@ object LiveTv {
 
     /** The provider's live channels, keyed exactly as Nuvio+IPTV keys them, cached for a day. */
     private fun channels(context: Context, src: Source, force: Boolean): List<Channel> {
-        val cache = File(context.cacheDir, "livetv2_${src.id}.json")
+        val cache = File(context.cacheDir, "livetv4_${src.id}.json")
         val fresh = !force && cache.exists() && System.currentTimeMillis() - cache.lastModified() < DAY
         val streams = (if (fresh) runCatching { JSONArray(cache.readText()) }.getOrNull() else null) ?: run {
             val cats = JSONArray(api(src, "get_live_categories"))
@@ -119,9 +122,8 @@ object LiveTv {
                         .put("id", s.optString("stream_id"))
                         .put("n", s.optString("name").replace("\n", " ").trim())
                         .put("num", s.optInt("num"))
-                        .put("l", s.optString("stream_icon").takeIf { it.startsWith("http") }
-                            ?: library[s.optString("epg_channel_id").lowercase()]
-                            ?: library[nameKey(s.optString("name"))] ?: "")
+                        .put("l", s.optString("stream_icon").takeIf { it.startsWith("http") } ?: "")
+                        .put("lib", library[s.optString("epg_channel_id").lowercase()] ?: library[nameKey(s.optString("name"))] ?: "")
                         .put("e", s.optString("epg_channel_id"))
                         .put("g", catNames[s.optString("category_id")] ?: "Uncategorized"))
                 }
@@ -129,15 +131,19 @@ object LiveTv {
             }
         }
         val used = HashSet<String>()
-        return (0 until streams.length()).map { streams.getJSONObject(it) }.filter { it.optString("id").isNotBlank() }.map { s ->
+        val list = (0 until streams.length()).map { streams.getJSONObject(it) }.filter { it.optString("id").isNotBlank() }
+        // A provider "logo" shared by many differently named channels is a badge ("4K"), not a logo.
+        val shared = list.groupBy { it.optString("l") }.filter { (url, l) -> url.isNotBlank() && l.map { it.optString("n") }.distinct().size > 3 }.keys
+        return list.map { s ->
             val name = s.optString("n")
             val epg = s.optString("e").takeIf { it.isNotBlank() && it != "null" }
             // Nuvio+IPTV's key: playlist|tvg-id|name, with #2, #3… for repeats.
             val base = "${src.id}|${epg ?: ""}|$name"
             var key = base; var n = 2
             while (!used.add(key)) key = "$base#${n++}"
-            Channel(key, name, s.optInt("num"), s.optString("l").takeIf { it.startsWith("http") }, s.optString("g"),
-                s.optString("id"), epg)
+            val own = s.optString("l").takeIf { it.startsWith("http") && it !in shared }
+            val lib = s.optString("lib").takeIf { it.startsWith("http") }
+            Channel(key, name, s.optInt("num"), listOfNotNull(lib, own).distinct(), s.optString("g"), s.optString("id"), epg)
         }
     }
 
@@ -200,8 +206,22 @@ object LiveTv {
         return g
     }
 
+    // ---- Recently watched (from Flix) ----
+
+    private fun prefs(context: Context) = context.getSharedPreferences("flix", Context.MODE_PRIVATE)
+
+    fun recent(context: Context): List<String> = runCatching {
+        JSONArray(prefs(context).getString("livetv_recent", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } }
+    }.getOrDefault(emptyList())
+
+    private fun remember(context: Context, channel: Channel) {
+        val list = (listOf(channel.key) + recent(context).filter { it != channel.key }).take(15)
+        prefs(context).edit().putString("livetv_recent", JSONArray(list).toString()).apply()
+    }
+
     /** Plays [channel] full screen in Nuvio+IPTV. */
     fun open(context: Context, channel: Channel?) {
+        channel?.let { remember(context, it) }
         val uri = if (channel == null) "nuvio://livetv" else "nuvio://livetv/channel/" + Uri.encode(channel.key)
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

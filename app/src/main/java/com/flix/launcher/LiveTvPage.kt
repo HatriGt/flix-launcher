@@ -27,15 +27,14 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * The TV tab: Nuvio+IPTV's channels the way the Movies tab shows films. A big live card at
- * the top plays the selected channel (muted, like a trailer) under its logo, what's on and
- * a time bar; under it, rows of channel cards (favourites first, then each group the user
- * keeps visible), each card the channel's logo on its own colour with what's on now.
- * Moving between cards changes the live card a moment later; OK watches full screen in
- * Nuvio+IPTV. Up and down step a whole row at a time, the focused row sliding up under the
- * live card, so the picture is always in view.
+ * The TV tab: Nuvio+IPTV's channels the way the Movies tab shows films. Rows of channel
+ * cards (recently watched first, then each group the user keeps visible), each card the
+ * channel's logo on its own colour with what's on now. Above the rows, the focused channel's
+ * details: logo, LIVE, what's on, a time bar and what's next. Resting on a card plays that
+ * channel full screen behind the page, muted, as a poster plays its trailer; OK watches it
+ * in Nuvio+IPTV. Up and down step a whole row at a time.
  */
-class LiveTvPage(private val activity: Activity) {
+class LiveTvPage(private val activity: Activity, private val videoHost: FrameLayout) {
     private val dp = activity.resources.displayMetrics.density
     private fun px(v: Int) = (v * dp).toInt()
     private fun px(v: Float) = (v * dp).toInt()
@@ -46,8 +45,9 @@ class LiveTvPage(private val activity: Activity) {
     // ---- The live card ----
 
     private val video = TextureView(activity).apply { alpha = 0f }
-    private val art = View(activity)
-    private val bigLogo = ImageView(activity).apply { scaleType = ImageView.ScaleType.FIT_CENTER; alpha = 0.18f }
+
+    /** Called when the live picture starts or stops behind the page (the scenery pauses, the page dims). */
+    var onPlaying: (Boolean) -> Unit = {}
     private val chipLogo = ImageView(activity).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
     private val chip = FrameLayout(activity).apply {
         background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xF2FFFFFF.toInt()) }
@@ -65,7 +65,7 @@ class LiveTvPage(private val activity: Activity) {
         maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
     }
     private val times = text("", 13f, alpha = 0.85f)
-    private val about = text("", 13f, alpha = 0.7f).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
+    private val about = text("", 13f, alpha = 0.7f).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; setLineSpacing(0f, 1.15f) }
     private val bar = View(activity).apply { setBackgroundColor(0xFFE50914.toInt()) }
     private val track = FrameLayout(activity).apply {
         background = GradientDrawable().apply { cornerRadius = 2 * dp; setColor(0x40FFFFFF) }
@@ -77,48 +77,34 @@ class LiveTvPage(private val activity: Activity) {
     private val guideButton = pill("Guide", primary = false)
     private val message = text("", 15f, alpha = 0.85f).apply { visibility = View.GONE; setLineSpacing(0f, 1.25f) }
 
-    private val hero = FrameLayout(activity).apply {
-        clipToOutline = true
-        outlineProvider = object : android.view.ViewOutlineProvider() {
-            override fun getOutline(v: View, o: android.graphics.Outline) = o.setRoundRect(0, 0, v.width, v.height, Look.of(activity).billboardRadiusDp * dp)
-        }
-        setBackgroundColor(0xFF0B0E14.toInt())
-        addView(art, FrameLayout.LayoutParams(-1, -1))
-        addView(bigLogo, FrameLayout.LayoutParams(px(360), px(200), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = px(60) })
-        addView(video, FrameLayout.LayoutParams(-1, -1))
-        // Darkest on the left, where the words are, and along the bottom.
-        addView(View(context).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFA0A0D13.toInt(), 0xE00A0D13.toInt(), 0x800A0D13.toInt(), 0x000A0D13))
-        }, FrameLayout.LayoutParams(px(720), -1))
-        addView(View(context).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xE60A0D13.toInt(), 0))
-        }, FrameLayout.LayoutParams(-1, px(130), Gravity.BOTTOM))
+    /** The focused channel's details, over the live picture: no card, like the Movies tab's. */
+    private val info = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(px(48), px(6), px(48), px(10))
         addView(LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(px(36), px(24), px(36), px(22))
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(chip, LinearLayout.LayoutParams(px(92), px(46)))
-                addView(live, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(14) })
-                (chip.layoutParams as? LinearLayout.LayoutParams)?.marginEnd = 0
-                addView(channelLine, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(10) })
-            })
-            addView(title, LinearLayout.LayoutParams(px(560), -2).apply { topMargin = px(14) })
-            addView(times, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(4) })
-            addView(track, LinearLayout.LayoutParams(px(300), px(4)).apply { topMargin = px(10) })
-            addView(about, LinearLayout.LayoutParams(px(520), -2).apply { topMargin = px(10) })
-            addView(message, LinearLayout.LayoutParams(px(560), -2).apply { topMargin = px(10) })
-            addView(View(context), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                clipChildren = false; clipToPadding = false
-                addView(watch)
-                addView(guideButton, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(12) })
-                addView(next, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(22) })
-            })
-        }, FrameLayout.LayoutParams(-1, -1))
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(chip, LinearLayout.LayoutParams(px(84), px(42)).apply { marginEnd = px(14) })
+            addView(live)
+            addView(channelLine, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(10) })
+        })
+        addView(title, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(10) })
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(times)
+            addView(track, LinearLayout.LayoutParams(px(220), px(4)).apply { marginStart = px(16) })
+            addView(next, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(18) })
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(6) })
+        addView(about, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(8) })
+        addView(message, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(10) })
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(watch)
+            addView(guideButton, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(12) })
+            visibility = View.GONE
+            tag = "buttons"
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(14) })
     }
 
     // ---- The rows ----
@@ -134,13 +120,14 @@ class LiveTvPage(private val activity: Activity) {
         orientation = LinearLayout.VERTICAL
         clipChildren = false; clipToPadding = false
         visibility = View.GONE
-        addView(hero, LinearLayout.LayoutParams(-1, px(280)).apply { marginStart = px(44); marginEnd = px(44); topMargin = px(14) })
-        addView(rowsWindow, LinearLayout.LayoutParams(-1, px(190)).apply { topMargin = px(8) })
+        addView(info, LinearLayout.LayoutParams(-1, px(160)).apply { topMargin = px(8) })
+        addView(rowsWindow, LinearLayout.LayoutParams(-1, -2))
     }
 
     // ---- State ----
 
     private var current: LiveTv.Channel? = null
+    private var builtRecent: List<String>? = null
     private var player: ExoPlayer? = null
     private var playing: LiveTv.Channel? = null
     private var shown = false
@@ -187,13 +174,22 @@ class LiveTvPage(private val activity: Activity) {
         }
         message.visibility = View.GONE
         about.visibility = View.VISIBLE
-        if (rows.isNotEmpty()) return
+        info.findViewWithTag<View>("buttons")?.visibility = View.GONE
+        // Built once, and again when something new was watched (Recently watched changed).
+        val recentKeys = LiveTv.recent(activity)
+        if (rows.isNotEmpty() && recentKeys == builtRecent) return
+        builtRecent = recentKeys
+        rowsBox.removeAllViews(); rows.clear()
+        val byKey = lineup.all.associateBy { it.key }
+        val recent = LiveTv.recent(activity).mapNotNull { byKey[it] }
         val sections = buildList {
-            if (lineup.favourites.isNotEmpty()) add("Your channels" to lineup.favourites)
+            // Recently watched first; until there is any, the favourites take its place.
+            if (recent.isNotEmpty()) add("Recently watched" to recent)
+            else if (lineup.favourites.isNotEmpty()) add("Your channels" to lineup.favourites)
             lineup.groups.forEach { add(pretty(it.name) to it.channels) }
         }
         sections.forEach { (name, list) -> addRow(name, list) }
-        (lineup.favourites.firstOrNull() ?: lineup.all.firstOrNull())?.let { select(it) }
+        (recent.firstOrNull() ?: lineup.favourites.firstOrNull() ?: lineup.all.firstOrNull())?.let { select(it, play = false) }
     }
 
     private fun showMessage(text: String) {
@@ -206,6 +202,7 @@ class LiveTvPage(private val activity: Activity) {
         track.visibility = View.INVISIBLE
         chip.visibility = View.GONE
         watch.text = "Open Nuvio+IPTV"
+        info.findViewWithTag<View>("buttons")?.visibility = View.VISIBLE
         stopVideo()
     }
 
@@ -251,8 +248,12 @@ class LiveTvPage(private val activity: Activity) {
 
     // ---- Selecting a channel ----
 
-    private fun select(channel: LiveTv.Channel) {
-        if (current?.key == channel.key && message.visibility == View.GONE) return
+    private fun select(channel: LiveTv.Channel, play: Boolean = true) {
+        if (current?.key == channel.key && message.visibility == View.GONE) {
+            // Already showing it: just play it if it isn't yet.
+            if (play && playing?.key != channel.key) { main.removeCallbacks(startVideo); main.postDelayed(startVideo, 1200) }
+            return
+        }
         current = channel
         chip.visibility = if (channel.logo != null) View.VISIBLE else View.GONE
         track.visibility = View.VISIBLE
@@ -261,10 +262,7 @@ class LiveTvPage(private val activity: Activity) {
         title.text = channel.name.substringAfter(": ").trim()
         times.text = ""; about.text = ""; next.text = ""
         setProgress(0f)
-        Images.into(chipLogo, channel.logo, px(120))
-        Images.into(bigLogo, channel.logo, px(360))
-        Images.accent(channel.logo ?: "") { c -> tint(c ?: CoverArt.accentOf(channel.name)) }
-        if (channel.logo == null) tint(CoverArt.accentOf(channel.name))
+        loadLogo(chipLogo, channel.logos, px(120)) { chip.visibility = View.GONE }
         net.execute {
             val g = LiveTv.guide(channel)
             main.post { if (current?.key == channel.key) showGuide(channel, g) }
@@ -272,14 +270,10 @@ class LiveTvPage(private val activity: Activity) {
         // The picture follows a moment later, so passing over cards doesn't start each one.
         main.removeCallbacks(startVideo)
         if (playing?.key != channel.key) {
-            video.animate().alpha(0f).setDuration(200).start()
-            main.postDelayed(startVideo, 800)
+            if (playing != null) { stopVideo() }
+            // As with trailers: resting on a card for a moment plays it behind the page.
+            if (play) main.postDelayed(startVideo, 1200)
         }
-    }
-
-    private fun tint(color: Int) {
-        art.background = GradientDrawable(GradientDrawable.Orientation.TR_BL,
-            intArrayOf(color, mix(color, 0xFF0A0D13.toInt(), 0.75f), 0xFF0A0D13.toInt()))
     }
 
     private fun showGuide(channel: LiveTv.Channel, g: LiveTv.Guide?) {
@@ -298,7 +292,7 @@ class LiveTvPage(private val activity: Activity) {
     }
 
     private fun setProgress(f: Float) {
-        bar.layoutParams = bar.layoutParams.apply { width = (px(300) * f).toInt() }
+        bar.layoutParams = bar.layoutParams.apply { width = (px(220) * f).toInt() }
     }
 
     /** Keeps the time bar moving. */
@@ -314,12 +308,16 @@ class LiveTvPage(private val activity: Activity) {
     private fun play(channel: LiveTv.Channel) {
         if (!shown || !FlixSettings.isOn(activity, FlixSettings.LIVE_TV)) return
         val url = LiveTv.streamUrl(channel) ?: return
+        if (video.parent == null) videoHost.addView(video, 0, FrameLayout.LayoutParams(-1, -1))
         val p = player ?: ExoPlayer.Builder(activity).build().also { pl ->
             player = pl
             pl.setVideoTextureView(video)
             pl.volume = 0f
             pl.addListener(object : Player.Listener {
-                override fun onRenderedFirstFrame() { video.animate().alpha(1f).setDuration(500).start() }
+                override fun onRenderedFirstFrame() {
+                    video.animate().alpha(1f).setDuration(600).start()
+                    onPlaying(true)
+                }
                 override fun onPlayerError(error: PlaybackException) {
                     video.animate().alpha(0f).setDuration(200).start()
                     android.util.Log.w("Flix", "Live preview: ${error.errorCodeName}")
@@ -334,8 +332,11 @@ class LiveTvPage(private val activity: Activity) {
 
     private fun stopVideo() {
         main.removeCallbacks(startVideo)
+        val was = playing != null && video.alpha > 0f
         playing = null
+        video.animate().cancel()
         video.alpha = 0f
+        if (was) onPlaying(false)
         player?.let { it.stop(); it.clearMediaItems() }
     }
 
@@ -396,7 +397,7 @@ class LiveTvPage(private val activity: Activity) {
                 val row = rows.indexOfFirst { it === root.parent }
                 when (code) {
                     KeyEvent.KEYCODE_DPAD_DOWN -> { focusRow(row + 1); true }
-                    KeyEvent.KEYCODE_DPAD_UP -> if (row > 0) focusRow(row - 1) else watch.requestFocus()
+                    KeyEvent.KEYCODE_DPAD_UP -> if (row > 0) focusRow(row - 1) else { stopVideo(); false }
                     else -> false
                 }
             }
@@ -405,11 +406,12 @@ class LiveTvPage(private val activity: Activity) {
         fun bind(c: LiveTv.Channel) {
             channel = c
             name.text = c.name.substringAfter(": ").trim()
-            initials.text = if (c.logo == null) name.text.take(2).toString().uppercase() else ""
+            val letters = name.text.take(2).toString().uppercase()
+            initials.text = if (c.logos.isEmpty()) letters else ""
             val base = CoverArt.accentOf(c.name)
             face.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(mix(base, 0xFF1A1F2A.toInt(), 0.55f), 0xFF10141C.toInt()))
-            Images.into(logo, c.logo, px(CARD_W))
-            if (c.logo != null) Images.accent(c.logo) { col ->
+            loadLogo(logo, c.logos, px(CARD_W)) { if (channel?.key == c.key) initials.text = letters }
+            if (c.logo != null) Images.accent(c.logo!!) { col ->
                 if (channel?.key == c.key && col != null)
                     face.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(mix(col, 0xFF1A1F2A.toInt(), 0.45f), 0xFF0E1219.toInt()))
             }
@@ -426,9 +428,16 @@ class LiveTvPage(private val activity: Activity) {
         }
     }
 
+    /** Shows the first of [urls] that loads; [onNone] when none does. Loaded logos stay in the image cache. */
+    private fun loadLogo(view: ImageView, urls: List<String>, width: Int, from: Int = 0, onNone: () -> Unit) {
+        val url = urls.getOrNull(from) ?: run { view.setImageDrawable(null); onNone(); return }
+        Images.into(view, url, width) { if (view.tag == url) loadLogo(view, urls, width, from + 1, onNone) }
+    }
+
     // ---- Bits ----
 
     private fun text(s: String, size: Float, bold: Boolean = false, alpha: Float = 1f) = TextView(activity).apply {
+        setShadowLayer(10f, 0f, 1f, 0xCC000000.toInt())
         text = s
         textSize = size
         setTextColor(Color.WHITE)

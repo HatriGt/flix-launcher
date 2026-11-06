@@ -423,6 +423,7 @@ class MainActivity : Activity() {
 
     private lateinit var tabs: List<View>
     private lateinit var livePage: LiveTvPage
+    private var livePlaying = false
     private var selectHomeTab: () -> Unit = {}
 
     private fun setUpTabs() {
@@ -432,7 +433,11 @@ class MainActivity : Activity() {
         val apps = findViewById<View>(R.id.nav_apps)
         val tv = findViewById<View>(R.id.nav_tv)
         tabs = listOf(home, movies, shows, tv, apps)
-        livePage = LiveTvPage(this)
+        livePage = LiveTvPage(this, findViewById(R.id.hero_trailer))
+        livePage.onPlaying = { playing ->
+            livePlaying = playing
+            if (playing) { player?.pause(); scheduleImmersive() } else endImmersive()
+        }
         findViewById<ViewGroup>(R.id.rows_content).let { c -> c.addView(livePage.view, c.indexOfChild(findViewById(R.id.movie_rows)) + 1) }
         fun select(tab: View, type: String?) {
             tabs.forEach { it.isSelected = it === tab }
@@ -934,8 +939,8 @@ class MainActivity : Activity() {
     private val immersiveViews by lazy {
         listOf(rowsScroll, header, findViewById<View>(R.id.hero_shade))
     }
-    private val dimPage = Runnable { if (trailer.isPlaying) { immersed = true; fadePage(0.3f, 600) } }
-    private val clearPage = Runnable { if (trailer.isPlaying) fadePage(0f, 700) }
+    private val dimPage = Runnable { if (trailer.isPlaying || livePlaying) { immersed = true; fadePage(0.3f, 600) } }
+    private val clearPage = Runnable { if (trailer.isPlaying || livePlaying) fadePage(0f, 700) }
 
     /** 4 s into a trailer the page drops to 30%; a second later it's gone. */
     private fun scheduleImmersive() {
@@ -1034,7 +1039,7 @@ class MainActivity : Activity() {
         // On the TV tab, down from the menu or the apps row goes to the live card.
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && ::livePage.isInitialized && livePage.view.visibility == View.VISIBLE &&
             (isInside(focused, findViewById(R.id.top_bar)) || isInside(focused, header))) {
-            livePage.watch.requestFocus(); return true
+            livePage.firstFocus().requestFocus(); return true
         }
         if (::livePage.isInitialized && isInside(focused, livePage.view)) return false
         // Down from the apps row (or its quick buttons) lands on the first row's first card too.
