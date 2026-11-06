@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.17] - 2026-11-06
+
+### Fixed
+- Rows below the first screen (for example Telugu Movies and everything after it) showed their title but never loaded, on home screens with a video wallpaper or the featured banner running
+
 ## [1.0.16] - 2026-11-06
 
 ### Added
