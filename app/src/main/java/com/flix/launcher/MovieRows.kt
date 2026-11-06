@@ -262,6 +262,7 @@ class MovieRows(
 
     private fun show(row: Row, titles: List<Catalog.Title>) {
         row.all = titles
+        MovieWalls.offer(titles)
         if (row === topRow) return fillTop(row, titles)
         if (row.source === topFrom) topRow?.let { fillTop(it, titles) }
         if (row.source !== CONTINUE && billboard.view.parent != null) billboard.offer(titles)

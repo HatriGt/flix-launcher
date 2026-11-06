@@ -736,6 +736,11 @@ class SettingsActivity : Activity() {
         "v_nightsky" to Wall("Night sky", "Stars, the galaxy and Earth at night", R.drawable.wall_v_nightsky, 0xFF2A225E.toInt(), 0xFF040312.toInt()),
         "v_fireplace" to Wall("Fireplace", "A warm fire crackling on your TV", R.drawable.wall_v_fireplace, 0xFFA03A12.toInt(), 0xFF200A04.toInt()),
         "v_calm" to Wall("Calm colour", "Slow gradients and light leaks to relax to", R.drawable.wall_v_calm, 0xFF7A3A8E.toInt(), 0xFF180A22.toInt()),
+        "movies" to Wall("Your films", "Backdrops of the films in your rows", R.drawable.wall_movies, 0xFF5A1414.toInt(), 0xFF140404.toInt()),
+        "scifi" to Wall("Sci-fi art", "Spaceships, alien worlds and cyberpunk cities", R.drawable.wall_scifi, 0xFF1A3A6E.toInt(), 0xFF050A18.toInt()),
+        "gaming" to Wall("Gaming art", "The best-loved game wallpapers", R.drawable.wall_gaming, 0xFF4A1A6E.toInt(), 0xFF0E0418.toInt()),
+        "v_scifi" to Wall("Deep space", "Hubble and Webb flying through nebulae and galaxies", R.drawable.wall_v_scifi, 0xFF2A1A5E.toInt(), 0xFF05030F.toInt()),
+        "v_gaming" to Wall("Game trailers", "This week's top Steam games, playing quietly", R.drawable.wall_v_gaming, 0xFF1E3A5A.toInt(), 0xFF050C16.toInt()),
         "gradient" to Wall("Plain dark", "No picture at all; the lightest on the TV", null, 0xFF2A2A2E.toInt(), 0xFF0A0A0C.toInt()),
     )
 
@@ -743,9 +748,9 @@ class SettingsActivity : Activity() {
     private fun wallpaperRows(group: String): List<View> {
         val option = FlixSettings.WALLPAPER
         val ids = when (group) {
-            "Photos" -> listOf("nature", "cities", "wildlife", "beaches", "winter", "deserts", "flowers", "night", "castles")
+            "Photos" -> listOf("movies", "nature", "cities", "wildlife", "beaches", "winter", "deserts", "flowers", "night", "castles", "scifi", "gaming")
             "Aerial video" -> listOf("video", "v_nature", "v_sea", "v_underwater", "v_beaches", "v_wildlife", "v_snow",
-                "v_deserts", "v_city", "v_space", "v_nightsky", "v_fireplace", "v_calm", "v_art")
+                "v_deserts", "v_city", "v_space", "v_scifi", "v_nightsky", "v_gaming", "v_fireplace", "v_calm", "v_art")
             else -> listOf("gradient")
         }
         return ids.map { id ->

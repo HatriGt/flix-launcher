@@ -42,7 +42,7 @@ object WallpaperFeed {
     )
 
     /** Every photo kind the feed can hand out. */
-    val KINDS = listOf("nature", "cities") + THEMES.keys
+    val KINDS = listOf("nature", "cities") + THEMES.keys + ExtraWalls.PHOTO_KINDS
 
     private val entries = HashMap<String, List<Entry>>()
     private var ready: Pair<Bitmap, String>? = null
@@ -76,6 +76,7 @@ object WallpaperFeed {
 
     /** The filtered list of photos of one kind, refreshed weekly so new days' photos join in. */
     private fun catalog(context: Context, kind: String): List<Entry> {
+        if (kind in ExtraWalls.PHOTO_KINDS) return ExtraWalls.photos(context, kind).map { Entry(it.url, it.title) }
         val file = fileOf(context, kind)
         if (entries[kind].isNullOrEmpty() && file.exists()) entries[kind] = read(file)
         if (entries[kind].isNullOrEmpty() || System.currentTimeMillis() - file.lastModified() > WEEK) {

@@ -39,8 +39,9 @@ object VideoFeed {
     fun clips(context: Context, kind: String, onReady: (List<AerialSource.Media>) -> Unit) {
         val app = context.applicationContext
         worker.execute {
-            val found = catalog(app).filter { kind == "all" || matches(it, kind) }
-                .map { AerialSource.Media(it.url, isVideo = true, title = it.title) }
+            val found = if (kind in ExtraWalls.VIDEO_KINDS) ExtraWalls.videos(app, kind).map { AerialSource.Media(it.url, isVideo = true, title = it.title) }
+                else catalog(app).filter { kind == "all" || matches(it, kind) }
+                    .map { AerialSource.Media(it.url, isVideo = true, title = it.title) }
             main.post { onReady(found) }
         }
     }
