@@ -938,7 +938,15 @@ class MainActivity : Activity() {
             return true // the key that wakes the screen shouldn't also move focus
         }
         scheduleIdle()
-        if (event.action == KeyEvent.ACTION_DOWN && steerMovieRows(event)) return true
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            val before = currentFocus
+            if (steerMovieRows(event)) {
+                // Android plays the navigation click only for moves it makes itself; when Flix
+                // places focus by hand (row to row, apps to rows), play it here so every move clicks.
+                if (currentFocus !== before) navigationSound(event.keyCode)
+                return true
+            }
+        }
         return super.dispatchKeyEvent(event)
     }
 
@@ -1009,6 +1017,17 @@ class MainActivity : Activity() {
     }
 
     private fun rowsScrolling() = scrollAnimator?.isRunning == true
+
+    private fun navigationSound(keyCode: Int) {
+        val effect = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> android.view.SoundEffectConstants.NAVIGATION_UP
+            KeyEvent.KEYCODE_DPAD_DOWN -> android.view.SoundEffectConstants.NAVIGATION_DOWN
+            KeyEvent.KEYCODE_DPAD_LEFT -> android.view.SoundEffectConstants.NAVIGATION_LEFT
+            KeyEvent.KEYCODE_DPAD_RIGHT -> android.view.SoundEffectConstants.NAVIGATION_RIGHT
+            else -> return
+        }
+        window.decorView.playSoundEffect(effect)
+    }
 
     /** Up or down lands on the row's first tile; a row left part-way slides back to its start. */
     private fun focusRowStart(target: MovieRows.Row) {
