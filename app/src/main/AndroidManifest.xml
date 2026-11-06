@@ -32,6 +32,8 @@
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
+        <!-- Google TV's own home app: its presence tells setup which Home-button route works. -->
+        <package android:name="com.google.android.apps.tv.launcherx" />
         <package android:name="com.nuvio.tv" />
         <package android:name="com.nuvio.app" />
         <package android:name="com.nuvio.livetv" />

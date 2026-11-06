@@ -14,7 +14,7 @@ import java.util.Locale
 
 /**
  * Saves every Flix setting (look, clock, wallpaper, favourites and their order, hidden apps
- * and titles, addon rows) to one small JSON file, and restores it.
+ * and titles, addon rows, profile pictures) to one small JSON file, and restores it.
  *
  * Backups go to Flix's own folder on the TV's storage (Android/data/com.flix.launcher/files/
  * backups), which adb and file-transfer apps can reach; Android TV has no file picker for
@@ -27,8 +27,8 @@ import java.util.Locale
 object Backup {
     private const val FORMAT = 1
 
-    /** Preference files worth keeping; "flix_looks" is only a cache of icon colours. */
-    private val FILES = listOf("flix", "flix_settings")
+    /** Preference files worth keeping (settings, hidden titles, profile pictures); "flix_looks" is only a cache of icon colours. */
+    private val FILES = listOf("flix", "flix_settings", "profile_pictures")
 
     class Saved(val file: File, val created: Date)
 

@@ -16,8 +16,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * First-run setup, four steps with the remote: connect Nuvio, choose a profile picture, pick
- * the rows, and make the Home button open Flix. Every step can be skipped and done later from Settings. Shown once,
+ * First-run setup, four steps with the remote (connect Nuvio, choose a profile picture, pick
+ * the rows, make the Home button open Flix), then a short tour of the home screen. Every step can be skipped and done later from Settings. Shown once,
  * on a fresh install; people updating from an older Flix never see it.
  */
 class SetupActivity : Activity() {
@@ -28,6 +28,7 @@ class SetupActivity : Activity() {
     /** Which way the last move went, so a skipped step is passed in that direction. */
     private var forward = true
     private lateinit var extra: FrameLayout
+    private lateinit var page: LinearLayout
     private lateinit var dots: LinearLayout
     private lateinit var number: TextView
     private lateinit var title: TextView
@@ -41,23 +42,27 @@ class SetupActivity : Activity() {
         step = savedInstanceState?.getInt("step") ?: 0
         setContentView(FrameLayout(this).apply {
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF141A26.toInt(), 0xFF07090D.toInt()))
-            addView(LinearLayout(context).apply {
+            page = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(px(96), 0, px(96), 0)
-                gravity = Gravity.CENTER_VERTICAL
+                // Pinned to the top, so the heading stays put from step to step instead of
+                // jumping as each step's text runs longer or shorter.
+                setPadding(px(96), px(56), px(96), 0)
+                clipChildren = false; clipToPadding = false
                 addView(text("FLIX LAUNCHER  ·  SETUP", 12f, bold = true, alpha = 0.55f).apply { letterSpacing = 0.25f })
-                number = text("", 15f, bold = true, color = 0xFFE50914.toInt()).also { addView(it, lp(top = 36)) }
+                number = text("", 15f, bold = true, color = 0xFFE50914.toInt()).also { addView(it, lp(top = 28)) }
                 title = text("", 38f, bold = true).also { addView(it, lp(top = 6)) }
                 body = text("", 17f, alpha = 0.72f).apply { setLineSpacing(0f, 1.25f) }.also { addView(it, LinearLayout.LayoutParams(px(720), -2).apply { topMargin = px(14) }) }
                 status = text("", 15f, bold = true).also { addView(it, lp(top = 18)) }
-                extra = FrameLayout(context).apply { clipChildren = false; clipToPadding = false }.also { addView(it, lp(top = 22)) }
+                extra = FrameLayout(context).apply { clipChildren = false; clipToPadding = false }.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = px(22) }) }
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     primary = button(true).also { addView(it) }
                     secondary = button(false).also { addView(it, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(14) }) }
                 }, lp(top = 34))
-                dots = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }.also { addView(it, lp(top = 48)) }
-            }, FrameLayout.LayoutParams(-1, -1))
+            }
+            addView(page, FrameLayout.LayoutParams(-1, -1))
+            dots = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+            addView(dots, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { marginStart = px(96); bottomMargin = px(56) })
         })
     }
 
@@ -75,7 +80,7 @@ class SetupActivity : Activity() {
     private fun show() {
         // The picture belongs to a Nuvio profile: without one there's nothing to set yet.
         if (step == 1 && NuvioAccount.profile(this) == null) { step = if (forward) 2 else 0 }
-        number.text = "STEP ${step + 1} OF 4"
+        number.text = if (step < STEPS) "STEP ${step + 1} OF $STEPS" else "YOU'RE ALL SET"
         extra.removeAllViews()
         extra.visibility = View.GONE
         when (step) {
@@ -106,10 +111,23 @@ class SetupActivity : Activity() {
                 body.text = "Pick the film and series rows you actually want to browse, and their order. " +
                     "Your Nuvio addons' catalogues are listed for you; everything else stays off the screen."
                 status(if (rows > 0) "✓  $rows rows on the home screen" else null)
-                primary("Choose rows") { startActivity(Intent(this, RowsActivity::class.java)) }
-                secondary("Next") { next() }
+                if (rows > 0) {
+                    primary("Next") { next() }
+                    secondary("Change rows") { startActivity(Intent(this, RowsActivity::class.java)) }
+                } else {
+                    primary("Choose rows") { startActivity(Intent(this, RowsActivity::class.java)) }
+                    secondary("Skip for now") { next() }
+                }
             }
-            else -> {
+            4 -> {
+                title.text = "Here's how it works"
+                body.text = "Four things worth knowing before you start."
+                status(null)
+                tour()
+                primary("Start watching") { finishSetup() }
+                secondary(null) {}
+            }
+            3 -> {
                 // Each TV gets its own way to send Home to Flix (see HomeButton).
                 val state = HomeButton.state(this)
                 val on = HomeButton.works(this)
@@ -123,18 +141,19 @@ class SetupActivity : Activity() {
                     else -> "Make Flix your home app and the Home button brings you straight back to what you watch. " +
                         "Choose Flix Launcher, then Always."
                 }
-                status(if (on) "✓  Home opens Flix: you're ready to watch" else null)
+                status(if (on) "✓  Home opens Flix" else null)
                 when {
-                    on -> primary("Finish") { finishSetup() }
+                    on -> primary("Next") { next() }
                     state == HomeButton.State.BLOCKED -> primary("Show me the fix") { HomeButton.showBlockedHelp(this) }
                     googleTv -> primary("Open Accessibility") { HomeButton.openAccessibility(this) }
                     else -> primary("Make Flix the home app") { HomeButton.chooseDefault(this) }
                 }
-                secondary(if (on) null else "Finish") { finishSetup() }
+                secondary(if (on) null else "Skip for now") { next() }
             }
         }
         dots.removeAllViews()
-        repeat(4) { i ->
+        dots.visibility = if (step < STEPS) View.VISIBLE else View.INVISIBLE
+        repeat(STEPS) { i ->
             dots.addView(View(this).apply {
                 background = GradientDrawable().apply { cornerRadius = 3 * dp; setColor(if (i == step) Color.WHITE else 0x40FFFFFF) }
             }, LinearLayout.LayoutParams(px(if (i == step) 28 else 8), px(6)).apply { marginEnd = px(8) })
@@ -185,7 +204,51 @@ class SetupActivity : Activity() {
         strip.post { (strip.getChildAt(chosen) as? ViewGroup)?.getChildAt(0)?.requestFocus() }
     }
 
-    private fun next() { forward = true; step++; show() }
+    /** The tour: four tips, each an icon in a soft tile, a short title and a line under it. */
+    private fun tour() {
+        extra.visibility = View.VISIBLE
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val tips = listOf(
+            Triple(R.drawable.ic_s_home, "Home button", "Brings you back here from any app"),
+            Triple(R.drawable.ic_o_play, "Hold OK", "On a film or an app for more options"),
+            Triple(R.drawable.ic_s_film, "Movies, Shows, Apps", "The tabs at the top filter the rows"),
+            Triple(R.drawable.ic_tune, "Flix settings", "The sliders button, top right"),
+        )
+        tips.forEachIndexed { i, (icon, head, line) ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(0x14FFFFFF); setStroke(px(1), 0x14FFFFFF) }
+                setPadding(px(18), px(18), px(18), px(20))
+                addView(FrameLayout(context).apply {
+                    background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0x29E50914) }
+                    addView(android.widget.ImageView(context).apply { setImageResource(icon); setColorFilter(Color.WHITE) },
+                        FrameLayout.LayoutParams(px(24), px(24), Gravity.CENTER))
+                }, LinearLayout.LayoutParams(px(48), px(48)))
+                addView(text(head, 16f, bold = true), lp(top = 14))
+                addView(text(line, 13f, alpha = 0.6f).apply { setLineSpacing(0f, 1.2f) }, lp(top = 6))
+                // Each card arrives a beat after the last.
+                alpha = 0f; translationY = 18 * dp
+                animate().alpha(1f).translationY(0f).setStartDelay(120L + i * 70L).setDuration(360).setInterpolator(RowRecyclerView.EASE).start()
+            }
+            grid.addView(card, LinearLayout.LayoutParams(0, -1, 1f).apply { if (i > 0) marginStart = px(16) })
+        }
+        extra.addView(grid, FrameLayout.LayoutParams(-1, -2))
+    }
+
+    /** Moves to [to], the old page sliding out the way it came and the new one in after it. */
+    private fun go(to: Int) {
+        val dir = if (to > step) 1 else -1
+        forward = dir > 0
+        page.animate().cancel()
+        page.animate().alpha(0f).translationX(-dir * 28 * dp).setDuration(140).setInterpolator(RowRecyclerView.EASE).withEndAction {
+            step = to
+            show()
+            page.translationX = dir * 28 * dp
+            page.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(RowRecyclerView.EASE).start()
+        }.start()
+    }
+
+    private fun next() = go(step + 1)
 
     private fun finishSetup() {
         markDone(this)
@@ -194,7 +257,7 @@ class SetupActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (step > 0) { forward = false; step--; show() } else finishSetup()
+        if (step > 0) go(step - 1) else finishSetup()
     }
 
     private fun status(text: String?) {
@@ -237,6 +300,9 @@ class SetupActivity : Activity() {
     }
 
     companion object {
+        /** Numbered steps; the tour after them is unnumbered. */
+        private const val STEPS = 4
+
         private fun prefs(context: Context) = context.getSharedPreferences("flix", Context.MODE_PRIVATE)
 
         private fun markDone(context: Context) = prefs(context).edit().putBoolean("setup_done", true).apply()

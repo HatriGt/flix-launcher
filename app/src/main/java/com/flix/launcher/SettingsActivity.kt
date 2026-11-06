@@ -1103,7 +1103,12 @@ class SettingsActivity : Activity() {
         val result = runCatching { Backup.save(this) }
         runOnUiThread {
             if (isDestroyed) return@runOnUiThread
-            result.onSuccess { toast("Backed up. A copy is also in Download/FlixLauncher"); refresh(animate = false) }
+            result.onSuccess {
+                toast("Backed up. A copy is also in Download/FlixLauncher")
+                refresh(animate = false)
+                // The rebuilt list would otherwise hand focus to the search box at the top.
+                content.post { focusRowTitled("Back up settings") }
+            }
                 .onFailure { toast(it.message ?: "Couldn't back up") }
         }
     }.start()
