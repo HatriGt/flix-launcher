@@ -377,6 +377,7 @@ class SettingsActivity : Activity() {
         }
         add(Entry(1, null, "Addons rows catalogues order choose") { rowsCard() })
         opt(1, "On the home screen", FlixSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
+        if (LiveTv.installed(this@SettingsActivity)) opt(1, "On the home screen", FlixSettings.LIVE_TV, R.drawable.ic_o_tv, "live tv channels iptv nuvio+iptv guide epg")
         opt(1, "On the home screen", FlixSettings.BILLBOARD, R.drawable.ic_o_layers, "carousel billboard banner featured hero slideshow poster")
         opt(1, "On the home screen", FlixSettings.CONTINUE_WATCHING, R.drawable.ic_o_resume, "resume progress")
         opt(1, "On the home screen", FlixSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")

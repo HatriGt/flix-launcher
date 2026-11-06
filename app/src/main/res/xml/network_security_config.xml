@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Everything goes over https except the aerial videos, which are rewritten to http on
-     sylvan.apple.com (Apple signs it with its own root, which Android does not trust). Addons must be https. -->
+<!-- Plain http is allowed because IPTV providers (the TV tab's channels, guide and live
+     preview) are any host, and almost all serve over http. Flix's own services, addons and
+     sign-ins all use https addresses in the code; the aerial videos are rewritten to http on
+     sylvan.apple.com (Apple signs it with its own root, which Android does not trust). -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">sylvan.apple.com</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

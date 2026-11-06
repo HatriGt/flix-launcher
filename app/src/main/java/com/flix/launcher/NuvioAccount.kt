@@ -348,6 +348,15 @@ object NuvioAccount {
         else request(context, "$API/rest/v1/rpc/$name", body.toString(), bearer = accessToken(context))
 
     /**
+     * The Live TV setup Nuvio+IPTV saves with "Setup Sync" (playlists, favourites, hidden
+     * groups), read with this Nuvio sign-in. Null when Sync is off or nothing is saved.
+     */
+    fun liveTvSetup(context: Context): JSONObject? = runCatching {
+        val body = request(context, "https://livetv-cloud.nuvioplusiptv.workers.dev/v1/setup", null, bearer = accessToken(context))
+        JSONObject(body).optJSONObject("data")
+    }.onFailure { android.util.Log.w("Flix", "Live TV setup: ${it.javaClass.simpleName}") }.getOrNull()
+
+    /**
      * A current access token, refreshing it when it's about to expire. Synchronized because
      * Nuvio's refresh tokens are single-use: two threads refreshing at once would send the
      * same one twice and the second would be rejected, signing the user out.

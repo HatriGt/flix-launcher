@@ -162,8 +162,10 @@ class SetupActivity : Activity() {
     private fun show() {
         // The picture belongs to a Nuvio profile: without one there's nothing to set yet.
         if (step == 1 && NuvioAccount.profile(this) == null) { step = if (forward) 2 else 0 }
+        // Live TV is a step only when Nuvio+IPTV is on this TV.
+        if (step == 5 && !LiveTv.installed(this)) return finishSetup()
         kicker.text = "STEP ${step + 1}"
-        progressLabel.text = "${step + 1} / $STEPS"
+        progressLabel.text = "${step + 1} / ${total()}"
         pulse?.cancel(); pulse = null
         // The faces strip lives in the left column only on its own step (and is rebuilt on return).
         words.findViewWithTag<View>("faces")?.let { words.removeView(it) }
@@ -243,6 +245,15 @@ class SetupActivity : Activity() {
                 secondary(if (on) null else "Skip for now") { next() }
                 visual.addView(remote(on), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
             }
+            5 -> {
+                title.text = "Live TV,\nright here"
+                body.text = "Your Nuvio+IPTV channels get their own TV tab, with the channel playing live as you browse. " +
+                    "Flix reads them through Nuvio+IPTV's Setup Sync, with the Nuvio sign-in you already have."
+                status(null)
+                primary("Checking…") {}
+                secondary("Skip for now") { finishSetup() }
+                liveChannels()
+            }
             else -> finishSetup()
         }
         // The illustration rises in a moment after the words.
@@ -254,7 +265,7 @@ class SetupActivity : Activity() {
 
     private fun drawProgress() {
         progress.removeAllViews()
-        repeat(STEPS) { i ->
+        repeat(total()) { i ->
             progress.addView(View(this).apply {
                 background = GradientDrawable().apply { cornerRadius = 2 * dp; setColor(if (i <= step) RED else 0x33FFFFFF) }
             }, LinearLayout.LayoutParams(px(if (i == step) 44 else 28), px(4)).apply { if (i > 0) marginStart = px(6) })
@@ -497,6 +508,53 @@ class SetupActivity : Activity() {
         }.start()
     }
 
+    /**
+     * Looks for the user's Nuvio+IPTV channels and shows their logos as a small wall of TV
+     * cards. Without them, the step says the two things to do in Nuvio+IPTV.
+     */
+    private fun liveChannels() {
+        val wall = android.widget.GridLayout(this).apply { columnCount = 3; clipChildren = false }
+        visual.addView(wall, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        fun card(logo: String?, name: String) = FrameLayout(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF2A1A20.toInt(), 0xFF10141C.toInt())).apply { cornerRadius = 12 * dp }
+            elevation = 8 * dp
+            if (logo != null) addView(ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER; Images.into(this, logo, px(150)) },
+                FrameLayout.LayoutParams(-1, -1).apply { setMargins(px(22), px(14), px(22), px(14)) })
+            else addView(text(name.take(2).uppercase(), 20f, bold = true).apply { gravity = Gravity.CENTER }, FrameLayout.LayoutParams(-1, -1))
+        }
+        val placeholders = listOf("TV", "LIVE", "HD", "NEWS", "SPORTS", "KIDS")
+        placeholders.forEachIndexed { i, n ->
+            wall.addView(card(null, n).apply { alpha = 0.35f },
+                android.widget.GridLayout.LayoutParams().apply { width = px(124); height = px(70); setMargins(px(7), px(7), px(7), px(7)) })
+        }
+        Thread {
+            val lineup = runCatching { LiveTv.load(this, force = true) }.getOrNull()
+            runOnUiThread {
+                if (isDestroyed || step != 5) return@runOnUiThread
+                if (lineup != null && lineup.all.isNotEmpty()) {
+                    status("${lineup.all.size} channels found")
+                    primary("Continue") { finishSetup() }
+                    secondary(null) {}
+                    wall.removeAllViews()
+                    (lineup.favourites + lineup.all).distinctBy { it.key }.filter { it.logo != null }.take(6).forEachIndexed { i, c ->
+                        wall.addView(card(c.logo, c.name).apply {
+                            alpha = 0f; translationY = 14 * dp
+                            animate().alpha(1f).translationY(0f).setStartDelay(i * 70L).setDuration(380).setInterpolator(RowRecyclerView.EASE).start()
+                        }, android.widget.GridLayout.LayoutParams().apply { width = px(124); height = px(70); setMargins(px(7), px(7), px(7), px(7)) })
+                    }
+                } else {
+                    body.text = "In Nuvio+IPTV, add your playlist, then turn on Setup Sync in Settings → Live TV. " +
+                        "Come back here and your channels appear."
+                    primary("Open Nuvio+IPTV") { LiveTv.openApp(this) }
+                    secondary("Skip for now") { finishSetup() }
+                }
+                primary.requestFocus()
+            }
+        }.start()
+    }
+
+    private fun total() = if (LiveTv.installed(this)) STEPS + 1 else STEPS
+
     /** A slice of the home screen: three rows of covers, the first card focused. */
     private fun miniHome(): View {
         val names = listOf("Midnight Run", "Sunlit", "Odyssey", "Harbour", "Neon City", "Wildwood", "Echo", "Atlas", "Northbound",
@@ -617,7 +675,7 @@ class SetupActivity : Activity() {
     }
 
     /** The last step hands over to the home screen, which shows its own look round (see CoachMarks). */
-    private fun next() = if (step + 1 >= STEPS) finishSetup() else go(step + 1)
+    private fun next() = if (step + 1 >= total()) finishSetup() else go(step + 1)
 
     private fun finishSetup() {
         markDone(this)

@@ -140,7 +140,9 @@ class MainActivity : Activity() {
         val rows = findViewById<ViewGroup>(R.id.movie_rows)
         CoachMarks.show(this, listOfNotNull(
             CoachMarks.Mark(findViewById(R.id.favorites), "Your apps", "The ones you picked. Hold OK on any of them to move or remove it."),
-            CoachMarks.Mark(findViewById(R.id.nav_tabs), "Movies, Shows, Apps", "Switch what the screen shows. Search is on the left."),
+            CoachMarks.Mark(findViewById(R.id.nav_tabs), if (LiveTv.available(this)) "Movies, Shows, TV, Apps" else "Movies, Shows, Apps",
+                if (LiveTv.available(this)) "Switch what the screen shows. TV has your live channels, playing as you browse."
+                else "Switch what the screen shows. Search is on the left."),
             CoachMarks.Mark(findViewById(R.id.qs_flix), "Flix settings", "Wallpapers, themes, rows and your apps, whenever you want to change them."),
             rows.getChildAt(0)?.let { CoachMarks.Mark(it, "Press OK to watch", "Films and shows open in Nuvio. Home brings you back.") },
         ))
@@ -420,6 +422,7 @@ class MainActivity : Activity() {
     // ---- Top menu: Search · Home · Movies · Shows · Apps ----
 
     private lateinit var tabs: List<View>
+    private lateinit var livePage: LiveTvPage
     private var selectHomeTab: () -> Unit = {}
 
     private fun setUpTabs() {
@@ -427,17 +430,23 @@ class MainActivity : Activity() {
         val movies = findViewById<View>(R.id.nav_movies)
         val shows = findViewById<View>(R.id.nav_shows)
         val apps = findViewById<View>(R.id.nav_apps)
-        tabs = listOf(home, movies, shows, apps)
+        val tv = findViewById<View>(R.id.nav_tv)
+        tabs = listOf(home, movies, shows, tv, apps)
+        livePage = LiveTvPage(this)
+        findViewById<ViewGroup>(R.id.rows_content).let { c -> c.addView(livePage.view, c.indexOfChild(findViewById(R.id.movie_rows)) + 1) }
         fun select(tab: View, type: String?) {
             tabs.forEach { it.isSelected = it === tab }
             showAppsGrid(tab === apps)
-            if (tab !== apps) movieRows.filter(type)
+            val onTv = tab === tv
+            if (onTv) findViewById<View>(R.id.movie_rows).visibility = View.GONE
+            else if (tab !== apps) { findViewById<View>(R.id.movie_rows).visibility = View.VISIBLE; movieRows.filter(type) }
+            livePage.show(onTv)
         }
         select(home, null)
         selectHomeTab = { if (!home.isSelected) select(home, null) }
         // Like Netflix, landing on a tab switches to it; no need to press OK. A short pause
         // first, so sliding across tabs doesn't rebuild the rows for each one passed.
-        listOf(home to null, movies to "movie", shows to "series", apps to null).forEach { (tab, type) ->
+        listOf(home to null, movies to "movie", shows to "series", tv to null, apps to null).forEach { (tab, type) ->
             val pick = Runnable { if (tab.isFocused && !tab.isSelected) select(tab, type) }
             tab.setOnClickListener { select(tab, type) }
             tab.setOnFocusChangeListener { _, has -> main.removeCallbacks(pick); if (has) main.postDelayed(pick, 300) }
@@ -563,6 +572,13 @@ class MainActivity : Activity() {
     private fun onFocusMoved(now: View?) {
         now ?: return
         val row = movieRows.rowOf(now)
+        if (::livePage.isInitialized && isInside(now, livePage.view)) {
+            // The live card rises to just under the menu and stays there; rows slide beneath it.
+            enterBrowse()
+            rowsScroll.post { scrollRowsTo(livePage.view.top - heroLine()) }
+            trailer.stop()
+            return
+        }
         if (row != null) {
             enterBrowse()
             val index = movieRows.rows.indexOf(row)
@@ -830,6 +846,12 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        // The TV tab appears only once Nuvio+IPTV is on this TV (and the tab isn't switched off).
+        if (::livePage.isInitialized) {
+            val tvTab = findViewById<View>(R.id.nav_tv)
+            tvTab.visibility = if (LiveTv.available(this)) View.VISIBLE else View.GONE
+            if (tvTab.isSelected) { if (tvTab.visibility == View.VISIBLE) livePage.show(true) else selectHomeTab() }
+        }
         settingsOpen = false
         drawProfile()
         // Pages that float over home (search, All apps) don't stop it, so onStart never undid
@@ -857,6 +879,7 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         resumed = false
+        if (::livePage.isInitialized) livePage.pause()
         trailer.stop()
         // The settings panel is see-through, so keep the scenery moving behind it.
         if (!settingsOpen) player?.pause()
@@ -882,6 +905,7 @@ class MainActivity : Activity() {
         unregisterReceiver(packageReceiver)
         unregisterReceiver(settingsReceiver)
         trailer.release()
+        if (::livePage.isInitialized) livePage.release()
         main.removeCallbacksAndMessages(null)
         player?.release()
         io.shutdownNow()
@@ -1007,6 +1031,12 @@ class MainActivity : Activity() {
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && isInside(focused, favoritesList)) {
             tabs.firstOrNull { it.isSelected }?.let { it.requestFocus(); return true }
         }
+        // On the TV tab, down from the menu or the apps row goes to the live card.
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && ::livePage.isInitialized && livePage.view.visibility == View.VISIBLE &&
+            (isInside(focused, findViewById(R.id.top_bar)) || isInside(focused, header))) {
+            livePage.watch.requestFocus(); return true
+        }
+        if (::livePage.isInitialized && isInside(focused, livePage.view)) return false
         // Down from the apps row (or its quick buttons) lands on the first row's first card too.
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, findViewById(R.id.top_bar))) {
             val bb = movieRows.billboard
