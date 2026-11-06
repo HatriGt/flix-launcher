@@ -720,7 +720,22 @@ class SettingsActivity : Activity() {
         "v_sea" to Wall("Oceans", "Waves, reefs and dolphins", R.drawable.wall_v_sea, 0xFF0E4E68.toInt(), 0xFF06141E.toInt()),
         "v_city" to Wall("Cities", "Flying over Dubai, Hong Kong and San Francisco", R.drawable.wall_v_city, 0xFF2B3566.toInt(), 0xFF0B0E1F.toInt()),
         "v_space" to Wall("Earth from space", "Filmed from the International Space Station", R.drawable.wall_v_space, 0xFF1A1F4A.toInt(), 0xFF020308.toInt()),
-        "v_art" to Wall("Colour art", "Slow abstract colour from Fire TV", null, 0xFF8E2A7A.toInt(), 0xFF1E0A4A.toInt()),
+        "v_art" to Wall("Colour art", "Slow abstract colour from Fire TV", R.drawable.wall_v_art, 0xFF8E2A7A.toInt(), 0xFF1E0A4A.toInt()),
+        "wildlife" to Wall("Wildlife", "Animals in the wild, from foxes to whales", R.drawable.wall_wildlife, 0xFF6B4A1E.toInt(), 0xFF1A1206.toInt()),
+        "beaches" to Wall("Beaches & islands", "Coves, atolls and turquoise water", R.drawable.wall_beaches, 0xFF0F6B78.toInt(), 0xFF051A1F.toInt()),
+        "winter" to Wall("Winter", "Snow, ice and frozen lakes", R.drawable.wall_winter, 0xFF5E7A99.toInt(), 0xFF0E1622.toInt()),
+        "deserts" to Wall("Deserts & canyons", "Dunes, mesas and red rock", R.drawable.wall_deserts, 0xFF9A4E1E.toInt(), 0xFF1F0E05.toInt()),
+        "flowers" to Wall("Flowers", "Tulip fields, lavender and blossom", R.drawable.wall_flowers, 0xFF8E3A6B.toInt(), 0xFF1E0A16.toInt()),
+        "night" to Wall("Night sky", "Auroras, the Milky Way and moonrise", R.drawable.wall_night, 0xFF2A2F6E.toInt(), 0xFF05060F.toInt()),
+        "castles" to Wall("Castles & temples", "Palaces, cathedrals and ancient temples", R.drawable.wall_castles, 0xFF6E5A2E.toInt(), 0xFF171207.toInt()),
+        "v_underwater" to Wall("Underwater", "Reefs, kelp forests, jellyfish and dolphins", R.drawable.wall_v_underwater, 0xFF0A4F7A.toInt(), 0xFF02121F.toInt()),
+        "v_beaches" to Wall("Beaches", "Coasts and clear water from above", R.drawable.wall_v_beaches, 0xFF1A7A84.toInt(), 0xFF061A1D.toInt()),
+        "v_wildlife" to Wall("Wildlife", "Elephants, savannah herds and sea life", R.drawable.wall_v_wildlife, 0xFF6A5A22.toInt(), 0xFF171306.toInt()),
+        "v_snow" to Wall("Snow & aurora", "Iceland, Greenland, the Himalayas and northern lights", R.drawable.wall_v_snow, 0xFF3E6E8E.toInt(), 0xFF07121A.toInt()),
+        "v_deserts" to Wall("Deserts", "Dunes, canyons and Monument Valley", R.drawable.wall_v_deserts, 0xFF9A5A22.toInt(), 0xFF1F1006.toInt()),
+        "v_nightsky" to Wall("Night sky", "Stars, the galaxy and Earth at night", R.drawable.wall_v_nightsky, 0xFF2A225E.toInt(), 0xFF040312.toInt()),
+        "v_fireplace" to Wall("Fireplace", "A warm fire crackling on your TV", R.drawable.wall_v_fireplace, 0xFFA03A12.toInt(), 0xFF200A04.toInt()),
+        "v_calm" to Wall("Calm colour", "Slow gradients and light leaks to relax to", R.drawable.wall_v_calm, 0xFF7A3A8E.toInt(), 0xFF180A22.toInt()),
         "gradient" to Wall("Plain dark", "No picture at all; the lightest on the TV", null, 0xFF2A2A2E.toInt(), 0xFF0A0A0C.toInt()),
     )
 
@@ -728,8 +743,9 @@ class SettingsActivity : Activity() {
     private fun wallpaperRows(group: String): List<View> {
         val option = FlixSettings.WALLPAPER
         val ids = when (group) {
-            "Photos" -> listOf("nature", "cities")
-            "Aerial video" -> listOf("video", "v_nature", "v_sea", "v_city", "v_space", "v_art")
+            "Photos" -> listOf("nature", "cities", "wildlife", "beaches", "winter", "deserts", "flowers", "night", "castles")
+            "Aerial video" -> listOf("video", "v_nature", "v_sea", "v_underwater", "v_beaches", "v_wildlife", "v_snow",
+                "v_deserts", "v_city", "v_space", "v_nightsky", "v_fireplace", "v_calm", "v_art")
             else -> listOf("gradient")
         }
         return ids.map { id ->

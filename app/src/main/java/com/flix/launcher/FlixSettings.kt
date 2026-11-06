@@ -53,8 +53,13 @@ object FlixSettings {
     // Wallpaper
     val WALLPAPER = Option("wallpaper", "Background", listOf(
         "nature" to "Nature photos", "cities" to "City photos",
+        "wildlife" to "Wildlife photos", "beaches" to "Beach photos", "winter" to "Winter photos",
+        "deserts" to "Desert photos", "flowers" to "Flower photos", "night" to "Night sky photos", "castles" to "Castles & temples",
         "video" to "All aerial videos", "v_nature" to "Landscapes video", "v_sea" to "Oceans video",
         "v_city" to "Cities video", "v_space" to "Earth from space", "v_art" to "Colour art video",
+        "v_underwater" to "Underwater video", "v_beaches" to "Beaches video", "v_wildlife" to "Wildlife video",
+        "v_snow" to "Snow & aurora video", "v_deserts" to "Deserts video", "v_nightsky" to "Night sky video",
+        "v_fireplace" to "Fireplace", "v_calm" to "Calm colour",
         "gradient" to "Plain dark"), "nature",
         summary = "A new Bing photo every minute, or aerial films from Apple TV and Fire TV")
     val SHUFFLE = toggle("shuffle", "Shuffle scenes")

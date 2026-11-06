@@ -30,6 +30,20 @@ object WallpaperFeed {
 
     private class Entry(val url: String, val title: String)
 
+    /** Photo themes beyond nature and cities, each picked from the archive by its caption. */
+    private val THEMES = linkedMapOf(
+        "wildlife" to Regex("\\b(bear|fox|owl|eagle|penguin|whale|dolphin|elephant|lion|tiger|leopard|deer|wolf|bird|puffin|seal|otter|giraffe|zebra|monkey|gorilla|koala|panda|turtle|flamingo|horse|butterfl|squirrel|lynx|bison|moose|heron|crane|kingfisher|hummingbird|octopus|shark|jellyfish|frog|reindeer|lemur|hippo|rhino)", RegexOption.IGNORE_CASE),
+        "beaches" to Regex("\\b(beach|coast|island|lagoon|cove|shore|seaside|atoll)", RegexOption.IGNORE_CASE),
+        "winter" to Regex("\\b(snow|winter|ice|frozen|glacier|frost|igloo)", RegexOption.IGNORE_CASE),
+        "deserts" to Regex("\\b(desert|dune|canyon|mesa|sahara|badlands)", RegexOption.IGNORE_CASE),
+        "flowers" to Regex("\\b(flower|bloom|blossom|tulip|lavender|cherry|poppy|wildflower|sunflower)", RegexOption.IGNORE_CASE),
+        "night" to Regex("\\b(night|aurora|northern lights|milky way|stars|starry|moon|galaxy|eclipse)", RegexOption.IGNORE_CASE),
+        "castles" to Regex("\\b(castle|palace|cathedral|temple|abbey|fortress|mosque|monastery|chateau)", RegexOption.IGNORE_CASE),
+    )
+
+    /** Every photo kind the feed can hand out. */
+    val KINDS = listOf("nature", "cities") + THEMES.keys
+
     private val entries = HashMap<String, List<Entry>>()
     private var ready: Pair<Bitmap, String>? = null
     private var readyKind: String? = null
@@ -82,6 +96,7 @@ object WallpaperFeed {
         conn.readTimeout = 20000
         val found = ArrayList<Entry>(2500)
         val cities = ArrayList<Entry>(1500)
+        val themed = THEMES.keys.associateWith { ArrayList<Entry>(400) }
         try {
             JsonReader(conn.inputStream.bufferedReader()).use { r ->
                 r.beginArray()
@@ -105,6 +120,8 @@ object WallpaperFeed {
                     val entry = Entry(url, t.replace('\t', ' '))
                     if (BUILT_UP.containsMatchIn(t)) cities += entry
                     else if (NATURE.containsMatchIn(t)) found += entry
+                    // A photo can join several themes ("Puffins on a cliff in winter").
+                    for ((theme, rx) in THEMES) if (rx.containsMatchIn(t)) themed.getValue(theme) += entry
                 }
                 r.endArray()
             }
@@ -112,7 +129,7 @@ object WallpaperFeed {
             conn.disconnect()
         }
         if (found.size < 50) return
-        for ((kind, list) in listOf("nature" to found, "cities" to cities)) {
+        for ((kind, list) in listOf("nature" to found, "cities" to cities) + themed.map { it.key to it.value }) {
             SafeIo.write(fileOf(context, kind), list.joinToString("\n") { "${it.url}\t${it.title}" })
             entries[kind] = list
         }

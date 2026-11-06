@@ -1365,7 +1365,7 @@ class MainActivity : Activity() {
 
     private fun showImage(index: Int) {
         val choice = wallChoice()
-        if (choice == "nature" || choice == "cities") {
+        if (choice in WallpaperFeed.KINDS) {
             // A fresh photo from the endless feed; the built-in set only when it can't be reached.
             WallpaperFeed.next(this, resources.displayMetrics.widthPixels, choice) { bitmap, title ->
                 if (bitmap != null) present(bitmap, title) else showBuiltIn(index)

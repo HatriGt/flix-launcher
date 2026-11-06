@@ -28,6 +28,8 @@ object VideoFeed {
 
     private class Clip(val kind: String, val url: String, val title: String)
 
+    private val SCENES = setOf("nature", "countryside", "sea", "beach", "city", "space", "patterns", "fire")
+
     private var clips: List<Clip> = emptyList()
 
     /**
@@ -37,14 +39,44 @@ object VideoFeed {
     fun clips(context: Context, kind: String, onReady: (List<AerialSource.Media>) -> Unit) {
         val app = context.applicationContext
         worker.execute {
-            val found = catalog(app).filter { kind == "all" || it.kind == kind }
+            val found = catalog(app).filter { kind == "all" || matches(it, kind) }
                 .map { AerialSource.Media(it.url, isVideo = true, title = it.title) }
             main.post { onReady(found) }
         }
     }
 
+    private val WILDLIFE = Regex("wildlife|baboon|elephant|savannah|flamingo|seal|sea lion|dolphin|whale|shark|ray|jellies|fish|barracuda|mackerel|sardine|jacks|bumphead|lion|giraffe|zebra|bird|animal|friends on|gentle moments", RegexOption.IGNORE_CASE)
+    private val SNOW = Regex("aurora|ice|iceland|greenland|antarctic|himalaya|glacier|snow|winter|frozen|lofoten", RegexOption.IGNORE_CASE)
+    private val DESERT = Regex("desert|dune|canyon|sahara|liwa|monument valley|butte|sossus|dust|carrizo|carizzo", RegexOption.IGNORE_CASE)
+    private val COAST = Regex("beach|coast|cliff|bay|island|turquoise|mangrove", RegexOption.IGNORE_CASE)
+    private val NIGHT = Regex("night|galaxy|stars|aurora|time-lapse|earth meets sky", RegexOption.IGNORE_CASE)
+
+    /** Whether [clip] belongs to the wallpaper choice [kind]: its scene, its title, or both. */
+    private fun matches(clip: Clip, kind: String): Boolean {
+        val s = clip.kind
+        val t = clip.title
+        return when (kind) {
+            "nature" -> s == "nature" || s == "countryside"
+            "sea" -> s == "sea" || s == "beach"
+            "city" -> s == "city"
+            "space" -> s == "space"
+            "art" -> s == "patterns" || s == "fire"
+            // Moods that cut across scenes, read from the clip's title.
+            "underwater" -> s == "sea"
+            "beaches" -> s == "beach" || (s == "nature" && COAST.containsMatchIn(t))
+            "wildlife" -> (s == "nature" || s == "sea") && WILDLIFE.containsMatchIn(t)
+            "snow" -> (s == "nature" || s == "space") && SNOW.containsMatchIn(t)
+            "deserts" -> s == "nature" && DESERT.containsMatchIn(t)
+            "nightsky" -> (s == "space" || s == "nature") && NIGHT.containsMatchIn(t)
+            "fireplace" -> s == "fire"
+            "calm" -> s == "patterns"
+            else -> false
+        }
+    }
+
     private fun catalog(context: Context): List<Clip> {
-        val file = File(context.filesDir, "aerial_videos_v2.tsv")
+        // v3 keeps each clip's own scene ("beach", "fire" …) so the moods above can tell them apart.
+        val file = File(context.filesDir, "aerial_videos_v3.tsv")
         if (clips.isEmpty() && file.exists()) clips = read(file)
         if (clips.isEmpty() || System.currentTimeMillis() - file.lastModified() > WEEK) {
             runCatching { refresh(file) }.onFailure { android.util.Log.w("Flix", "Video list refresh failed", it) }
@@ -67,14 +99,7 @@ object VideoFeed {
                 // doesn't trust; the same files are served over plain HTTP.
                 val url = a.optString(key).replace("https://sylvan.apple.com/", "http://sylvan.apple.com/")
                 if (url.isEmpty()) continue
-                val kind = when (a.optString("scene")) {
-                    "nature", "countryside" -> "nature"
-                    "sea", "beach" -> "sea"
-                    "city" -> "city"
-                    "space" -> "space"
-                    "patterns", "fire" -> "art"
-                    else -> continue
-                }
+                val kind = a.optString("scene").takeIf { it in SCENES } ?: continue
                 val title = a.optString("accessibilityLabel").ifEmpty { a.optString("title") }.replace('\t', ' ')
                 found += Clip(kind, url, title)
             }
