@@ -11,16 +11,17 @@ import java.net.URL
  * Wallpaper sources beyond Bing and the aerial films, all free and keyless:
  *  - Sci-fi and gaming photos: Wallhaven's community toplist (safe-for-work, general art only).
  *  - Sci-fi video: ESA's Hubble and Webb pan, zoom and fly-through clips, from their video feeds.
- *  - Gaming video: Steam's own store trailers for the current top sellers and new releases.
- *  - Movie photos: the backdrops of the films already loaded in your rows ([MovieWalls]).
+ *  - Gaming video: Steam store trailers for a fixed list of well-known games.
+ *  - Film photos: official backdrops of the most popular films by genre, from Cinemeta.
+ *  - Film video: the Blender Foundation's open movies (Sintel, Tears of Steel, Elephants Dream).
  * Each list is fetched once and kept for a week; the images and clips themselves stream.
  */
 object ExtraWalls {
     private const val WEEK = 7 * 24 * 3600_000L
 
     /** Photo kinds this file supplies, and video kinds (without the "v_" prefix). */
-    val PHOTO_KINDS = setOf("scifi", "gaming", "movies")
-    val VIDEO_KINDS = setOf("scifi", "gaming")
+    val PHOTO_KINDS by lazy { setOf("scifi", "gaming") + MOVIE_GENRES.keys }
+    val VIDEO_KINDS = setOf("scifi", "gaming", "films")
 
     class Item(val url: String, val title: String)
 
@@ -31,8 +32,28 @@ object ExtraWalls {
         "gaming" to listOf("video games"),
     )
 
+    /** Film wallpapers: Cinemeta's most popular films in each genre, as their official backdrops. */
+    val MOVIE_GENRES = linkedMapOf(
+        "films" to null, "films_scifi" to "Sci-Fi", "films_action" to "Action",
+        "films_animation" to "Animation", "films_fantasy" to "Fantasy", "films_horror" to "Horror",
+    )
+
+    private fun cinemeta(genre: String?): List<Item> = runCatching {
+        val base = "https://v3-cinemeta.strem.io/catalog/movie/" + if (genre == null) "top" else "imdbRating"
+        val g = genre?.let { "genre=" + java.net.URLEncoder.encode(it, "UTF-8") }
+        // Two pages of the catalogue, each film's large backdrop with its name and year.
+        listOf(g, listOfNotNull(g, "skip=50").joinToString("&")).flatMap { extra ->
+            val metas = JSONObject(get(base + (if (extra.isNullOrEmpty()) "" else "/$extra") + ".json")).getJSONArray("metas")
+            (0 until metas.length()).map { metas.getJSONObject(it) }.mapNotNull { m ->
+                val id = m.optString("imdb_id").ifBlank { m.optString("id") }.takeIf { it.startsWith("tt") } ?: return@mapNotNull null
+                Item("https://images.metahub.space/background/large/$id/img",
+                    listOfNotNull(m.optString("name").ifBlank { null }, m.optString("releaseInfo").ifBlank { null }).joinToString(" · "))
+            }
+        }.distinctBy { it.url }
+    }.getOrDefault(emptyList())
+
     fun photos(context: Context, kind: String): List<Item> {
-        if (kind == "movies") return MovieWalls.items()
+        if (kind in MOVIE_GENRES) return cached(context, "extra_photos_$kind") { cinemeta(MOVIE_GENRES[kind]) }
         val queries = WALLHAVEN[kind] ?: return emptyList()
         return cached(context, "extra_photos_$kind") {
             queries.flatMap { q -> (1..(if (queries.size == 1) 4 else 2)).flatMap { page -> wallhaven(q, page) } }.distinctBy { it.url }
@@ -58,7 +79,8 @@ object ExtraWalls {
     fun videos(context: Context, kind: String): List<Item> = when (kind) {
         "scifi" -> cached(context, "extra_videos_scifi") { esa("https://esahubble.org/videos/feed/", "https://cdn.esahubble.org") +
             esa("https://esawebb.org/videos/feed/", "https://cdn.esawebb.org") }
-        "gaming" -> cached(context, "extra_videos_gaming_v2") { steam() }
+        "gaming" -> GAME_TRAILERS.shuffled()
+        "films" -> OPEN_MOVIES.shuffled()
         else -> emptyList()
     }
 
@@ -80,28 +102,49 @@ object ExtraWalls {
     private val VISUAL = Regex("^(pan|zoom|transition) video|fly|explore|journey|time-lapse|animation", RegexOption.IGNORE_CASE)
     private val NARRATED = Regex("episode|hubblecast|webbcast|sparks|interview", RegexOption.IGNORE_CASE)
 
-    /** Steam's top sellers and new releases, each with its first store trailer (HLS, which Android plays). */
-    private fun steam(): List<Item> = runCatching {
-        val front = JSONObject(get("https://store.steampowered.com/api/featuredcategories?cc=us&l=en"))
-        val ids = listOf("top_sellers", "specials", "new_releases").flatMap { key ->
-            front.optJSONObject(key)?.optJSONArray("items")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).optInt("id") } }.orEmpty()
-        }.filter { it > 0 }.distinct().take(30)
-        ids.mapNotNull { id ->
-            val app = runCatching { JSONObject(get("https://store.steampowered.com/api/appdetails?appids=$id&cc=us&l=en")).getJSONObject("$id") }.getOrNull()
-            if (app?.optBoolean("success") != true) return@mapNotNull null
-            val data = app.getJSONObject("data")
-            // Leave out games Steam marks as having adult content.
-            val flags = data.optJSONObject("content_descriptors")?.optJSONArray("ids")?.let { a -> (0 until a.length()).map { a.optInt(it) } }.orEmpty()
-            if (flags.any { it == 1 || it == 3 || it == 4 }) return@mapNotNull null
-            // Android's player can't play Steam's HLS streams (fragmented MP4), but Steam still
-            // serves a plain MP4 for most trailers made before 2025: use the first that has one.
-            val movies = data.optJSONArray("movies") ?: return@mapNotNull null
-            val mp4 = (0 until minOf(movies.length(), 4)).asSequence()
-                .map { "https://cdn.akamai.steamstatic.com/steam/apps/${movies.getJSONObject(it).optLong("id")}/movie_max.mp4" }
-                .firstOrNull { exists(it) } ?: return@mapNotNull null
-            Item(mp4, data.optString("name"))
-        }
-    }.getOrDefault(emptyList())
+    /**
+     * Trailers for well-known games, as Steam's plain MP4 files. A fixed list rather than
+     * Steam's live charts: those mix in hardware and brand-new games whose trailers only
+     * exist as HLS streams Android can't play, and building it took a minute on the TV.
+     * Games Steam flags for adult content are left out.
+     */
+    private val GAME_TRAILERS = listOf(
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256889452/movie_max.mp4", "ELDEN RING"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256767979/movie_max.mp4", "Red Dead Redemption 2"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256930503/movie_max.mp4", "Hogwarts Legacy"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256864004/movie_max.mp4", "God of War"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256899640/movie_max.mp4", "Horizon Zero Dawn Complete Edition"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256900369/movie_max.mp4", "Marvel’s Spider-Man Remastered"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257048125/movie_max.mp4", "Black Myth: Wukong"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256875134/movie_max.mp4", "Forza Horizon 5"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257182101/movie_max.mp4", "DOOM Eternal"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256878921/movie_max.mp4", "DEATH STRANDING DIRECTOR'S CUT"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256806899/movie_max.mp4", "Sekiro: Shadows Die Twice - GOTY Edition"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256998128/movie_max.mp4", "Resident Evil 4"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256936971/movie_max.mp4", "The Last of Us Part I"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257109739/movie_max.mp4", "Grand Theft Auto V Legacy"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256815967/movie_max.mp4", "Stardew Valley"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256801252/movie_max.mp4", "Hades"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256679401/movie_max.mp4", "Hollow Knight"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256911304/movie_max.mp4", "The Sims 4"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257035339/movie_max.mp4", "EA SPORTS FC 24"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256941288/movie_max.mp4", "Far Cry 6"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257050591/movie_max.mp4", "HITMAN World of Assassination"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257007287/movie_max.mp4", "Horizon Forbidden West Complete Edition"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256878893/movie_max.mp4", "FINAL FANTASY VII REMAKE INTERGRADE"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256915117/movie_max.mp4", "Marvel’s Spider-Man: Miles Morales"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256806061/movie_max.mp4", "Battlefield V"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/256873105/movie_max.mp4", "MONSTER HUNTER RISE"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257205917/movie_max.mp4", "Monster Hunter Wilds"),
+        Item("https://cdn.akamai.steamstatic.com/steam/apps/257096714/movie_max.mp4", "Sid Meier's Civilization VII"),
+    )
+
+    /** The Blender Foundation's open movies, free to show anywhere. */
+    private val OPEN_MOVIES = listOf(
+        Item("https://download.blender.org/durian/movies/Sintel.2010.1080p.mkv", "Sintel"),
+        Item("https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov", "Tears of Steel"),
+        Item("https://download.blender.org/ED/elephantsdream-720-h264-st-aac.mov", "Elephants Dream"),
+    )
 
     // ---- Plumbing ----
 
@@ -137,22 +180,3 @@ object ExtraWalls {
     }
 }
 
-/**
- * The backdrops of films already in the home screen's rows, kept as they load, so the
- * "Your films" wallpaper is made of what you actually watch, with no extra fetching.
- */
-object MovieWalls {
-    private val seen = LinkedHashMap<String, ExtraWalls.Item>()
-
-    fun offer(titles: List<Catalog.Title>) {
-        synchronized(seen) {
-            for (t in titles) {
-                val art = t.backdrop ?: continue
-                if (seen.size > 300) break
-                seen.putIfAbsent(art, ExtraWalls.Item(art, listOfNotNull(t.name, t.year).joinToString(" · ")))
-            }
-        }
-    }
-
-    fun items(): List<ExtraWalls.Item> = synchronized(seen) { seen.values.toList() }
-}
