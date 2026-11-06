@@ -23,8 +23,8 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 
 /**
- * First-run setup, four steps with the remote (connect Nuvio, choose a profile picture, pick
- * the rows, make the Home button open Flix), then a short tour of the home screen. Every step
+ * First-run setup, five steps with the remote (connect Nuvio, choose a profile picture, pick
+ * the rows, pick the apps for the top row, make the Home button open Flix), then a short tour of the home screen. Every step
  * can be skipped and done later from Settings. Shown once, on a fresh install; people
  * updating from an older Flix never see it.
  *
@@ -167,6 +167,7 @@ class SetupActivity : Activity() {
         // The faces strip lives in the left column only on its own step (and is rebuilt on return).
         words.findViewWithTag<View>("faces")?.let { words.removeView(it) }
         visual.removeAllViews()
+        visual.clipChildren = false
         below.removeAllViews()
         visual.visibility = View.VISIBLE
         (primary.parent as View).visibility = View.VISIBLE
@@ -209,6 +210,15 @@ class SetupActivity : Activity() {
                 visual.addView(miniHome(), FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
             }
             3 -> {
+                title.text = "Your apps,\none press away"
+                body.text = "Pick the apps for the row at the top of the home screen. They appear in the order you pick them. " +
+                    "Everything else stays in All apps."
+                status(null)
+                primary("Continue") { next() }
+                secondary(null) {}
+                apps()
+            }
+            4 -> {
                 // Each TV gets its own way to send Home to Flix (see HomeButton).
                 val state = HomeButton.state(this)
                 val on = HomeButton.works(this)
@@ -414,6 +424,88 @@ class SetupActivity : Activity() {
         strip.post { strip.getChildAt(chosen)?.requestFocus() }
     }
 
+    /**
+     * Every app on the TV as a grid of round icons; OK adds one to the favourites row or takes
+     * it off. Chosen apps wear a red tick and a number showing their place in the row.
+     */
+    private fun apps() {
+        val repo = AppRepository(this)
+        val grid = android.widget.GridLayout(this).apply { columnCount = 5; clipChildren = false; clipToPadding = false; setPadding(px(10), px(12), px(10), px(12)) }
+        // The grid scrolls inside the illustration's space and is cut cleanly at its edges.
+        val scroll = android.widget.ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false; isFocusable = false
+            isVerticalFadingEdgeEnabled = true; setFadingEdgeLength(px(28))
+            addView(grid)
+        }
+        visual.clipChildren = true
+        visual.addView(scroll, FrameLayout.LayoutParams(-1, px(330), Gravity.TOP))
+        scroll.setPadding(0, 0, 0, 0)
+        val count = text("", 13f, bold = true, alpha = 0.7f)
+        // The count sits under the grid.
+        visual.addView(count.also { it.setPadding(0, 0, px(10), 0) }, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END))
+        Thread {
+            val all = runCatching { repo.loadApps() }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (isDestroyed || step != 3) return@runOnUiThread
+                val badges = HashMap<String, TextView>()
+                fun refresh() {
+                    // Numbered among the apps actually on this TV, so the row reads 1, 2, 3…
+                    val fav = repo.favorites.filter { f -> all.any { it.packageName == f } }
+                    for ((pkg, badge) in badges) {
+                        val i = fav.indexOf(pkg)
+                        badge.visibility = if (i >= 0) View.VISIBLE else View.GONE
+                        badge.text = (i + 1).toString()
+                        (badge.parent as View).findViewWithTag<View>("icon")?.alpha = if (i >= 0) 1f else 0.55f
+                    }
+                    count.text = "${fav.size} IN YOUR ROW"
+                }
+                all.forEach { app ->
+                    val badge = text("", 11f, bold = true).apply {
+                        gravity = Gravity.CENTER
+                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(RED); setStroke(px(2), 0xFF0B0E14.toInt()) }
+                    }
+                    badges[app.packageName] = badge
+                    val icon = ImageView(this).apply {
+                        tag = "icon"
+                        // Its own copy: the home row draws the same cached icon, and sizing it
+                        // here changed its bounds there too (zoomed, cropped app tiles).
+                        setImageDrawable(app.icon.constantState?.newDrawable(resources)?.mutate() ?: app.icon)
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        ProfilePicture.circle(this)
+                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF1B202B.toInt()) }
+                    }
+                    val cell = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        isFocusable = true
+                        clipChildren = false
+                        setPadding(px(4), px(6), px(4), px(6))
+                        addView(FrameLayout(context).apply {
+                            clipChildren = false
+                            addView(icon, FrameLayout.LayoutParams(px(58), px(58), Gravity.CENTER))
+                            addView(View(context).apply {
+                                tag = "ring"; visibility = View.INVISIBLE
+                                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(px(3), Color.WHITE) }
+                            }, FrameLayout.LayoutParams(px(66), px(66), Gravity.CENTER))
+                            addView(badge, FrameLayout.LayoutParams(px(22), px(22), Gravity.TOP or Gravity.END))
+                        }, LinearLayout.LayoutParams(px(68), px(68)))
+                        addView(text(app.label, 11f, alpha = 0.8f).apply {
+                            gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                        }, LinearLayout.LayoutParams(px(88), -2).apply { topMargin = px(4) })
+                        setOnFocusChangeListener { v, has ->
+                            v.findViewWithTag<View>("ring")?.visibility = if (has) View.VISIBLE else View.INVISIBLE
+                            v.animate().scaleX(if (has) 1.1f else 1f).scaleY(if (has) 1.1f else 1f).setDuration(160).setInterpolator(RowRecyclerView.EASE).start()
+                        }
+                        setOnClickListener { repo.toggleFavorite(app.packageName); refresh() }
+                    }
+                    grid.addView(cell)
+                }
+                refresh()
+                grid.getChildAt(0)?.requestFocus()
+            }
+        }.start()
+    }
+
     /** A slice of the home screen: three rows of covers, the first card focused. */
     private fun miniHome(): View {
         val names = listOf("Midnight Run", "Sunlit", "Odyssey", "Harbour", "Neon City", "Wildwood", "Echo", "Atlas", "Northbound",
@@ -575,6 +667,8 @@ class SetupActivity : Activity() {
 
     private fun finishSetup() {
         markDone(this)
+        // The home screen behind reloads its app row (picked here) and rows.
+        sendBroadcast(Intent(SettingsActivity.ACTION_CHANGED).setPackage(packageName).putExtra(SettingsActivity.EXTRA_APPS_ONLY, true))
         finish()
     }
 
@@ -630,7 +724,7 @@ class SetupActivity : Activity() {
 
     companion object {
         /** Numbered steps; the tour after them is unnumbered. */
-        private const val STEPS = 4
+        private const val STEPS = 5
         private const val RED = 0xFFE50914.toInt()
         private const val GREEN = 0xFF4ADE80.toInt()
 
