@@ -972,6 +972,12 @@ class MainActivity : Activity() {
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && isInside(focused, favoritesList)) {
             tabs.firstOrNull { it.isSelected }?.let { it.requestFocus(); return true }
         }
+        // Down from the apps row (or its quick buttons) lands on the first row's first card too.
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, findViewById(R.id.top_bar))) {
+            val bb = movieRows.billboard
+            if (bb.view.visibility == View.VISIBLE && bb.view.parent != null) { bb.play.requestFocus(); return true }
+            movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }
+        }
         // Down from the billboard lands on the first row's first card, not wherever focus search guesses.
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInside(focused, movieRows.billboard.view)) {
             movieRows.rows.firstOrNull { it.view.visibility == View.VISIBLE }?.let { focusRowStart(it); return true }
@@ -1004,13 +1010,14 @@ class MainActivity : Activity() {
 
     private fun rowsScrolling() = scrollAnimator?.isRunning == true
 
+    /** Up or down lands on the row's first tile; a row left part-way slides back to its start. */
     private fun focusRowStart(target: MovieRows.Row) {
-        val lm = target.list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
-        val pos = lm.findFirstCompletelyVisibleItemPosition().takeIf { it >= 0 } ?: lm.findFirstVisibleItemPosition().coerceAtLeast(0)
-        val card = target.list.findViewHolderForAdapterPosition(pos)?.itemView
+        val card = target.list.findViewHolderForAdapterPosition(0)?.itemView
         if (card != null) { card.requestFocus(); return }
-        target.list.scrollToPosition(pos)
-        target.list.post { target.list.findViewHolderForAdapterPosition(pos)?.itemView?.requestFocus() }
+        (target.list as RowRecyclerView).flip(null) {
+            (target.list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).scrollToPositionWithOffset(0, 0)
+        }
+        target.list.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
     }
 
     private fun scheduleIdle() {
