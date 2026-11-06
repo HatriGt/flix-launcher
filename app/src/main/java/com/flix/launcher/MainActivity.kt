@@ -216,101 +216,60 @@ class MainActivity : Activity() {
     private fun showUpdateDot() {
         val row = findViewById<LinearLayout>(R.id.quick_settings)
         val update = Updater.ready(this)
-        if (update == null) { updatePill?.let(row::removeView); updatePill = null; return }
-        updatePill?.let { (it.tag as? String) == update.version && return; row.removeView(it) }
+        if (update == null) { updatePill?.let { (it.parent as? ViewGroup)?.removeView(it) }; updatePill = null; return }
+        updatePill?.let { (it.tag as? String) == update.version && return; (it.parent as? ViewGroup)?.removeView(it) }
         val dp = resources.displayMetrics.density
         fun px(v: Float) = (v * dp).toInt()
-        val radius = 30 * dp
-        // Dark glass with a thin red edge, like a premium notification rather than a red button.
-        val glass = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-            intArrayOf(0xF2241015.toInt(), 0xF2121216.toInt())).apply { cornerRadius = radius; setStroke(px(1f), 0x66E50914) }
-        val ring = android.graphics.drawable.GradientDrawable().apply { cornerRadius = radius; setStroke(px(2.5f), android.graphics.Color.TRANSPARENT) }
-        val pill = FrameLayout(this).apply {
+        // A capsule of dark glass with light travelling round its edge, at the head of the
+        // quick buttons. "Update" and "Install" are the same length, so it never changes width.
+        val border = GlowBorder(dp)
+        val pill = LinearLayout(this).apply {
             tag = update.version
-            isFocusable = true
-            clipChildren = false
-            background = glass
-            foreground = ring
-            contentDescription = "Install Flix ${update.version}"
-            elevation = 10 * dp
-        }
-        // The badge: a red disc with a download arrow, and a halo that breathes out from it.
-        val halo = View(this).apply {
-            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setStroke(px(2f), 0xCCE50914.toInt()) }
-            alpha = 0f
-        }
-        val disc = FrameLayout(this).apply {
-            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFFFF3B45.toInt(), 0xFFB20710.toInt())).apply { shape = android.graphics.drawable.GradientDrawable.OVAL }
-            addView(ImageView(context).apply { setImageResource(R.drawable.ic_o_download) }, FrameLayout.LayoutParams(px(18f), px(18f), Gravity.CENTER))
-        }
-        val badge = FrameLayout(this).apply {
-            clipChildren = false
-            addView(halo, FrameLayout.LayoutParams(px(36f), px(36f), Gravity.CENTER))
-            addView(disc, FrameLayout.LayoutParams(px(36f), px(36f), Gravity.CENTER))
-        }
-        val headline = update.notes.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("- ") || it.startsWith("* ") }
-            ?.drop(2)?.let { Regex("""^\*\*(.+?):?\*\*""").find(it)?.groupValues?.get(1) ?: it.replace("**", "") }?.trimEnd(':', '.')
-        val install = TextView(this).apply {
-            text = "Install"
-            textSize = 12.5f
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            setPadding(px(14f), px(6f), px(14f), px(6f))
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 16 * dp; setColor(0xFFE50914.toInt()) }
-        }
-        // Compact in the dock ("Update · 1.0.15"); focused, it opens into the full card with
-        // what's new and the Install button, so the apps keep their room the rest of the time.
-        val title = TextView(this).apply {
-            textSize = 14f; setTextColor(android.graphics.Color.WHITE)
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
-        }
-        val subtitle = TextView(this).apply {
-            textSize = 11f; setTextColor(0xB3FFFFFF.toInt()); maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = px(230f)
-        }
-        val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            clipChildren = false
-            setPadding(px(10f), 0, px(10f), 0)
-            addView(badge, LinearLayout.LayoutParams(px(36f), px(36f)).apply { marginEnd = px(12f) })
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(title)
-                addView(subtitle)
-            }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = px(14f) })
-            addView(install)
+            isFocusable = true
+            background = border
+            setPadding(px(14f), 0, px(16f), 0)
+            contentDescription = "Install Flix ${update.version}"
         }
-        fun open(full: Boolean) {
-            // The words fade in after the resize, so the change reads as a reveal, not a jump.
-            content.alpha = 0.25f
-            content.animate().alpha(1f).setDuration(220).start()
-            title.text = if (full) "Flix ${update.version} is ready" else "Update"
-            subtitle.text = if (full) headline?.let { "New: $it" } ?: "A newer version of your home screen" else update.version
-            install.visibility = if (full) View.VISIBLE else View.GONE
-            // The pill changed width: measure the whole dock again so the apps take the room back.
-            // TextViews keep their old measured width when the words shrink inside one event, so
-            // hand each its layout params again to force a fresh measure, then the dock after them.
-            for (t in listOf(title, subtitle)) t.layoutParams = t.layoutParams
-            pill.post { pill.requestLayout(); findViewById<View>(R.id.top_bar).requestLayout() }
+        val icon = ImageView(this).apply { setImageResource(R.drawable.ic_o_download); alpha = 0.95f }
+        val words = TextView(this).apply {
+            textSize = 13.5f
+            setTextColor(android.graphics.Color.WHITE)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            letterSpacing = 0.02f
         }
-        pill.addView(content, FrameLayout.LayoutParams(-2, -1))
-        // Every few seconds the halo breathes out of the badge and fades, so the eye finds it without a blink.
-        fun breathe() {
-            if (pill.parent == null) return
-            halo.scaleX = 1f; halo.scaleY = 1f; halo.alpha = 0.9f
-            halo.animate().scaleX(1.7f).scaleY(1.7f).alpha(0f).setDuration(1400)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
-                .withEndAction { pill.postDelayed({ breathe() }, 2600) }.start()
+        val version = TextView(this).apply {
+            text = update.version
+            textSize = 12f
+            setTextColor(0xFFFFC37A.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
         }
-        open(false)
+        pill.addView(icon, LinearLayout.LayoutParams(px(18f), px(18f)).apply { marginEnd = px(10f) })
+        pill.addView(words)
+        pill.addView(version, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(8f) })
+        fun label(focused: Boolean) {
+            // Short in the bar, so the clock and greeting keep their room; a word more on focus.
+            words.text = if (focused) "Install" else "Update"
+            words.typeface = android.graphics.Typeface.create("sans-serif-medium", if (focused) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        }
+        label(false)
+        // The light makes one slow lap every few seconds; faster while focused.
+        val spin = android.animation.ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 4200
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener { border.angle = it.animatedValue as Float }
+        }
+        pill.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) = spin.start()
+            override fun onViewDetachedFromWindow(v: View) = spin.cancel()
+        })
         pill.setOnFocusChangeListener { v, has ->
-            open(has)
-            ring.setStroke(px(2.5f), if (has) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT)
-            (install.background as android.graphics.drawable.GradientDrawable).setColor(if (has) android.graphics.Color.WHITE else 0xFFE50914.toInt())
-            install.setTextColor(if (has) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-            v.animate().scaleX(if (has) 1.06f else 1f).scaleY(if (has) 1.06f else 1f).setDuration(220).setInterpolator(RowRecyclerView.EASE).start()
+            border.lit = has
+            label(has)
+            spin.duration = if (has) 1800 else 4200
+            v.animate().scaleX(if (has) 1.08f else 1f).scaleY(if (has) 1.08f else 1f).setDuration(220).setInterpolator(RowRecyclerView.EASE).start()
         }
         pill.setOnClickListener {
             when {
@@ -319,13 +278,12 @@ class MainActivity : Activity() {
                 else -> openFlixSettings()
             }
         }
-        row.addView(pill, 0, LinearLayout.LayoutParams(-2, px(56f)).apply { marginEnd = px(14f); gravity = Gravity.CENTER_VERTICAL })
+        row.addView(pill, 0, LinearLayout.LayoutParams(-2, px(48f)).apply { marginEnd = px(14f); gravity = Gravity.CENTER_VERTICAL })
         updatePill = pill
-        // Entrance: slides in from the right and settles, then the halo starts.
-        pill.alpha = 0f; pill.translationX = px(40f).toFloat()
-        pill.animate().alpha(1f).translationX(0f).setStartDelay(400).setDuration(520)
-            .setInterpolator(RowRecyclerView.EASE).withEndAction { breathe() }.start()
+        pill.alpha = 0f; pill.translationY = -px(10f).toFloat()
+        pill.animate().alpha(1f).translationY(0f).setStartDelay(500).setDuration(600).setInterpolator(RowRecyclerView.EASE).start()
     }
+
 
 
     private fun isOn(option: FlixSettings.Option) = FlixSettings.isOn(this, option)
