@@ -316,13 +316,22 @@ class PosterAdapter(
             // No wide artwork (short films, small addons): the poster, cropped to fill, beats a half-empty card.
             val url = title.backdrop ?: title.poster ?: return
             var waited = false
-            Images.get(url, expandedPx, big = false) { bmp ->
-                if (bmp == null || current?.id != title.id || !itemView.isFocused) return@get
+            fun show(bmp: android.graphics.Bitmap) {
                 backdrop.setImageBitmap(bmp)
                 // Already loaded (the usual case, see prefetchNeighbours): show it at once, so the
                 // card never sits half-filled with the narrow poster.
                 if (waited) backdrop.animate().alpha(1f).setDuration(180).start()
                 else { backdrop.animate().cancel(); backdrop.alpha = 1f }
+            }
+            Images.get(url, expandedPx, big = false) { bmp ->
+                if (current?.id != title.id || !itemView.isFocused) return@get
+                if (bmp != null) return@get show(bmp)
+                // Many addons list a backdrop that doesn't exist (common for regional films):
+                // fall back to the poster, cropped to fill, rather than leave the card half empty.
+                val poster = title.poster?.takeIf { it != url } ?: return@get
+                Images.get(poster, expandedPx, big = false) { p ->
+                    if (p != null && current?.id == title.id && itemView.isFocused) show(p)
+                }
             }
             waited = true
         }
