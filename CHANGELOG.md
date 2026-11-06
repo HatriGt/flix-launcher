@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.18] - 2026-11-06
+
+### Fixed
+- Some films stayed as a narrow portrait poster on a dark card when focused: when a title's wide artwork is missing, the poster now fills the card
+
 ## [1.0.17] - 2026-11-06
 
 ### Fixed
