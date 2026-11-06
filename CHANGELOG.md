@@ -4,6 +4,20 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.19] - 2026-11-06
+
+### Added
+- **TV tab** for Nuvio+IPTV users: your live channels, right in Flix
+  - Recently watched first, then the channel groups you keep visible in Nuvio+IPTV
+  - Each channel shows its logo and what's on now; logos are fetched once and kept
+  - Rest on a channel and it plays full screen behind the page, muted, like a trailer; OK watches it in Nuvio+IPTV
+  - Hold OK to hide a channel
+  - Read through Nuvio+IPTV's Setup Sync with your Nuvio sign-in; the tab appears only when Nuvio+IPTV is installed
+- A Live TV step in setup that finds your channels
+
+### Changed
+- The apps dock is hidden on the TV tab
+
 ## [1.0.18] - 2026-11-06
 
 ### Fixed

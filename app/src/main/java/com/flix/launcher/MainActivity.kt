@@ -446,6 +446,8 @@ class MainActivity : Activity() {
             if (onTv) findViewById<View>(R.id.movie_rows).visibility = View.GONE
             else if (tab !== apps) { findViewById<View>(R.id.movie_rows).visibility = View.VISIBLE; movieRows.filter(type) }
             livePage.show(onTv)
+            // The TV tab has the screen to itself: no apps dock.
+            favoritesBlock.visibility = if (onTv) View.INVISIBLE else View.VISIBLE
         }
         select(home, null)
         selectHomeTab = { if (!home.isSelected) select(home, null) }
