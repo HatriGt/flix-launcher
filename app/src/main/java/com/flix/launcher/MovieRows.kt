@@ -46,6 +46,7 @@ class MovieRows(
         container.removeAllViews()
         rows.clear()
         pending.clear()
+        main.removeCallbacks(fillNext)
         sharedPool.clear()
         sharedPool = RecyclerView.RecycledViewPool()
         detailed = null
@@ -277,7 +278,7 @@ class MovieRows(
     }
 
     /**
-     * Rows below the first screen fill in one at a time while the main thread is idle, instead
+     * Rows below the first screen fill in one at a time, a beat apart, instead
      * of all in the frame their data arrives: building a row's cards takes ~40 ms, and doing
      * eight at once froze the home screen for half a second after start.
      */
@@ -285,12 +286,20 @@ class MovieRows(
 
     private fun staged(row: Row, fill: () -> Unit) {
         if (rows.indexOf(row) < ON_SCREEN) { pending.remove(row); return fill() }
-        val idle = pending.isEmpty()
+        val waiting = pending.isNotEmpty()
         pending[row] = fill
-        if (idle) Looper.myQueue().addIdleHandler {
-            pending.keys.firstOrNull()?.let { next -> pending.remove(next)?.let { if (next in rows) it() } }
-            pending.isNotEmpty()
-        }
+        if (!waiting) main.postDelayed(fillNext, STAGGER)
+    }
+
+    /**
+     * Fills the next waiting row, then schedules the one after. On a timer rather than an
+     * "idle" callback: with a video wallpaper and the banner animating, the main thread is
+     * never idle, and rows below the first screen never loaded at all.
+     */
+    private val fillNext: Runnable = Runnable {
+        val next = pending.keys.firstOrNull() ?: return@Runnable
+        pending.remove(next)?.let { if (next in rows) it() }
+        if (pending.isNotEmpty()) main.postDelayed(fillNext, STAGGER)
     }
 
     /** Re-applies the hidden-titles filter without refetching. */
@@ -299,6 +308,8 @@ class MovieRows(
     companion object {
         /** Rows filled at once; the rest are staged (Continue watching, Top 10 and the first row). */
         private const val ON_SCREEN = 3
+        /** Gap between filling one waiting row and the next. */
+        private const val STAGGER = 120L
 
         /** Stand-in source for the Continue watching row, which comes from the Nuvio account rather than an addon. */
         val CONTINUE = Addons.Row("nuvio:continue", "Nuvio", "movie", "continue", "Continue watching")
