@@ -1117,19 +1117,32 @@ class SettingsActivity : Activity() {
     private fun pickBackup() {
         val backups = Backup.list(this)
         if (backups.isEmpty()) return toast("No backups yet. Copy one into Android/data/$packageName/files/backups")
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Restore which backup?")
-            .setItems(backups.map { stamp.format(it.created) }.toTypedArray()) { _, which -> confirmRestore(backups[which]) }
-            .show()
+        val dialog = sheet()
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        backups.forEachIndexed { i, backup ->
+            val row = sheetRow(R.drawable.ic_restore, stamp.format(backup.created), ago(backup.created.time) + " · " + size(backup.file.length()),
+                badge = if (i == 0) "Latest" else null) { dialog.dismiss(); confirmRestore(backup) }
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { if (i > 0) topMargin = px(8) })
+        }
+        val scroll = android.widget.ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(list) }
+        // As tall as the backups need, up to about five rows; more scroll.
+        dialog.setContentView(sheetPanel(R.drawable.ic_restore, "Restore settings", "Pick a backup. You'll be asked before anything changes.", scroll,
+            maxListHeight = if (backups.size > 4) px(340) else -2))
+        dialog.show()
+        list.post { list.getChildAt(0)?.requestFocus() }
     }
 
     private fun confirmRestore(backup: Backup.Saved) {
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Restore settings from ${stamp.format(backup.created)}?")
-            .setMessage("Your current settings, favourites and rows are replaced. Your Nuvio sign-in stays as it is.")
-            .setPositiveButton("Restore") { _, _ ->
+        val dialog = sheet()
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            clipChildren = false; clipToPadding = false
+            // Room for the focused button to grow without its edge being cut.
+            setPadding(px(6), px(4), px(6), px(4))
+            val restore = sheetButton("Restore", primary = true) {
+                dialog.dismiss()
                 Thread {
-                    val result = runCatching { Backup.restore(this, backup) }
+                    val result = runCatching { Backup.restore(this@SettingsActivity, backup) }
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
                         result.onSuccess { applyToHome(); recreate(); toast("Settings restored") }
@@ -1137,9 +1150,115 @@ class SettingsActivity : Activity() {
                     }
                 }.start()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            addView(restore)
+            addView(sheetButton("Cancel", primary = false) { dialog.dismiss() }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(12) })
+            post { restore.requestFocus() }
+        }
+        dialog.setContentView(sheetPanel(R.drawable.ic_restore, "Restore from ${stamp.format(backup.created)}?",
+            "Your current settings, favourites, rows and profile pictures are replaced by the ones in this backup. Your Nuvio sign-in stays as it is.",
+            buttons))
+        dialog.show()
     }
+
+    // ---- Themed pop-ups (backup and restore) ----
+
+    private fun sheet() = android.app.Dialog(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar).apply {
+        window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setDimAmount(0.72f)
+        }
+    }
+
+    /** The pop-up's card: an icon tile, a title and a line, then [content]. Rises in as it opens. */
+    private fun sheetPanel(icon: Int, title: String, message: String, content: View, maxListHeight: Int = -2): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false; clipToPadding = false
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xFA1B202A.toInt(), 0xFA12161E.toInt())).apply {
+                cornerRadius = 24 * dp; setStroke(px(1), 0x1FFFFFFF)
+            }
+            setPadding(px(30), px(28), px(30), px(26))
+            minimumWidth = px(560)
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(FrameLayout(context).apply {
+                    background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(RED, 0xFF8C0610.toInt())).apply { cornerRadius = 14 * dp }
+                    addView(ImageView(context).apply { setImageResource(icon); setColorFilter(Color.WHITE) }, FrameLayout.LayoutParams(px(24), px(24), Gravity.CENTER))
+                }, LinearLayout.LayoutParams(px(48), px(48)))
+                addView(text(title, 22f, bold = true), LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(16) })
+            })
+            addView(text(message, 14f, alpha = 0.65f).apply { setLineSpacing(0f, 1.3f) }, LinearLayout.LayoutParams(px(500), -2).apply { topMargin = px(14) })
+            addView(content, LinearLayout.LayoutParams(-1, maxListHeight).apply { topMargin = px(22) })
+            alpha = 0f; translationY = 16 * dp; scaleX = 0.97f; scaleY = 0.97f
+            post { animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(RowRecyclerView.EASE).start() }
+        }
+
+    /** A focusable row in a pop-up list: icon, title, a line under it, an optional red badge. */
+    private fun sheetRow(icon: Int, title: String, line: String, badge: String?, onClick: () -> Unit) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isFocusable = true
+        setPadding(px(16), px(14), px(18), px(14))
+        background = android.graphics.drawable.StateListDrawable().apply {
+            setEnterFadeDuration(140); setExitFadeDuration(140)
+            addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply { cornerRadius = 14 * dp; setColor(Color.WHITE) })
+            addState(intArrayOf(), GradientDrawable().apply { cornerRadius = 14 * dp; setColor(0x0FFFFFFF) })
+        }
+        val iconView = ImageView(context).apply { setImageResource(icon); setColorFilter(0xB3FFFFFF.toInt()) }
+        val head = text(title, 17f, bold = true)
+        val sub = text(line, 13f, alpha = 0.6f)
+        addView(iconView, LinearLayout.LayoutParams(px(22), px(22)))
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(head); addView(sub, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(2) })
+        }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = px(16) })
+        if (badge != null) addView(text(badge.uppercase(), 11f, bold = true).apply {
+            letterSpacing = 0.1f
+            background = GradientDrawable().apply { cornerRadius = 100 * dp; setColor(RED) }
+            setPadding(px(10), px(4), px(10), px(4))
+        })
+        // Focused: white card, dark text, the way Settings' rows light up.
+        setOnFocusChangeListener { _, has ->
+            val ink = if (has) 0xFF0B0E14.toInt() else Color.WHITE
+            head.setTextColor(ink); sub.setTextColor(ink)
+            iconView.setColorFilter(if (has) 0xFF0B0E14.toInt() else 0xB3FFFFFF.toInt())
+        }
+        setOnClickListener { onClick() }
+    }
+
+    private fun sheetButton(label: String, primary: Boolean, onClick: () -> Unit) = TextView(this).apply {
+        text = label
+        textSize = 16f
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        gravity = Gravity.CENTER
+        setPadding(px(30), px(12), px(30), px(12))
+        isFocusable = true
+        val idle = Color.WHITE
+        setTextColor(android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(0xFF0B0E14.toInt(), idle)))
+        background = android.graphics.drawable.StateListDrawable().apply {
+            setEnterFadeDuration(140); setExitFadeDuration(140)
+            addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply { cornerRadius = 100 * dp; setColor(Color.WHITE) })
+            addState(intArrayOf(), GradientDrawable().apply {
+                cornerRadius = 100 * dp
+                if (primary) setColor(RED) else { setColor(0x1FFFFFFF); setStroke(px(1), 0x33FFFFFF) }
+            })
+        }
+        setOnFocusChangeListener { v, has -> v.animate().scaleX(if (has) 1.05f else 1f).scaleY(if (has) 1.05f else 1f).setDuration(160).start() }
+        setOnClickListener { onClick() }
+    }
+
+    private fun ago(time: Long): String {
+        val days = ((System.currentTimeMillis() - time) / 86_400_000L).toInt()
+        return when {
+            days <= 0 -> "Today"
+            days == 1 -> "Yesterday"
+            days < 30 -> "$days days ago"
+            else -> "${days / 30} months ago"
+        }
+    }
+
+    private fun size(bytes: Long) = if (bytes < 1024) "$bytes bytes" else "${(bytes + 512) / 1024} KB"
 
     /** Asks for the weather's city; a blank answer goes back to locating the TV automatically. */
     /**
