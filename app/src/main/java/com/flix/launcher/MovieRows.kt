@@ -311,6 +311,26 @@ class MovieRows(
             null, null, null, null, null, null, emptyList(), "Scan a code with your phone — it takes a few seconds.")
     }
 
+    /**
+     * Rows more than a screen away from what's shown stop drawing their cards. All ten-odd rows
+     * sat in the view tree, and the TV's render thread walked every card of every one of them
+     * on each frame of a scroll; only the two or three on screen (and their neighbours, so
+     * focus can still move into them) need to be there. [top] and [height] are the visible
+     * part of [root], the scroll view's content.
+     */
+    fun cull(root: View, top: Int, height: Int) {
+        val margin = height
+        for (row in rows) {
+            if (row.view.visibility == View.GONE) continue
+            var y = 0
+            var v: View = row.view
+            while (v !== root) { y += v.top; v = v.parent as? View ?: return }
+            val near = y + row.view.height > top - margin && y < top + height + margin
+            val want = if (near) View.VISIBLE else View.INVISIBLE
+            if (row.list.visibility != want) row.list.visibility = want
+        }
+    }
+
     /** The row whose poster list contains [view], if any. */
     fun rowOf(view: View?): Row? = rows.firstOrNull { it.list === view?.parent }
 }
@@ -516,19 +536,36 @@ class RankNumbers(@Suppress("unused") private val room: Int, private val dp: Flo
         color = 0xB3FFFFFF.toInt()
     }
 
+    /**
+     * Each number drawn once into a bitmap and reused: glyphs this big are too large for the
+     * font atlas, so drawn as text they were rebuilt as filled and stroked paths on every frame
+     * of every scroll, the single most expensive thing on the home screen.
+     */
+    private val cache = HashMap<Pair<String, Int>, android.graphics.Bitmap>()
+
+    private fun number(text: String, height: Int): android.graphics.Bitmap = cache.getOrPut(text to height) {
+        fill.textSize = height * 0.98f
+        edge.textSize = fill.textSize
+        val w = kotlin.math.ceil(fill.measureText(text) + edge.strokeWidth * 2).toInt().coerceAtLeast(1)
+        val h = height + (edge.strokeWidth * 2).toInt()
+        android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).also { bmp ->
+            val c = android.graphics.Canvas(bmp)
+            val x = w - edge.strokeWidth
+            val y = height.toFloat() - 2 * dp + edge.strokeWidth
+            c.drawText(text, x, y, fill)
+            c.drawText(text, x, y, edge)
+            bmp.prepareToDraw()
+        }
+    }
+
     override fun onDraw(c: android.graphics.Canvas, parent: RecyclerView, state: RecyclerView.State) {
         for (i in 0 until parent.childCount) {
             val child = parent.getChildAt(i)
             val pos = parent.getChildAdapterPosition(child)
             if (pos !in 0..9) continue
-            fill.textSize = child.height * 0.98f
-            edge.textSize = fill.textSize
-            // Right-aligned to the poster's left edge and tucked a little behind it.
-            val x = child.x + 14 * dp
-            val y = child.y + child.height - 2 * dp
-            val text = (pos + 1).toString()
-            c.drawText(text, x, y, fill)
-            c.drawText(text, x, y, edge)
+            val bmp = number((pos + 1).toString(), child.height)
+            // Right edge tucked 14dp behind the poster's left edge, baseline at its bottom.
+            c.drawBitmap(bmp, child.x + 14 * dp + edge.strokeWidth - bmp.width, child.y - edge.strokeWidth, null)
         }
     }
 }

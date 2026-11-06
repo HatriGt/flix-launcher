@@ -85,6 +85,10 @@ class PosterAdapter(
                 topMargin = inset
             }
             isFocusable = true
+            // Each card is drawn once into its own GPU texture and then only moved: a scroll
+            // costs one texture per card instead of ten small drawings (poster, shade, badge,
+            // shadowed text, rounded clip, ring), which this class of TV chip can't keep up with.
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             foreground = StateListDrawable().apply {
                 setEnterFadeDuration(RowRecyclerView.DURATION.toInt())
                 setExitFadeDuration(120)

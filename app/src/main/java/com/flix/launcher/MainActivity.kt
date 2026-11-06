@@ -133,6 +133,10 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context, intent: Intent) = loadApps()
     }
 
+    private fun cullRows() {
+        if (::movieRows.isInitialized) movieRows.cull(rowsScroll.getChildAt(0) ?: return, rowsScroll.scrollY, rowsScroll.height)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -170,7 +174,8 @@ class MainActivity : Activity() {
             trailer.focus(title)
         }, ::openInNuvio, ::showTitleMenu)
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, now -> onFocusMoved(now) }
-        rowsScroll.viewTreeObserver.addOnGlobalLayoutListener { sizeScrollArea() }
+        rowsScroll.viewTreeObserver.addOnGlobalLayoutListener { sizeScrollArea(); cullRows() }
+        rowsScroll.setOnScrollChangeListener { _, _, _, _, _ -> cullRows() }
 
         favoritesAdapter = AppAdapter(tileStyle(favorites = true), ::onAppFocused, ::launch, ::showAppMenu)
         appsAdapter = AppAdapter(tileStyle(favorites = false), ::onAppFocused, ::launch, ::showAppMenu)
