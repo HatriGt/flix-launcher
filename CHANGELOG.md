@@ -4,6 +4,22 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.15] - 2026-11-06
+
+### Added
+- **New wallpapers**: wildlife, beaches, winter, deserts, flowers, night and castles photos; sci-fi and gaming art; film backdrops by genre (blockbusters, sci-fi, action, animation, fantasy, horror)
+- **New video walls**: underwater, beaches, wildlife, snow, deserts, night sky, fireplace, calm, art, deep space (Hubble and Webb), game trailers and open movies (Sintel, Tears of Steel, Elephants Dream)
+- **Profile pictures**: pick a cartoon face for each profile in Settings → Movies & shows; "Who's watching" shows them big and round
+
+### Changed
+- Smoother movement from tile to tile, and a soft click when moving between rows
+- Titles without a poster get a film-style cover instead of a plain box
+- A new, more premium update badge in the apps bar
+
+### Fixed
+- Down from the apps row now lands on the first tile of the next row
+- The selected theme's highlight is no longer cut off in Settings
+
 ## [1.0.14] - 2026-11-03
 
 ### Changed
