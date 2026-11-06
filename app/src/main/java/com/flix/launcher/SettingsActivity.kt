@@ -610,7 +610,9 @@ class SettingsActivity : Activity() {
         val option = FlixSettings.THEME
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(px(12), px(12), px(12), px(14))
+            setPadding(px(12), px(12), px(12), px(12))
+            clipChildren = false
+            clipToPadding = false
         }
         box.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -623,7 +625,7 @@ class SettingsActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             clipChildren = false
             clipToPadding = false
-            setPadding(0, px(14), 0, 0)
+            setPadding(0, px(14), 0, px(6))
         }
         val marks = mutableListOf<Pair<String, (Boolean) -> Unit>>()
         option.choices.forEachIndexed { i, (id, label) ->
@@ -634,7 +636,7 @@ class SettingsActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 isFocusable = true
                 background = ring
-                setPadding(px(7), px(7), px(7), px(8))
+                setPadding(px(7), px(7), px(7), px(9))
                 addView(ThemePreview(context, com.flix.launcher.Look.named(id)), LinearLayout.LayoutParams(-1, px(92)))
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL

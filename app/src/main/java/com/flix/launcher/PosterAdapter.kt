@@ -334,8 +334,27 @@ class PosterAdapter(
         fun collapse(instant: Boolean) {
             reveal?.cancel()
             if (current?.poster != null) itemView.background = null
-            (itemView as Card).clip(-1f, -1f)
+            val card = itemView as Card
+            card.clip(-1f, -1f)
             if (instant) size(false)
+            else if (card.width > widthPx) {
+                // Shrink the visible part back to poster size as the neighbour grows, so the
+                // two cards trade width smoothly instead of one snapping.
+                card.clip(card.width.toFloat(), card.height.toFloat())
+                val fromW = card.width.toFloat(); val fromH = card.height.toFloat()
+                reveal = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = RowRecyclerView.DURATION
+                    interpolator = RowRecyclerView.EASE
+                    addUpdateListener {
+                        val f = it.animatedValue as Float
+                        card.clip(fromW + (widthPx - fromW) * f, fromH + (heightPx - fromH) * f)
+                    }
+                    addListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(a: android.animation.Animator) = card.clip(-1f, -1f)
+                    })
+                    start()
+                }
+            }
             info.animate().cancel(); backdrop.animate().cancel()
             if (instant) { fallback.alpha = 1f; info.alpha = 0f; backdrop.alpha = 0f; badge.alpha = 1f; backdrop.setImageDrawable(null); return }
             info.animate().alpha(0f).setDuration(110).start()
