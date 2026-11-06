@@ -133,6 +133,19 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context, intent: Intent) = loadApps()
     }
 
+    /** New users' first look at the real home screen, one part at a time. */
+    private fun lookRound() {
+        if (!resumed || !CoachMarks.pending(this)) return
+        rowsScroll.scrollTo(0, 0)
+        val rows = findViewById<ViewGroup>(R.id.movie_rows)
+        CoachMarks.show(this, listOfNotNull(
+            CoachMarks.Mark(findViewById(R.id.favorites), "Your apps", "The ones you picked. Hold OK on any of them to move or remove it."),
+            CoachMarks.Mark(findViewById(R.id.nav_tabs), "Movies, Shows, Apps", "Switch what the screen shows. Search is on the left."),
+            CoachMarks.Mark(findViewById(R.id.qs_flix), "Flix settings", "Wallpapers, themes, rows and your apps, whenever you want to change them."),
+            rows.getChildAt(0)?.let { CoachMarks.Mark(it, "Press OK to watch", "Films and shows open in Nuvio. Home brings you back.") },
+        ))
+    }
+
     private fun cullRows() {
         if (::movieRows.isInitialized) movieRows.cull(rowsScroll.getChildAt(0) ?: return, rowsScroll.scrollY, rowsScroll.height)
     }
@@ -824,6 +837,7 @@ class MainActivity : Activity() {
         if (launchedFromHome || ui.alpha < 1f && !idle) playReturn()
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
+        if (CoachMarks.pending(this) && !SetupActivity.needed(this)) main.postDelayed(::lookRound, 1500)
         main.removeCallbacks(checkHomeButton)
         // A warning from earlier goes as soon as Home works; otherwise look again shortly.
         if (HomeButton.works(this)) homeBanner?.visibility = View.GONE

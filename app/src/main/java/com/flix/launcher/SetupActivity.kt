@@ -24,7 +24,8 @@ import com.google.zxing.qrcode.QRCodeWriter
 
 /**
  * First-run setup, five steps with the remote (connect Nuvio, choose a profile picture, pick
- * the rows, pick the apps for the top row, make the Home button open Flix), then a short tour of the home screen. Every step
+ * the rows, pick the apps for the top row, make the Home button open Flix). The home screen
+ * then shows new users round itself (CoachMarks). Every step
  * can be skipped and done later from Settings. Shown once, on a fresh install; people
  * updating from an older Flix never see it.
  *
@@ -161,8 +162,8 @@ class SetupActivity : Activity() {
     private fun show() {
         // The picture belongs to a Nuvio profile: without one there's nothing to set yet.
         if (step == 1 && NuvioAccount.profile(this) == null) { step = if (forward) 2 else 0 }
-        kicker.text = if (step < STEPS) "STEP ${step + 1}" else "YOU'RE ALL SET"
-        progressLabel.text = if (step < STEPS) "${step + 1} / $STEPS" else "DONE"
+        kicker.text = "STEP ${step + 1}"
+        progressLabel.text = "${step + 1} / $STEPS"
         pulse?.cancel(); pulse = null
         // The faces strip lives in the left column only on its own step (and is rebuilt on return).
         words.findViewWithTag<View>("faces")?.let { words.removeView(it) }
@@ -242,17 +243,7 @@ class SetupActivity : Activity() {
                 secondary(if (on) null else "Skip for now") { next() }
                 visual.addView(remote(on), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
             }
-            else -> {
-                title.text = "Here's how it works"
-                body.text = "Four things worth knowing before you start."
-                status(null)
-                primary("Start watching") { finishSetup() }
-                secondary(null) {}
-                visual.visibility = View.GONE
-                // On the tour the button comes after the cards, as the last thing to read.
-                (primary.parent as View).visibility = View.GONE
-                tour()
-            }
+            else -> finishSetup()
         }
         // The illustration rises in a moment after the words.
         visual.alpha = 0f; visual.scaleX = 0.94f; visual.scaleY = 0.94f; visual.translationY = 14 * dp
@@ -604,44 +595,6 @@ class SetupActivity : Activity() {
         }
     }
 
-    /** The tour: four tips, each an icon in a soft tile, a short title and a line under it. */
-    private fun tour() {
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val tips = listOf(
-            Triple(R.drawable.ic_s_home, "Home button", "Brings you back here from any app"),
-            Triple(R.drawable.ic_o_play, "Hold OK", "On a film or an app for more options"),
-            Triple(R.drawable.ic_s_film, "Movies, Shows, Apps", "The tabs at the top filter the rows"),
-            Triple(R.drawable.ic_tune, "Flix settings", "The sliders button, top right"),
-        )
-        tips.forEachIndexed { i, (icon, head, line) ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x24FFFFFF, 0x0DFFFFFF)).apply {
-                    cornerRadius = 20 * dp; setStroke(px(1), 0x1FFFFFFF)
-                }
-                setPadding(px(18), px(18), px(18), px(18))
-                addView(FrameLayout(context).apply {
-                    background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFE50914.toInt(), 0xFF8C0610.toInt())).apply { cornerRadius = 14 * dp }
-                    addView(ImageView(context).apply { setImageResource(icon); setColorFilter(Color.WHITE) }, FrameLayout.LayoutParams(px(24), px(24), Gravity.CENTER))
-                }, LinearLayout.LayoutParams(px(42), px(42)))
-                addView(text(head, 15f, bold = true), lp(top = 14))
-                addView(text(line, 13f, alpha = 0.62f).apply { setLineSpacing(0f, 1.25f) }, lp(top = 6))
-                // Each card arrives a beat after the last.
-                alpha = 0f; translationY = 22 * dp
-                animate().alpha(1f).translationY(0f).setStartDelay(140L + i * 80L).setDuration(420).setInterpolator(RowRecyclerView.EASE).start()
-            }
-            grid.addView(card, LinearLayout.LayoutParams(0, -1, 1f).apply { if (i > 0) marginStart = px(14) })
-        }
-        val start = button(true).apply { text = "Start watching"; setOnClickListener { finishSetup() } }
-        below.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipChildren = false; clipToPadding = false
-            addView(grid, LinearLayout.LayoutParams(-1, -2))
-            addView(start, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(24) })
-        }, FrameLayout.LayoutParams(-1, -2))
-        start.post { start.requestFocus() }
-    }
-
     private fun qr(content: String, size: Int): Bitmap {
         val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, mapOf(EncodeHintType.MARGIN to 0))
         val pixels = IntArray(size * size) { i -> if (matrix[i % size, i / size]) 0xFF0B0E14.toInt() else Color.WHITE }
@@ -663,10 +616,12 @@ class SetupActivity : Activity() {
         }.start()
     }
 
-    private fun next() = go(step + 1)
+    /** The last step hands over to the home screen, which shows its own look round (see CoachMarks). */
+    private fun next() = if (step + 1 >= STEPS) finishSetup() else go(step + 1)
 
     private fun finishSetup() {
         markDone(this)
+        CoachMarks.request(this)
         // The home screen behind reloads its app row (picked here) and rows.
         sendBroadcast(Intent(SettingsActivity.ACTION_CHANGED).setPackage(packageName).putExtra(SettingsActivity.EXTRA_APPS_ONLY, true))
         finish()
