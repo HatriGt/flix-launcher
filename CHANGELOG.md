@@ -4,6 +4,11 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.23] - 2026-11-07
+
+### Changed
+- More channel logos blend into their tiles: logos whose coloured box sits inside a see-through margin (like Polimer News) now also get a tile in their own colour with soft edges
+
 ## [1.0.22] - 2026-11-07
 
 ### Changed

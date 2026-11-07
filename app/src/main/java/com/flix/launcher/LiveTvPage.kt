@@ -516,9 +516,25 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
     private val softLogos = android.util.LruCache<String, SoftLogo>(80)
     private val floating: MutableSet<String> = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
 
+    /** The logo cropped to its visible part; null when nothing is visible. */
+    private fun trimClear(b: android.graphics.Bitmap): android.graphics.Bitmap? {
+        val w = b.width; val h = b.height
+        val step = maxOf(1, minOf(w, h) / 120)
+        var left = w; var top = h; var right = -1; var bottom = -1
+        var y = 0
+        while (y < h) { var x = 0; while (x < w) {
+            if (Color.alpha(b.getPixel(x, y)) > 40) { if (x < left) left = x; if (x > right) right = x; if (y < top) top = y; if (y > bottom) bottom = y }
+            x += step }; y += step }
+        if (right < left || bottom < top) return null
+        if (left == 0 && top == 0 && right >= w - step && bottom >= h - step) return b
+        return android.graphics.Bitmap.createBitmap(b, left, top, right - left + 1, bottom - top + 1)
+    }
+
     /** Null when the logo's border is see-through (it floats on the tile as it is). */
     private fun soften(source: android.graphics.Bitmap): SoftLogo? = runCatching {
-        val src = if (source.config == android.graphics.Bitmap.Config.HARDWARE) source.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else source
+        val full = if (source.config == android.graphics.Bitmap.Config.HARDWARE) source.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else source
+        // Some logos (Polimer's) are a solid box inside a see-through margin: judge the box itself.
+        val src = trimClear(full) ?: return@runCatching null
         val small = android.graphics.Bitmap.createScaledBitmap(src, 48, 48, true)
         val edge = buildList {
             for (i in 0 until 48) { add(small.getPixel(i, 0)); add(small.getPixel(i, 47)); add(small.getPixel(0, i)); add(small.getPixel(47, i)) }
