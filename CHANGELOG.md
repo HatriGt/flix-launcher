@@ -4,6 +4,14 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.21] - 2026-11-07
+
+### Changed
+- TV tab: the empty space where the apps dock used to be is gone. The channel playing, Recently watched and your channel groups now start right under the top bar, so more channels fit on the first screen
+
+### Fixed
+- A false "The Home button isn't going to Flix" warning could appear just after an update while Home was actually working. Flix now waits a minute after an update before warning, and the warning clears by itself once Home works
+
 ## [1.0.20] - 2026-11-07
 
 ### Fixed

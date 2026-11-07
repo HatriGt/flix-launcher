@@ -446,8 +446,11 @@ class MainActivity : Activity() {
             if (onTv) findViewById<View>(R.id.movie_rows).visibility = View.GONE
             else if (tab !== apps) { findViewById<View>(R.id.movie_rows).visibility = View.VISIBLE; movieRows.filter(type) }
             livePage.show(onTv)
-            // The TV tab has the screen to itself: no apps dock.
-            favoritesBlock.visibility = if (onTv) View.INVISIBLE else View.VISIBLE
+            // The TV tab has the screen to itself: no apps dock, and no empty space where it
+            // was either, so the channel and its rows start right under the top bar.
+            (favoritesBlock as ViewGroup).let { block ->
+                for (i in 0 until block.childCount) block.getChildAt(i).visibility = if (onTv) View.GONE else View.VISIBLE
+            }
         }
         select(home, null)
         selectHomeTab = { if (!home.isSelected) select(home, null) }
@@ -487,6 +490,9 @@ class MainActivity : Activity() {
         // Only judge while home is in front: behind first-run setup the user hasn't had a
         // chance to switch Home on yet, and the warning would greet them as setup closes.
         if (!resumed || SetupActivity.needed(this)) return@Runnable
+        // For a minute after an update Flix is still reconnecting its Home service by itself.
+        val sinceUpdate = System.currentTimeMillis() - packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+        if (sinceUpdate < 60_000) { main.postDelayed(checkHomeButton, 60_000 - sinceUpdate + 1000); return@Runnable }
         val canFix = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val banner = homeBanner ?: TextView(this).apply {
             val dp = resources.displayMetrics.density
@@ -518,6 +524,10 @@ class MainActivity : Activity() {
             } else HomeButton.fix(this)
         }
         banner.visibility = View.VISIBLE
+        // Home may come right by itself (Flix re-binds its service after an update): look
+        // again shortly, so the warning never outstays the problem.
+        main.removeCallbacks(checkHomeButton)
+        main.postDelayed(checkHomeButton, 10_000)
     }
 
     /** The avatar at the end of the top menu: the Nuvio profile whose Continue watching is shown. */

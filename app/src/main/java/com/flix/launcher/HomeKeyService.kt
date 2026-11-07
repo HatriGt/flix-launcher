@@ -14,7 +14,7 @@ import android.view.accessibility.AccessibilityEvent
 class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
-        running = true
+        current = this
         HomeGuard.healAfterCrash(this)
         HomeGuard.setWanted(this, true)
         // After an update or a reboot the stock home is already in front, so no window change
@@ -28,13 +28,13 @@ class HomeKeyService : AccessibilityService() {
      * service that is no longer listed counts as switched off.
      */
     override fun onUnbind(intent: Intent?): Boolean {
-        running = false
+        if (current === this) current = null
         if (!HomeGuard.isListed(this) && !HomeGuard.rebinding(this)) HomeGuard.setWanted(this, false)
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
-        running = false
+        if (current === this) current = null
         super.onDestroy()
     }
 
@@ -78,9 +78,15 @@ class HomeKeyService : AccessibilityService() {
     }
 
     companion object {
-        /** Lets [HomeGuard] tell whether the system currently has this service bound. */
+        /**
+         * The connected service. When Flix re-binds it, the new copy can connect before the old
+         * one is torn down, so only the copy that is current may clear it.
+         */
         @Volatile
-        var running = false
+        private var current: HomeKeyService? = null
+
+        /** Lets [HomeGuard] tell whether the system currently has this service bound. */
+        val running get() = current != null
 
         private const val DEBOUNCE_MS = 700L
         private const val RECHECK_MS = 900L
