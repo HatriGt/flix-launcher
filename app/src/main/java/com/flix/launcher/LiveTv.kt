@@ -36,6 +36,9 @@ object LiveTv {
     class Group(val name: String, val channels: List<Channel>)
 
     class Lineup(val favourites: List<Channel>, val groups: List<Group>) {
+        /** What the rows are built from; equal signatures need no rebuild. */
+        fun signature(): List<String> = favourites.map { it.key } + groups.flatMap { g -> listOf("#" + g.name) + g.channels.map { it.key } }
+
         val all get() = groups.flatMap { it.channels }
     }
 
@@ -54,6 +57,50 @@ object LiveTv {
     @Volatile var lineup: Lineup? = null
         private set
 
+    // ---- Background sync: the TV tab only ever reads what is already here ----
+
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var syncing = false
+    @Volatile private var syncedAt = 0L
+    /** A sync ran and still nothing could be shown: the only case the tab explains itself. */
+    @Volatile var failed = false
+        private set
+    /** Called on the main thread whenever the lineup changed. */
+    var onUpdate: (() -> Unit)? = null
+
+    /**
+     * Keeps the lineup ready without anyone waiting: called whenever home comes to the front.
+     * The saved setup and channel list are read straight away, then a fresh sync runs quietly
+     * in the background, at most every [SYNC_EVERY]. Cheap to call often.
+     */
+    fun warm(context: Context) {
+        if (syncing || !available(context) || !NuvioAccount.isSignedIn(context)) return
+        if (lineup != null && System.currentTimeMillis() - syncedAt < SYNC_EVERY) return
+        syncing = true
+        val app = context.applicationContext
+        worker.execute {
+            try {
+                if (lineup == null) runCatching { load(app, offline = true) }.getOrNull()?.let { notifyUpdate() }
+                val before = lineup?.signature()
+                val fresh = runCatching { load(app, force = true) }.getOrNull()
+                if (fresh != null) syncedAt = System.currentTimeMillis()
+                failed = lineup == null
+                if (fresh?.signature() != before || failed) notifyUpdate()
+                // What's on now for the channels the tab opens on, so the info is there at once.
+                lineup?.let { l ->
+                    val byKey = l.all.associateBy { it.key }
+                    (recent(app).mapNotNull { byKey[it] } + l.favourites + l.groups.take(2).flatMap { it.channels.take(3) })
+                        .distinct().take(12).forEach { runCatching { guide(it) } }
+                }
+            } finally { syncing = false }
+        }
+    }
+
+    private fun notifyUpdate() = main.post { onUpdate?.invoke() }
+
+    private const val SYNC_EVERY = 30 * 60_000L
+
     fun installed(context: Context) = runCatching { context.packageManager.getPackageInfo(PACKAGE, 0); true }.getOrDefault(false)
 
     fun state(context: Context): State = when {
@@ -70,9 +117,10 @@ object LiveTv {
      * Reads the synced setup and the provider's channel list (cached for a day), and builds
      * the favourites and visible groups. Blocking; call off the main thread.
      */
-    fun load(context: Context, force: Boolean = false): Lineup? {
+    fun load(context: Context, force: Boolean = false, offline: Boolean = false): Lineup? {
         if (!force) lineup?.let { return it }
-        val setup = NuvioAccount.liveTvSetup(context) ?: return null
+        val setup = (if (offline) null else NuvioAccount.liveTvSetup(context))
+            ?: NuvioAccount.savedLiveTvSetup(context) ?: return null
         fun value(key: String): String? = setup.optJSONObject(key)?.opt("v")?.toString()
         val profile = NuvioAccount.profile(context)?.index
         fun perProfile(base: String): String? = value("${base}_p$profile")
@@ -93,7 +141,8 @@ object LiveTv {
         val hidden = runCatching { JSONArray(perProfile("hidden_groups")) }.getOrNull()
             ?.let { a -> (0 until a.length()).map { a.getString(it) }.toHashSet() }.orEmpty()
 
-        val channels = runCatching { channels(context, src, force) }
+        // The channel list keeps its own daily refresh; a fresh setup doesn't need it re-downloaded.
+        val channels = runCatching { channels(context, src, offline = offline) }
             .onFailure { android.util.Log.w("Flix", "Live TV channels: ${it.javaClass.simpleName} ${it.message?.take(60)}") }
             .getOrNull() ?: return null
         val byKey = channels.associateBy { it.key }
@@ -107,9 +156,10 @@ object LiveTv {
     }
 
     /** The provider's live channels, keyed exactly as Nuvio+IPTV keys them, cached for a day. */
-    private fun channels(context: Context, src: Source, force: Boolean): List<Channel> {
+    private fun channels(context: Context, src: Source, offline: Boolean): List<Channel> {
         val cache = File(context.cacheDir, "livetv4_${src.id}.json")
-        val fresh = !force && cache.exists() && System.currentTimeMillis() - cache.lastModified() < DAY
+        // Offline (the instant first paint) takes the saved list whatever its age.
+        val fresh = cache.exists() && (offline || System.currentTimeMillis() - cache.lastModified() < DAY)
         val streams = (if (fresh) runCatching { JSONArray(cache.readText()) }.getOrNull() else null) ?: run {
             val cats = JSONArray(api(src, "get_live_categories"))
             val catNames = (0 until cats.length()).map { cats.getJSONObject(it) }

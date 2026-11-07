@@ -4,6 +4,14 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.20] - 2026-11-07
+
+### Fixed
+- After Flix updated itself, the Home button could go to the Google TV home screen until the TV restarted. Flix now reconnects its Home button reliably after every update
+- Updates asked "Install?" on screen instead of installing quietly. From this version on, Flix updates itself without asking
+- The TV tab showed "turn on Setup Sync" and waited every time Flix started fresh. Channels now sync in the background whenever home opens (at most every 30 minutes), so the tab is ready, with what's on now, before you open it; it also keeps working when the sync service is slow or offline
+- Holding an arrow during a slow moment could jump several cards at once. Late key repeats are now dropped, so one press moves one card
+
 ## [1.0.19] - 2026-11-06
 
 ### Added

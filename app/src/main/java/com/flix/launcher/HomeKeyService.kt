@@ -29,7 +29,7 @@ class HomeKeyService : AccessibilityService() {
      */
     override fun onUnbind(intent: Intent?): Boolean {
         running = false
-        if (!HomeGuard.isListed(this)) HomeGuard.setWanted(this, false)
+        if (!HomeGuard.isListed(this) && !HomeGuard.rebinding(this)) HomeGuard.setWanted(this, false)
         return super.onUnbind(intent)
     }
 

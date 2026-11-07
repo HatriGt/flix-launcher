@@ -148,10 +148,8 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         view.visibility = if (visible) View.VISIBLE else View.GONE
         if (!visible) { stopVideo(); return }
         render()
-        net.execute {
-            val lineup = runCatching { LiveTv.load(activity, force = LiveTv.lineup == null) }.getOrNull()
-            main.post { if (shown) render(lineup) }
-        }
+        LiveTv.onUpdate = { if (shown) render() }
+        LiveTv.warm(activity)
     }
 
     fun pause() = stopVideo()
@@ -168,7 +166,8 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
             showMessage(when (state) {
                 LiveTv.State.NOT_SIGNED_IN -> "Sign in to Nuvio in Flix settings to see your Nuvio+IPTV channels here."
                 LiveTv.State.NOT_INSTALLED -> "Install Nuvio+IPTV to watch live TV from here."
-                else -> "Getting your channels from Nuvio+IPTV…\nIf they don't appear, turn on Setup Sync in Nuvio+IPTV's Live TV settings."
+                else -> if (!LiveTv.failed) ""
+                    else "Couldn't get your channels from Nuvio+IPTV.\nCheck the internet connection, and that Setup Sync is on in Nuvio+IPTV's Live TV settings."
             })
             return
         }
@@ -176,11 +175,14 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         about.visibility = View.VISIBLE
         info.findViewWithTag<View>("buttons")?.visibility = View.GONE
         // Built once, and again when something new was watched (Recently watched changed).
-        val recentKeys = LiveTv.recent(activity) + LiveTv.hidden(activity).sorted().map { "-$it" }
+        val recentKeys = LiveTv.recent(activity) + LiveTv.hidden(activity).sorted().map { "-$it" } + lineup.signature()
         if (rows.isNotEmpty() && recentKeys == builtRecent) return
         builtRecent = recentKeys
         val hidden = LiveTv.hidden(activity)
+        // A background sync can rebuild the rows while someone is in them: keep them in the tab.
+        val hadFocus = view.findFocus() != null
         rowsBox.removeAllViews(); rows.clear()
+        if (hadFocus) view.post { firstFocus().requestFocus() }
         val byKey = lineup.all.associateBy { it.key }
         val recent = LiveTv.recent(activity).mapNotNull { byKey[it] }.filter { it.key !in LiveTv.hidden(activity) }
         val sections = buildList {

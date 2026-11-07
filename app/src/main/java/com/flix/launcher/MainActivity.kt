@@ -867,6 +867,8 @@ class MainActivity : Activity() {
         // The service connects asynchronously at process start; check once it has had a moment.
         main.postDelayed({ HomeGuard.ensure(this) }, 3000)
         Housekeeping.maybeRun(this)
+        // Live TV syncs here, quietly, so the TV tab is ready before anyone opens it.
+        LiveTv.warm(this)
         if (CoachMarks.pending(this) && !SetupActivity.needed(this)) main.postDelayed(::lookRound, 1500)
         main.removeCallbacks(checkHomeButton)
         // A warning from earlier goes as soon as Home works; otherwise look again shortly.
@@ -996,6 +998,11 @@ class MainActivity : Activity() {
             return true // the key that wakes the screen shouldn't also move focus
         }
         scheduleIdle()
+        // A held arrow repeats about 20 times a second. If a frame stalls, those repeats queue
+        // up and then all land at once, jumping several cards for what felt like one press.
+        // Drop repeats that waited too long; a fresh press always goes through.
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 && isArrow(event.keyCode) &&
+            android.os.SystemClock.uptimeMillis() - event.eventTime > STALE_REPEAT_MS) return true
         if (event.action == KeyEvent.ACTION_DOWN) {
             val before = currentFocus
             if (steerMovieRows(event)) {
@@ -1079,6 +1086,9 @@ class MainActivity : Activity() {
         }
         return false
     }
+
+    private fun isArrow(code: Int) = code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+        code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
 
     private fun rowsScrolling() = scrollAnimator?.isRunning == true
 
@@ -1479,6 +1489,8 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        /** How late a held-arrow repeat may arrive before it is dropped as part of a stall. */
+        private const val STALE_REPEAT_MS = 150L
         /** Nuvio's package: com.nuvio.tv from GitHub, com.nuvio.app from the Play Store, com.nuvio.livetv for the NuvioPlusIPTV fork. */
         private val NUVIO_PACKAGES = listOf("com.nuvio.tv", "com.nuvio.app", "com.nuvio.livetv")
         @Volatile var NUVIO = NUVIO_PACKAGES[0]; private set

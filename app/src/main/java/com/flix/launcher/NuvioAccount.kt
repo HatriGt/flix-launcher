@@ -353,8 +353,19 @@ object NuvioAccount {
      */
     fun liveTvSetup(context: Context): JSONObject? = runCatching {
         val body = request(context, "https://livetv-cloud.nuvioplusiptv.workers.dev/v1/setup", null, bearer = accessToken(context))
-        JSONObject(body).optJSONObject("data")
+        JSONObject(body).optJSONObject("data")?.also { data ->
+            // Kept (encrypted, like the sign-in tokens) so the TV tab opens straight away next
+            // time, and still works when the sync service is slow or unreachable.
+            runCatching { prefs(context).edit().putString(LIVE_SETUP, TokenBox.seal(data.toString())).apply() }
+        }
     }.onFailure { android.util.Log.w("Flix", "Live TV setup: ${it.javaClass.simpleName}") }.getOrNull()
+
+    /** The last setup [liveTvSetup] fetched, without going online. */
+    fun savedLiveTvSetup(context: Context): JSONObject? = runCatching {
+        prefs(context).getString(LIVE_SETUP, null)?.let { JSONObject(TokenBox.open(it)) }
+    }.getOrNull()
+
+    private const val LIVE_SETUP = "livetv_setup_enc"
 
     /**
      * A current access token, refreshing it when it's about to expire. Synchronized because
