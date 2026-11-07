@@ -51,7 +51,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
     private val chipLogo = ImageView(activity).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
     private val chip = FrameLayout(activity).apply {
         background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xF2FFFFFF.toInt()) }
-        setPadding(px(10), px(6), px(10), px(6))
+        setPadding(px(8), px(4), px(8), px(4))
         addView(chipLogo, FrameLayout.LayoutParams(-1, -1))
     }
     private val live = text(" LIVE ", 11f, bold = true).apply {
@@ -60,7 +60,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         setPadding(px(7), px(2), px(7), px(2))
     }
     private val channelLine = text("", 13f, alpha = 0.85f)
-    private val title = text("", 30f, bold = true).apply {
+    private val title = text("", 24f, bold = true).apply {
         typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
         maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
     }
@@ -80,23 +80,23 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
     /** The focused channel's details, over the live picture: no card, like the Movies tab's. */
     private val info = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(px(48), px(6), px(48), px(10))
+        setPadding(px(48), 0, px(48), px(4))
         addView(LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(chip, LinearLayout.LayoutParams(px(84), px(42)).apply { marginEnd = px(14) })
+            addView(chip, LinearLayout.LayoutParams(px(66), px(32)).apply { marginEnd = px(12) })
             addView(live)
             addView(channelLine, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(10) })
         })
-        addView(title, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(10) })
+        addView(title, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(4) })
         addView(LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(times)
             addView(track, LinearLayout.LayoutParams(px(220), px(4)).apply { marginStart = px(16) })
             addView(next, LinearLayout.LayoutParams(-2, -2).apply { marginStart = px(18) })
-        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(6) })
-        addView(about, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(8) })
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(2) })
+        addView(about, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(4) })
         addView(message, LinearLayout.LayoutParams(px(760), -2).apply { topMargin = px(10) })
         addView(LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -120,7 +120,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         orientation = LinearLayout.VERTICAL
         clipChildren = false; clipToPadding = false
         visibility = View.GONE
-        addView(info, LinearLayout.LayoutParams(-1, px(160)).apply { topMargin = px(8) })
+        addView(info, LinearLayout.LayoutParams(-1, -2))
         addView(rowsWindow, LinearLayout.LayoutParams(-1, -2))
     }
 
@@ -215,13 +215,13 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
     }
 
     private fun addRow(name: String, channels: List<LiveTv.Channel>) {
-        val label = text(name, 15f, bold = true).apply { setPadding(px(48), 0, 0, px(6)) }
+        val label = text(name, 15f, bold = true).apply { setPadding(px(48), px(4), 0, px(2)) }
         val list = RecyclerView(activity).apply {
             layoutManager = LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false)
             adapter = CardAdapter(channels)
             itemAnimator = null
             clipToPadding = false; clipChildren = false
-            setPadding(px(40), px(8), px(40), px(10))
+            setPadding(px(40), px(6), px(40), px(4))
             setHasFixedSize(true)
         }
         rows += list
@@ -229,8 +229,8 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
             orientation = LinearLayout.VERTICAL
             clipChildren = false; clipToPadding = false
             addView(label)
-            addView(list, LinearLayout.LayoutParams(-1, px(CARD_H + 48)))
-        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = px(6) })
+            addView(list, LinearLayout.LayoutParams(-1, px(CARD_H + 36)))
+        }, LinearLayout.LayoutParams(-1, -2))
     }
 
     /** Moves focus to row [i] (its first visible card) and slides it up to the top of the window. */
@@ -358,7 +358,39 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
                 override fun getOutline(v: View, o: android.graphics.Outline) = o.setRoundRect(0, 0, v.width, v.height, 12 * dp)
             }
         }
-        private val logo = ImageView(activity).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+        /** Tells [blend] whenever a logo lands, so the tile can take on the logo's own colour. */
+        private val logo = object : ImageView(activity) {
+            var swapping = false
+            override fun setImageDrawable(drawable: android.graphics.drawable.Drawable?) {
+                super.setImageDrawable(drawable)
+                if (drawable != null && !swapping) (tag as? String)?.let { blend(it, drawable) }
+            }
+            fun swap(bitmap: android.graphics.Bitmap) { swapping = true; setImageBitmap(bitmap); swapping = false }
+        }.apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+
+        /**
+         * Many channel logos come on a solid box (a black square, a blue panel). On a tile of a
+         * different colour that box looks cut out. So the tile takes the colour of the logo's
+         * border and the logo's edges fade softly into it: no hard line anywhere. Logos with
+         * see-through edges already float on the tile and are left as they are.
+         */
+        private fun blend(url: String, drawable: android.graphics.drawable.Drawable) {
+            softLogos[url]?.let { apply(it); return }
+            if (url in floating) return
+            val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return
+            val key = channel?.key
+            net.execute {
+                val soft = soften(bitmap)
+                if (soft == null) floating += url else softLogos.put(url, soft)
+                if (soft != null) main.post { if (channel?.key == key && logo.tag == url) apply(soft) }
+            }
+        }
+
+        private fun apply(soft: SoftLogo) {
+            logo.swap(soft.bitmap)
+            // A touch lighter at the top, like the other tiles, in the colour of the logo's border.
+            face.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(mix(soft.colour, Color.WHITE, 0.06f), soft.colour))
+        }
         private val initials = text("", 26f, bold = true).apply { gravity = Gravity.CENTER; alpha = 0.9f }
         private val now = text("", 11f).apply {
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
@@ -385,7 +417,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
             face.addView(progress, FrameLayout.LayoutParams(0, px(3), Gravity.BOTTOM))
             face.addView(ring, FrameLayout.LayoutParams(-1, -1))
             root.addView(face, LinearLayout.LayoutParams(-1, px(CARD_H)))
-            root.addView(name, LinearLayout.LayoutParams(-1, -2).apply { topMargin = px(8); marginStart = px(2) })
+            root.addView(name, LinearLayout.LayoutParams(-1, -2).apply { topMargin = px(5); marginStart = px(2) })
             root.setOnFocusChangeListener { v, has ->
                 ring.visibility = if (has) View.VISIBLE else View.INVISIBLE
                 name.alpha = if (has) 1f else 0.75f
@@ -434,7 +466,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
             face.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(mix(base, 0xFF1A1F2A.toInt(), 0.55f), 0xFF10141C.toInt()))
             loadLogo(logo, c.logos, px(CARD_W)) { if (channel?.key == c.key) initials.text = letters }
             if (c.logo != null) Images.accent(c.logo!!) { col ->
-                if (channel?.key == c.key && col != null)
+                if (channel?.key == c.key && col != null && softLogos[logo.tag as? String] == null)
                     face.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(mix(col, 0xFF1A1F2A.toInt(), 0.45f), 0xFF0E1219.toInt()))
             }
             now.text = ""
@@ -476,6 +508,38 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         val url = urls.getOrNull(from) ?: run { view.setImageDrawable(null); onNone(); return }
         Images.into(view, url, width) { if (view.tag == url) loadLogo(view, urls, width, from + 1, onNone) }
     }
+
+    /** A logo with its box edges faded out, and the colour of that box for its tile. */
+    private class SoftLogo(val bitmap: android.graphics.Bitmap, val colour: Int)
+
+    /** Softened logos, worked out once per logo; [floating] ones needed nothing. */
+    private val softLogos = android.util.LruCache<String, SoftLogo>(80)
+    private val floating: MutableSet<String> = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
+
+    /** Null when the logo's border is see-through (it floats on the tile as it is). */
+    private fun soften(source: android.graphics.Bitmap): SoftLogo? = runCatching {
+        val src = if (source.config == android.graphics.Bitmap.Config.HARDWARE) source.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else source
+        val small = android.graphics.Bitmap.createScaledBitmap(src, 48, 48, true)
+        val edge = buildList {
+            for (i in 0 until 48) { add(small.getPixel(i, 0)); add(small.getPixel(i, 47)); add(small.getPixel(0, i)); add(small.getPixel(47, i)) }
+        }
+        if (edge.count { Color.alpha(it) > 230 } < edge.size * 0.9) return@runCatching null
+        fun median(f: (Int) -> Int) = edge.map(f).sorted()[edge.size / 2]
+        val colour = Color.rgb(median(Color::red), median(Color::green), median(Color::blue))
+        // Fade the outer edge out on all four sides.
+        val out = src.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+        val w = out.width.toFloat(); val h = out.height.toFloat()
+        val canvas = android.graphics.Canvas(out)
+        val mask = android.graphics.Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN) }
+        val f = 0.16f
+        val ramp = intArrayOf(0, Color.BLACK, Color.BLACK, 0)
+        val stops = floatArrayOf(0f, f, 1 - f, 1f)
+        mask.shader = android.graphics.LinearGradient(0f, 0f, w, 0f, ramp, stops, android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, w, h, mask)
+        mask.shader = android.graphics.LinearGradient(0f, 0f, 0f, h, ramp, stops, android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, w, h, mask)
+        SoftLogo(out, colour)
+    }.getOrNull()
 
     // ---- Bits ----
 

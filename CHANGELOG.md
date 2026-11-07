@@ -4,6 +4,12 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.22] - 2026-11-07
+
+### Changed
+- TV tab is more compact: the channel details take less room, so Recently watched and your first channel group (names included) both fit on the first screen without scrolling
+- Channel logos blend into their tiles: a logo printed on a solid box (like a black or blue square) now gets a tile in the same colour with its edges faded softly, instead of looking cut out
+
 ## [1.0.21] - 2026-11-07
 
 ### Changed
