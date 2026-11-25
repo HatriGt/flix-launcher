@@ -99,7 +99,7 @@ object HomeGuard {
 
     /** True for a few seconds after Flix itself re-bound the service. */
     fun rebinding(context: Context) =
-        android.os.SystemClock.elapsedRealtime() - prefs(context).getLong(REBINDING, -60_000) < 10_000
+        (android.os.SystemClock.elapsedRealtime() - prefs(context).getLong(REBINDING, -60_000)) in 0 until 10_000
 
     /** Runs after boot and after every update of Flix. */
     class Receiver : BroadcastReceiver() {

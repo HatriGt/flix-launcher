@@ -360,13 +360,7 @@ class MainActivity : Activity() {
                 height = (style.heightPx + labelSpace + growRoom * 1.6f).roundToInt()
             }
         }
-        // With names under every tile, the big name above the row would just repeat them.
-        focusedLabel.visibility = if (favoritesAdapter.style.labels == "always" && !favoritesAdapter.style.isBanner) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.hint).visibility = focusedLabel.visibility
-
-        val allApps = isOn(FlixSettings.ALL_APPS)
-        appsList.visibility = if (allApps) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.all_apps_label).visibility = appsList.visibility
+        applyDockVisibility()
 
         clock.setStyle(FlixSettings.get(this, FlixSettings.CLOCK_STYLE))
         greeting.visibility = if (isOn(FlixSettings.GREETING)) View.VISIBLE else View.GONE
@@ -451,6 +445,8 @@ class MainActivity : Activity() {
             (favoritesBlock as ViewGroup).let { block ->
                 for (i in 0 until block.childCount) block.getChildAt(i).visibility = if (onTv) View.GONE else View.VISIBLE
             }
+            // Back from the TV tab: the parts the settings switch off stay off.
+            if (!onTv) applyDockVisibility()
         }
         select(home, null)
         selectHomeTab = { if (!home.isSelected) select(home, null) }
@@ -797,6 +793,15 @@ class MainActivity : Activity() {
         if (base.isBanner) return base.copy(labels = "always")
         val size = (68 * resources.displayMetrics.density).roundToInt()
         return base.copy(widthPx = size, heightPx = size, labels = "always")
+    }
+
+    /** The parts of the apps dock that settings can switch off. */
+    private fun applyDockVisibility() {
+        // With names under every tile, the big name above the row would just repeat them.
+        focusedLabel.visibility = if (favoritesAdapter.style.labels == "always" && !favoritesAdapter.style.isBanner) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.hint).visibility = focusedLabel.visibility
+        appsList.visibility = if (isOn(FlixSettings.ALL_APPS)) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.all_apps_label).visibility = appsList.visibility
     }
 
     private fun showAppsGrid(show: Boolean) {

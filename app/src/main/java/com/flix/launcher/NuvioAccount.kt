@@ -56,6 +56,7 @@ object NuvioAccount {
         val anon = prefs(context).getString("anon_key", null)
         prefs(context).edit().clear().apply { anon?.let { putString("anon_key", it) } }.apply()
         context.cacheDir.listFiles()?.filter { it.name.startsWith("continue_") }?.forEach { it.delete() }
+        LiveTv.forget(context)
     }
 
     // ---- Continue watching, kept on the TV so the row shows at once on a cold start ----

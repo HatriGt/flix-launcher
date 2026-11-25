@@ -34,6 +34,7 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(recheck)
         if (current === this) current = null
         super.onDestroy()
     }

@@ -131,6 +131,7 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
     private var player: ExoPlayer? = null
     private var playing: LiveTv.Channel? = null
     private var shown = false
+    private val onUpdate: () -> Unit = { if (shown) render() }
     private val startVideo = Runnable { current?.let { play(it) } }
 
     init {
@@ -148,13 +149,19 @@ class LiveTvPage(private val activity: Activity, private val videoHost: FrameLay
         view.visibility = if (visible) View.VISIBLE else View.GONE
         if (!visible) { stopVideo(); return }
         render()
-        LiveTv.onUpdate = { if (shown) render() }
+        LiveTv.onUpdate = onUpdate
         LiveTv.warm(activity)
     }
 
     fun pause() = stopVideo()
 
-    fun release() { stopVideo(); player?.release(); player = null }
+    fun release() {
+        stopVideo(); player?.release(); player = null
+        // The minute tick and guide fetches belong to this page; a new home screen makes its own.
+        main.removeCallbacksAndMessages(null)
+        net.shutdownNow()
+        if (LiveTv.onUpdate === onUpdate) LiveTv.onUpdate = null
+    }
 
     fun firstFocus(): View = if (rows.isNotEmpty()) rows[0].getChildAt(0) ?: watch else watch
 

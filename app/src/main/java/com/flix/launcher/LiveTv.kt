@@ -117,6 +117,12 @@ object LiveTv {
      * Reads the synced setup and the provider's channel list (cached for a day), and builds
      * the favourites and visible groups. Blocking; call off the main thread.
      */
+    /** Signed out: the channels and IPTV login belong to that account, so drop them. */
+    fun forget(context: Context) {
+        lineup = null; source = null; syncedAt = 0L
+        context.cacheDir.listFiles()?.filter { it.name.startsWith("livetv") }?.forEach { it.delete() }
+    }
+
     fun load(context: Context, force: Boolean = false, offline: Boolean = false): Lineup? {
         if (!force) lineup?.let { return it }
         val setup = (if (offline) null else NuvioAccount.liveTvSetup(context))
@@ -134,7 +140,6 @@ object LiveTv {
                     it.getString("xtreamUsername"), it.getString("xtreamPassword"),
                     if (it.optString("streamFormat") == "m3u8") "m3u8" else "ts")
             } ?: return null
-        source = src
 
         val favouriteKeys = runCatching { JSONArray(perProfile("favorites")) }.getOrNull()
             ?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
@@ -149,6 +154,7 @@ object LiveTv {
         val groups = channels.groupBy { it.group }.filterKeys { it !in hidden }
             .map { (name, list) -> Group(name, list.sortedBy { it.number }) }
         val built = Lineup(favouriteKeys.mapNotNull { byKey[it] }, groups)
+        source = src
         lineup = built
         // Every logo the tab can show, fetched now and kept, so cards appear with them.
         Images.preload(built.all.flatMap { it.logos }.distinct())

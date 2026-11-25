@@ -4,6 +4,16 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.24] - 2026-11-25
+
+### Fixed
+- The All apps row no longer comes back after visiting the TV tab when it is switched off in Settings
+- Lower memory use over time on small TVs: the TV tab no longer keeps old copies of itself (and their guide updates) running after Android rebuilds the home screen
+- Signing out of Nuvio now clears the TV tab's channels and IPTV login, so the next account never sees the previous one's channels
+- Live previews keep working when a channel list fails to download after the IPTV provider changes
+- Restoring a backup no longer copies the Home button service state from the other TV
+- Two update checks can no longer download at the same time and break the update file
+
 ## [1.0.23] - 2026-11-07
 
 ### Changed

@@ -56,6 +56,7 @@ object Updater {
     private fun apk(context: Context) = File(context.cacheDir, "update.apk")
 
     /** Background: looks for a newer release (at most every 12 hours unless [force]) and downloads it. */
+    @Synchronized
     fun check(context: Context, force: Boolean = false): Release? {
         val p = prefs(context)
         if (!force && System.currentTimeMillis() - p.getLong("checked_at", 0) < CHECK_EVERY_MS) return ready(context)

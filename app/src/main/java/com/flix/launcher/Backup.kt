@@ -25,6 +25,7 @@ import java.util.Locale
  * this install, so you sign in again after restoring on a new install.
  */
 object Backup {
+    private const val DEVICE_ONLY = "home_service_"
     private const val FORMAT = 1
 
     /** Preference files worth keeping (settings, hidden titles, profile pictures); "flix_looks" is only a cache of icon colours. */
@@ -66,8 +67,13 @@ object Backup {
         var count = 0
         for (name in FILES) {
             val values = prefs.optJSONObject(name) ?: continue
-            val editor = context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear()
+            val target = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+            // This TV's Home-button state isn't the backup's to decide: keep it as it is.
+            val local = target.all.filterKeys { it.startsWith(DEVICE_ONLY) }
+            val editor = target.edit().clear()
+            local.forEach { (k, v) -> when (v) { is Boolean -> editor.putBoolean(k, v); is Long -> editor.putLong(k, v) } }
             for (key in values.keys()) {
+                if (key.startsWith(DEVICE_ONLY)) continue
                 val entry = values.getJSONObject(key)
                 when (entry.getString("t")) {
                     "s" -> editor.putString(key, entry.getString("v"))
